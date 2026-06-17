@@ -13,13 +13,13 @@ type EventRepo struct{ db *sqlx.DB }
 func NewEventRepo(db *sqlx.DB) *EventRepo { return &EventRepo{db: db} }
 
 func (r *EventRepo) FindAll(ctx context.Context) ([]event.Event, error) {
-	var events []event.Event
+	events := make([]event.Event, 0)
 	err := r.db.SelectContext(ctx, &events, `SELECT * FROM events ORDER BY start_at ASC`)
 	return events, err
 }
 
 func (r *EventRepo) FindByRange(ctx context.Context, from, to time.Time) ([]event.Event, error) {
-	var events []event.Event
+	events := make([]event.Event, 0)
 	err := r.db.SelectContext(ctx, &events,
 		`SELECT * FROM events WHERE start_at >= ? AND start_at <= ? ORDER BY start_at ASC`,
 		from, to,

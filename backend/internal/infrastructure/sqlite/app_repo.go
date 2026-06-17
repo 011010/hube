@@ -12,7 +12,7 @@ type AppRepo struct{ db *sqlx.DB }
 func NewAppRepo(db *sqlx.DB) *AppRepo { return &AppRepo{db: db} }
 
 func (r *AppRepo) FindAll(ctx context.Context) ([]app.App, error) {
-	var apps []app.App
+	apps := make([]app.App, 0)
 	err := r.db.SelectContext(ctx, &apps, `SELECT * FROM apps WHERE active=1 ORDER BY sort_order ASC`)
 	return apps, err
 }

@@ -13,7 +13,7 @@ type TaskRepo struct{ db *sqlx.DB }
 func NewTaskRepo(db *sqlx.DB) *TaskRepo { return &TaskRepo{db: db} }
 
 func (r *TaskRepo) FindAll(ctx context.Context) ([]task.Task, error) {
-	var tasks []task.Task
+	tasks := make([]task.Task, 0)
 	err := r.db.SelectContext(ctx, &tasks, `SELECT * FROM tasks ORDER BY created_at DESC`)
 	return tasks, err
 }

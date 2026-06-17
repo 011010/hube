@@ -26,7 +26,7 @@ export function TasksPage() {
 
   const toggleStatus = (task: Task) => {
     const next: TaskStatus = task.status === 'done' ? 'todo' : 'done'
-    updateTask.mutate({ id: task.id, data: { status: next } })
+    updateTask.mutate({ id: task.id, data: { ...task, status: next } })
   }
 
   const priorityVariant = (p: Priority) =>

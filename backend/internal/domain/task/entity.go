@@ -16,12 +16,12 @@ const (
 )
 
 type Task struct {
-	ID          string     `db:"id"`
-	Title       string     `db:"title"`
-	Description string     `db:"description"`
-	Priority    Priority   `db:"priority"`
-	Status      Status     `db:"status"`
-	DueDate     *time.Time `db:"due_date"`
-	CreatedAt   time.Time  `db:"created_at"`
-	UpdatedAt   time.Time  `db:"updated_at"`
+	ID          string     `db:"id"          json:"id"`
+	Title       string     `db:"title"        json:"title"`
+	Description string     `db:"description"  json:"description"`
+	Priority    Priority   `db:"priority"     json:"priority"`
+	Status      Status     `db:"status"       json:"status"`
+	DueDate     *time.Time `db:"due_date"     json:"due_date"`
+	CreatedAt   time.Time  `db:"created_at"   json:"created_at"`
+	UpdatedAt   time.Time  `db:"updated_at"   json:"updated_at"`
 }
