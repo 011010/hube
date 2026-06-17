@@ -9,6 +9,7 @@ import (
 	appapp "github.com/husari/hube/internal/application/app"
 	appevent "github.com/husari/hube/internal/application/event"
 	apptask "github.com/husari/hube/internal/application/task"
+	"github.com/husari/hube/internal/infrastructure/external"
 	"github.com/husari/hube/internal/infrastructure/http/handler"
 )
 
@@ -16,6 +17,7 @@ func NewRouter(
 	taskSvc *apptask.Service,
 	eventSvc *appevent.Service,
 	appSvc *appapp.Service,
+	moneyMonkey *external.MoneyMonkeyClient,
 ) http.Handler {
 	r := chi.NewRouter()
 
@@ -31,6 +33,7 @@ func NewRouter(
 		r.Route("/tasks", handler.NewTaskHandler(taskSvc).Routes())
 		r.Route("/events", handler.NewEventHandler(eventSvc).Routes())
 		r.Route("/apps", handler.NewAppHandler(appSvc).Routes())
+		r.Get("/finance/summary", handler.NewFinanceHandler(moneyMonkey).Summary)
 	})
 
 	r.Get("/health", func(w http.ResponseWriter, _ *http.Request) {

@@ -1,6 +1,7 @@
 import { useTasks } from '../../hooks/useTasks'
 import { useApps } from '../../hooks/useApps'
 import { Badge } from '../../components/atoms/Badge'
+import { FinanceWidgets } from '../../components/organisms/FinanceWidgets'
 
 export function DashboardPage() {
   const { data: tasks = [] } = useTasks()
@@ -18,6 +19,11 @@ export function DashboardPage() {
         <StatCard label="Completed" value={done.length} />
         <StatCard label="Apps" value={apps.length} />
       </div>
+
+      <section>
+        <h2 className="text-sm font-medium text-gray-400 uppercase tracking-wider mb-3">Finance</h2>
+        <FinanceWidgets />
+      </section>
 
       <section>
         <h2 className="text-sm font-medium text-gray-400 uppercase tracking-wider mb-3">Recent tasks</h2>

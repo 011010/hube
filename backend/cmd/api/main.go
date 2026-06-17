@@ -10,6 +10,7 @@ import (
 	appevent "github.com/husari/hube/internal/application/event"
 	apptask "github.com/husari/hube/internal/application/task"
 	hubehttp "github.com/husari/hube/internal/infrastructure/http"
+	"github.com/husari/hube/internal/infrastructure/external"
 	"github.com/husari/hube/internal/infrastructure/sqlite"
 )
 
@@ -33,7 +34,13 @@ func main() {
 	eventSvc := appevent.NewService(sqlite.NewEventRepo(db))
 	appSvc := appapp.NewService(sqlite.NewAppRepo(db))
 
-	router := hubehttp.NewRouter(taskSvc, eventSvc, appSvc)
+	var moneyMonkey *external.MoneyMonkeyClient
+	if url, key := os.Getenv("MONKEYAPI_URL"), os.Getenv("MONKEYAPI_KEY"); url != "" && key != "" {
+		moneyMonkey = external.NewMoneyMonkeyClient(url, key)
+		log.Printf("Money Monkey integration enabled: %s", url)
+	}
+
+	router := hubehttp.NewRouter(taskSvc, eventSvc, appSvc, moneyMonkey)
 
 	addr := fmt.Sprintf(":%s", port)
 	log.Printf("hube API running on %s", addr)

@@ -24,6 +24,23 @@ export interface CalendarEvent {
   updated_at: string
 }
 
+export interface RecentTransaction {
+  id: string
+  amount: number
+  type: 'income' | 'expense'
+  category: string
+  description: string
+  date: string
+}
+
+export interface FinanceSummary {
+  configured: boolean
+  balance: number
+  month_income: number
+  month_expenses: number
+  recent_transactions: RecentTransaction[]
+}
+
 export interface App {
   id: string
   name: string

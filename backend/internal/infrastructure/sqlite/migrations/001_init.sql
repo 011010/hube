@@ -34,4 +34,4 @@ CREATE TABLE IF NOT EXISTS apps (
 
 INSERT OR IGNORE INTO apps (id, name, description, url, icon, color, sort_order) VALUES
     ('app-ct',  'PayPinga',     'Card tracker',    'https://paypinga.vercel.app', '💳', '#10b981', 0),
-    ('app-fin', 'Money Monkey', 'Finance control', 'https://money-monkey-pwa.vercel.app/auth/login', '🐒', '#f59e0b', 1);
+    ('app-fin', 'Money Monkey', 'Finance control', 'https://money-monkey-pwa.vercel.app', '🐒', '#f59e0b', 1);
