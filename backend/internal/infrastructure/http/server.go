@@ -1,0 +1,41 @@
+package http
+
+import (
+	"net/http"
+
+	"github.com/go-chi/chi/v5"
+	chimiddleware "github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
+	appapp "github.com/husari/hube/internal/application/app"
+	appevent "github.com/husari/hube/internal/application/event"
+	apptask "github.com/husari/hube/internal/application/task"
+	"github.com/husari/hube/internal/infrastructure/http/handler"
+)
+
+func NewRouter(
+	taskSvc *apptask.Service,
+	eventSvc *appevent.Service,
+	appSvc *appapp.Service,
+) http.Handler {
+	r := chi.NewRouter()
+
+	r.Use(chimiddleware.Logger)
+	r.Use(chimiddleware.Recoverer)
+	r.Use(cors.Handler(cors.Options{
+		AllowedOrigins: []string{"http://localhost:5173", "http://localhost:4173"},
+		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders: []string{"Accept", "Authorization", "Content-Type"},
+	}))
+
+	r.Route("/api/v1", func(r chi.Router) {
+		r.Route("/tasks", handler.NewTaskHandler(taskSvc).Routes())
+		r.Route("/events", handler.NewEventHandler(eventSvc).Routes())
+		r.Route("/apps", handler.NewAppHandler(appSvc).Routes())
+	})
+
+	r.Get("/health", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	return r
+}
