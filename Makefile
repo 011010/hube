@@ -1,6 +1,6 @@
 export PATH := /opt/homebrew/bin:$(PATH)
 
-.PHONY: dev-api dev-ui dev build
+.PHONY: dev-api dev-ui dev build docker-build docker-up docker-down
 
 dev-api:
 	cd backend && go run ./cmd/api
@@ -14,3 +14,12 @@ dev:
 build:
 	cd backend && go build -o ../bin/hube ./cmd/api
 	cd frontend && npm run build
+
+docker-build:
+	docker compose build
+
+docker-up:
+	docker compose up -d
+
+docker-down:
+	docker compose down
