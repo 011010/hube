@@ -57,8 +57,8 @@ export function FinanceWidgets() {
                 <div className="flex items-center gap-3">
                   <span className={`w-1.5 h-1.5 rounded-full ${tx.type === 'income' ? 'bg-emerald-400' : 'bg-red-400'}`} />
                   <div>
-                    <p className="text-sm text-gray-200">{tx.description || tx.category}</p>
-                    <p className="text-xs text-gray-500">{tx.category} · {tx.date.slice(0, 10)}</p>
+                    <p className="text-sm text-gray-200">{tx.description || (tx.category !== 'All' ? tx.category : 'Expense')}</p>
+                    <p className="text-xs text-gray-500">{tx.category !== 'All' ? tx.category : ''}{tx.category !== 'All' ? ' · ' : ''}{tx.date.slice(0, 10)}</p>
                   </div>
                 </div>
                 <span className={`text-sm font-medium tabular-nums ${tx.type === 'income' ? 'text-emerald-400' : 'text-red-400'}`}>
