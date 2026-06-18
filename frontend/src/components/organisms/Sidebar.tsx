@@ -6,6 +6,7 @@ const nav = [
   { to: '/tasks', label: 'Tasks', icon: '✓' },
   { to: '/calendar', label: 'Calendar', icon: '◷' },
   { to: '/notes', label: 'Notes', icon: '✎' },
+  { to: '/projects', label: 'Projects', icon: '◻' },
 ]
 
 export function Sidebar() {

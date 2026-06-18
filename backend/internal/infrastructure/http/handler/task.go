@@ -24,7 +24,15 @@ func (h *TaskHandler) Routes() func(r chi.Router) {
 }
 
 func (h *TaskHandler) list(w http.ResponseWriter, r *http.Request) {
-	tasks, err := h.svc.List(r.Context())
+	var (
+		tasks []task.Task
+		err   error
+	)
+	if pid := r.URL.Query().Get("project_id"); pid != "" {
+		tasks, err = h.svc.ListByProject(r.Context(), pid)
+	} else {
+		tasks, err = h.svc.List(r.Context())
+	}
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return

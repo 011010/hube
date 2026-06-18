@@ -22,6 +22,7 @@ type Task struct {
 	Priority    Priority   `db:"priority"     json:"priority"`
 	Status      Status     `db:"status"       json:"status"`
 	DueDate     *time.Time `db:"due_date"     json:"due_date"`
+	ProjectID   *string    `db:"project_id"   json:"project_id"`
 	CreatedAt   time.Time  `db:"created_at"   json:"created_at"`
 	UpdatedAt   time.Time  `db:"updated_at"   json:"updated_at"`
 }

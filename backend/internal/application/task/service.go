@@ -20,6 +20,10 @@ func (s *Service) List(ctx context.Context) ([]task.Task, error) {
 	return s.repo.FindAll(ctx)
 }
 
+func (s *Service) ListByProject(ctx context.Context, projectID string) ([]task.Task, error) {
+	return s.repo.FindByProject(ctx, projectID)
+}
+
 func (s *Service) Get(ctx context.Context, id string) (*task.Task, error) {
 	return s.repo.FindByID(ctx, id)
 }

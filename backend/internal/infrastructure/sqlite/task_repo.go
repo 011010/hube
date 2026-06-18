@@ -18,6 +18,12 @@ func (r *TaskRepo) FindAll(ctx context.Context) ([]task.Task, error) {
 	return tasks, err
 }
 
+func (r *TaskRepo) FindByProject(ctx context.Context, projectID string) ([]task.Task, error) {
+	tasks := make([]task.Task, 0)
+	err := r.db.SelectContext(ctx, &tasks, `SELECT * FROM tasks WHERE project_id = ? ORDER BY created_at DESC`, projectID)
+	return tasks, err
+}
+
 func (r *TaskRepo) FindByID(ctx context.Context, id string) (*task.Task, error) {
 	var t task.Task
 	err := r.db.GetContext(ctx, &t, `SELECT * FROM tasks WHERE id = ?`, id)
@@ -26,18 +32,18 @@ func (r *TaskRepo) FindByID(ctx context.Context, id string) (*task.Task, error) 
 
 func (r *TaskRepo) Create(ctx context.Context, t *task.Task) error {
 	_, err := r.db.ExecContext(ctx, `
-		INSERT INTO tasks (id, title, description, priority, status, due_date, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		t.ID, t.Title, t.Description, t.Priority, t.Status, t.DueDate, t.CreatedAt, t.UpdatedAt,
+		INSERT INTO tasks (id, title, description, priority, status, due_date, project_id, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		t.ID, t.Title, t.Description, t.Priority, t.Status, t.DueDate, t.ProjectID, t.CreatedAt, t.UpdatedAt,
 	)
 	return err
 }
 
 func (r *TaskRepo) Update(ctx context.Context, t *task.Task) error {
 	_, err := r.db.ExecContext(ctx, `
-		UPDATE tasks SET title=?, description=?, priority=?, status=?, due_date=?, updated_at=?
+		UPDATE tasks SET title=?, description=?, priority=?, status=?, due_date=?, project_id=?, updated_at=?
 		WHERE id=?`,
-		t.Title, t.Description, t.Priority, t.Status, t.DueDate, time.Now(), t.ID,
+		t.Title, t.Description, t.Priority, t.Status, t.DueDate, t.ProjectID, time.Now(), t.ID,
 	)
 	return err
 }

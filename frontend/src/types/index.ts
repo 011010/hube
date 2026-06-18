@@ -8,6 +8,22 @@ export interface Task {
   priority: Priority
   status: TaskStatus
   due_date: string | null
+  project_id: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type ProjectStatus = 'planning' | 'active' | 'completed' | 'on_hold'
+
+export interface Project {
+  id: string
+  name: string
+  description: string
+  status: ProjectStatus
+  color: string
+  due_date: string | null
+  task_count: number
+  completed_count: number
   created_at: string
   updated_at: string
 }

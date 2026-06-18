@@ -10,6 +10,7 @@ import (
 	appevent "github.com/husari/hube/internal/application/event"
 	appfolder "github.com/husari/hube/internal/application/folder"
 	appnote "github.com/husari/hube/internal/application/note"
+	appproject "github.com/husari/hube/internal/application/project"
 	apptask "github.com/husari/hube/internal/application/task"
 	"github.com/husari/hube/internal/infrastructure/external"
 	hubehttp "github.com/husari/hube/internal/infrastructure/http"
@@ -37,6 +38,7 @@ func main() {
 	appSvc := appapp.NewService(sqlite.NewAppRepo(db))
 	noteSvc := appnote.NewService(sqlite.NewNoteRepo(db))
 	folderSvc := appfolder.NewService(sqlite.NewFolderRepo(db))
+	projectSvc := appproject.NewService(sqlite.NewProjectRepo(db))
 
 	var moneyMonkey *external.MoneyMonkeyClient
 	if url, key := os.Getenv("MONKEYAPI_URL"), os.Getenv("MONKEYAPI_KEY"); url != "" && key != "" {
@@ -50,7 +52,7 @@ func main() {
 		log.Printf("PayPinga integration enabled: %s", url)
 	}
 
-	router := hubehttp.NewRouter(taskSvc, eventSvc, appSvc, noteSvc, folderSvc, moneyMonkey, payPinga)
+	router := hubehttp.NewRouter(taskSvc, eventSvc, appSvc, noteSvc, folderSvc, projectSvc, moneyMonkey, payPinga)
 
 	addr := fmt.Sprintf(":%s", port)
 	log.Printf("hube API running on %s", addr)
