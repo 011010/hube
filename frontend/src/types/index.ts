@@ -24,6 +24,25 @@ export interface CalendarEvent {
   updated_at: string
 }
 
+export interface CardTrackerCard {
+  id: string
+  alias: string
+  bank: string
+  last4: string
+  pay_date: string
+  limit: number
+  estimated_payment: number
+  balance: number
+}
+
+export interface CardTrackerSummary {
+  configured: boolean
+  total_debt: number
+  total_payment: number
+  next_pay_date: string | null
+  cards: CardTrackerCard[]
+}
+
 export interface RecentTransaction {
   id: string
   amount: number

@@ -40,7 +40,13 @@ func main() {
 		log.Printf("Money Monkey integration enabled: %s", url)
 	}
 
-	router := hubehttp.NewRouter(taskSvc, eventSvc, appSvc, moneyMonkey)
+	var payPinga *external.PayPingaClient
+	if url, key := os.Getenv("PAYPINGA_URL"), os.Getenv("PAYPINGA_KEY"); url != "" && key != "" {
+		payPinga = external.NewPayPingaClient(url, key)
+		log.Printf("PayPinga integration enabled: %s", url)
+	}
+
+	router := hubehttp.NewRouter(taskSvc, eventSvc, appSvc, moneyMonkey, payPinga)
 
 	addr := fmt.Sprintf(":%s", port)
 	log.Printf("hube API running on %s", addr)

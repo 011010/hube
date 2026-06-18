@@ -18,6 +18,7 @@ func NewRouter(
 	eventSvc *appevent.Service,
 	appSvc *appapp.Service,
 	moneyMonkey *external.MoneyMonkeyClient,
+	payPinga *external.PayPingaClient,
 ) http.Handler {
 	r := chi.NewRouter()
 
@@ -34,6 +35,7 @@ func NewRouter(
 		r.Route("/events", handler.NewEventHandler(eventSvc).Routes())
 		r.Route("/apps", handler.NewAppHandler(appSvc).Routes())
 		r.Get("/finance/summary", handler.NewFinanceHandler(moneyMonkey).Summary)
+		r.Get("/cards/summary", handler.NewCardTrackerHandler(payPinga).Summary)
 	})
 
 	r.Get("/health", func(w http.ResponseWriter, _ *http.Request) {

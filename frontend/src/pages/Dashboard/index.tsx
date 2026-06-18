@@ -2,6 +2,7 @@ import { useTasks } from '../../hooks/useTasks'
 import { useApps } from '../../hooks/useApps'
 import { Badge } from '../../components/atoms/Badge'
 import { FinanceWidgets } from '../../components/organisms/FinanceWidgets'
+import { CardTrackerWidget } from '../../components/organisms/CardTrackerWidget'
 
 export function DashboardPage() {
   const { data: tasks = [] } = useTasks()
@@ -23,6 +24,11 @@ export function DashboardPage() {
       <section>
         <h2 className="text-sm font-medium text-gray-400 uppercase tracking-wider mb-3">Finance</h2>
         <FinanceWidgets />
+      </section>
+
+      <section>
+        <h2 className="text-sm font-medium text-gray-400 uppercase tracking-wider mb-3">Cards</h2>
+        <CardTrackerWidget />
       </section>
 
       <section>
