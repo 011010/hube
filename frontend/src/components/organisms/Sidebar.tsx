@@ -9,6 +9,13 @@ const nav = [
   { to: '/projects', label: 'Projects', icon: '◻' },
 ]
 
+const navItemClass = ({ isActive }: { isActive: boolean }) =>
+  `flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+    isActive
+      ? 'bg-indigo-600 text-white'
+      : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+  }`
+
 export function Sidebar() {
   return (
     <aside className="w-56 shrink-0 bg-gray-900 border-r border-gray-800 flex flex-col">
@@ -17,23 +24,18 @@ export function Sidebar() {
       </div>
       <nav className="flex-1 px-3 py-4 space-y-1">
         {nav.map(({ to, label, icon }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={to === '/'}
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
-                isActive
-                  ? 'bg-indigo-600 text-white'
-                  : 'text-gray-400 hover:bg-gray-800 hover:text-white'
-              }`
-            }
-          >
+          <NavLink key={to} to={to} end={to === '/'} className={navItemClass}>
             <span className="text-base">{icon}</span>
             {label}
           </NavLink>
         ))}
       </nav>
+      <div className="px-3 py-3 border-t border-gray-800">
+        <NavLink to="/settings" className={navItemClass}>
+          <span className="text-base">⚙</span>
+          Settings
+        </NavLink>
+      </div>
     </aside>
   )
 }

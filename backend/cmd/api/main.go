@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 	appfolder "github.com/husari/hube/internal/application/folder"
 	appnote "github.com/husari/hube/internal/application/note"
 	appproject "github.com/husari/hube/internal/application/project"
+	appsetting "github.com/husari/hube/internal/application/setting"
 	apptask "github.com/husari/hube/internal/application/task"
 	"github.com/husari/hube/internal/infrastructure/external"
 	hubehttp "github.com/husari/hube/internal/infrastructure/http"
@@ -40,6 +42,22 @@ func main() {
 	folderSvc := appfolder.NewService(sqlite.NewFolderRepo(db))
 	projectSvc := appproject.NewService(sqlite.NewProjectRepo(db))
 
+	settingRepo := sqlite.NewSettingRepo(db)
+	settingSvc := appsetting.NewService(settingRepo)
+
+	// Seed integration config from env vars (only if not already stored in DB)
+	ctx := context.Background()
+	for k, v := range map[string]string{
+		"integration.monkeyapi_url": os.Getenv("MONKEYAPI_URL"),
+		"integration.monkeyapi_key": os.Getenv("MONKEYAPI_KEY"),
+		"integration.paypinga_url":  os.Getenv("PAYPINGA_URL"),
+		"integration.paypinga_key":  os.Getenv("PAYPINGA_KEY"),
+	} {
+		if err := settingSvc.Seed(ctx, k, v); err != nil {
+			log.Printf("warn: seed setting %s: %v", k, err)
+		}
+	}
+
 	var moneyMonkey *external.MoneyMonkeyClient
 	if url, key := os.Getenv("MONKEYAPI_URL"), os.Getenv("MONKEYAPI_KEY"); url != "" && key != "" {
 		moneyMonkey = external.NewMoneyMonkeyClient(url, key)
@@ -52,7 +70,7 @@ func main() {
 		log.Printf("PayPinga integration enabled: %s", url)
 	}
 
-	router := hubehttp.NewRouter(taskSvc, eventSvc, appSvc, noteSvc, folderSvc, projectSvc, moneyMonkey, payPinga)
+	router := hubehttp.NewRouter(taskSvc, eventSvc, appSvc, noteSvc, folderSvc, projectSvc, settingSvc, moneyMonkey, payPinga)
 
 	addr := fmt.Sprintf(":%s", port)
 	log.Printf("hube API running on %s", addr)

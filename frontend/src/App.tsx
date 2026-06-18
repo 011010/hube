@@ -8,6 +8,7 @@ import { CalendarPage } from './pages/Calendar'
 import { NotesPage } from './pages/Notes'
 import { ProjectsPage } from './pages/Projects'
 import { ProjectDetailPage } from './pages/Projects/Detail'
+import { SettingsPage } from './pages/Settings'
 
 const queryClient = new QueryClient()
 
@@ -26,6 +27,7 @@ export default function App() {
               <Route path="/notes" element={<NotesPage />} />
               <Route path="/projects" element={<ProjectsPage />} />
               <Route path="/projects/:id" element={<ProjectDetailPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
             </Routes>
           </main>
         </div>

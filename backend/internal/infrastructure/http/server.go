@@ -11,6 +11,7 @@ import (
 	appfolder "github.com/husari/hube/internal/application/folder"
 	appnote "github.com/husari/hube/internal/application/note"
 	appproject "github.com/husari/hube/internal/application/project"
+	appsetting "github.com/husari/hube/internal/application/setting"
 	apptask "github.com/husari/hube/internal/application/task"
 	"github.com/husari/hube/internal/infrastructure/external"
 	"github.com/husari/hube/internal/infrastructure/http/handler"
@@ -23,6 +24,7 @@ func NewRouter(
 	noteSvc *appnote.Service,
 	folderSvc *appfolder.Service,
 	projectSvc *appproject.Service,
+	settingSvc *appsetting.Service,
 	moneyMonkey *external.MoneyMonkeyClient,
 	payPinga *external.PayPingaClient,
 ) http.Handler {
@@ -43,6 +45,9 @@ func NewRouter(
 		r.Route("/notes", handler.NewNoteHandler(noteSvc).Routes())
 		r.Route("/folders", handler.NewFolderHandler(folderSvc).Routes())
 		r.Route("/projects", handler.NewProjectHandler(projectSvc).Routes())
+		sh := handler.NewSettingHandler(settingSvc)
+		r.Get("/settings", sh.Get)
+		r.Put("/settings", sh.Put)
 		r.Get("/finance/summary", handler.NewFinanceHandler(moneyMonkey).Summary)
 		r.Get("/cards/summary", handler.NewCardTrackerHandler(payPinga).Summary)
 	})
