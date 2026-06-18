@@ -1,15 +1,36 @@
 @import "tailwindcss";
 
+/* Class-based dark mode for Tailwind v4 */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Accent color themes */
 :root {
-  color-scheme: light dark;
+  --color-accent:       oklch(58.75% 0.265 296.96); /* indigo  */
+  --color-accent-hover: oklch(64.39% 0.245 297.37); /* indigo lighter */
+  color-scheme: dark;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+.theme-violet  { --color-accent: oklch(55.67% 0.265 303.01); --color-accent-hover: oklch(61% 0.245 303); }
+.theme-rose    { --color-accent: oklch(59.38% 0.24  12.25);  --color-accent-hover: oklch(65% 0.22  12);  }
+.theme-emerald { --color-accent: oklch(60.59% 0.185 152.63); --color-accent-hover: oklch(66% 0.17  152); }
+.theme-sky     { --color-accent: oklch(62.72% 0.198 237.08); --color-accent-hover: oklch(68% 0.18  237); }
+.theme-orange  { --color-accent: oklch(65.87% 0.216  47.40); --color-accent-hover: oklch(71% 0.20   47); }
+
+/* Light mode overrides */
+html:not(.dark) {
+  color-scheme: light;
 }
 
 body {
   margin: 0;
   font-family: system-ui, -apple-system, sans-serif;
   @apply bg-gray-950 text-gray-100;
+}
+
+html:not(.dark) body {
+  @apply bg-gray-50 text-gray-900;
 }
 
 #root {
