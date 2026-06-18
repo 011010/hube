@@ -60,6 +60,24 @@ export interface FinanceSummary {
   recent_transactions: RecentTransaction[]
 }
 
+export interface Note {
+  id: string
+  title: string
+  content: string
+  folder_id: string | null
+  tags: string[]
+  created_at: string
+  updated_at: string
+}
+
+export interface Folder {
+  id: string
+  name: string
+  parent_id: string | null
+  created_at: string
+  updated_at: string
+}
+
 export interface App {
   id: string
   name: string

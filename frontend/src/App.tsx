@@ -5,6 +5,7 @@ import { DashboardPage } from './pages/Dashboard'
 import { LauncherPage } from './pages/Launcher'
 import { TasksPage } from './pages/Tasks'
 import { CalendarPage } from './pages/Calendar'
+import { NotesPage } from './pages/Notes'
 
 const queryClient = new QueryClient()
 
@@ -20,6 +21,7 @@ export default function App() {
               <Route path="/launcher" element={<LauncherPage />} />
               <Route path="/tasks" element={<TasksPage />} />
               <Route path="/calendar" element={<CalendarPage />} />
+              <Route path="/notes" element={<NotesPage />} />
             </Routes>
           </main>
         </div>

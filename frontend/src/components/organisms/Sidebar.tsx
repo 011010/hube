@@ -5,6 +5,7 @@ const nav = [
   { to: '/launcher', label: 'Apps', icon: '◈' },
   { to: '/tasks', label: 'Tasks', icon: '✓' },
   { to: '/calendar', label: 'Calendar', icon: '◷' },
+  { to: '/notes', label: 'Notes', icon: '✎' },
 ]
 
 export function Sidebar() {

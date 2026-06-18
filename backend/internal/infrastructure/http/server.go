@@ -8,6 +8,8 @@ import (
 	"github.com/go-chi/cors"
 	appapp "github.com/husari/hube/internal/application/app"
 	appevent "github.com/husari/hube/internal/application/event"
+	appfolder "github.com/husari/hube/internal/application/folder"
+	appnote "github.com/husari/hube/internal/application/note"
 	apptask "github.com/husari/hube/internal/application/task"
 	"github.com/husari/hube/internal/infrastructure/external"
 	"github.com/husari/hube/internal/infrastructure/http/handler"
@@ -17,6 +19,8 @@ func NewRouter(
 	taskSvc *apptask.Service,
 	eventSvc *appevent.Service,
 	appSvc *appapp.Service,
+	noteSvc *appnote.Service,
+	folderSvc *appfolder.Service,
 	moneyMonkey *external.MoneyMonkeyClient,
 	payPinga *external.PayPingaClient,
 ) http.Handler {
@@ -34,6 +38,8 @@ func NewRouter(
 		r.Route("/tasks", handler.NewTaskHandler(taskSvc).Routes())
 		r.Route("/events", handler.NewEventHandler(eventSvc).Routes())
 		r.Route("/apps", handler.NewAppHandler(appSvc).Routes())
+		r.Route("/notes", handler.NewNoteHandler(noteSvc).Routes())
+		r.Route("/folders", handler.NewFolderHandler(folderSvc).Routes())
 		r.Get("/finance/summary", handler.NewFinanceHandler(moneyMonkey).Summary)
 		r.Get("/cards/summary", handler.NewCardTrackerHandler(payPinga).Summary)
 	})

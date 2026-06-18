@@ -11,6 +11,9 @@ import (
 //go:embed migrations/001_init.sql
 var initSQL string
 
+//go:embed migrations/002_notes.sql
+var notesSQL string
+
 func Open(path string) (*sqlx.DB, error) {
 	db, err := sqlx.Open("sqlite", path)
 	if err != nil {
@@ -23,8 +26,10 @@ func Open(path string) (*sqlx.DB, error) {
 		return nil, fmt.Errorf("sqlite pragmas: %w", err)
 	}
 
-	if _, err = db.Exec(initSQL); err != nil {
-		return nil, fmt.Errorf("run migrations: %w", err)
+	for _, migration := range []string{initSQL, notesSQL} {
+		if _, err = db.Exec(migration); err != nil {
+			return nil, fmt.Errorf("run migration: %w", err)
+		}
 	}
 
 	return db, nil
