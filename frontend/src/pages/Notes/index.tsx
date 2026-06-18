@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
+import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import {
   useNotes, useNote, useCreateNote, useUpdateNote, useDeleteNote,
   useFolders, useCreateFolder, useDeleteFolder, useSearchNotes,
@@ -219,7 +221,29 @@ export function NotesPage() {
                 <div className={`overflow-y-auto p-6 prose prose-invert prose-sm max-w-none ${
                   viewMode === 'split' ? 'w-1/2' : 'w-full'
                 }`}>
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      code({ className, children, ...props }) {
+                        const match = /language-(\w+)/.exec(className || '')
+                        const isBlock = String(children).includes('\n')
+                        return match || isBlock ? (
+                          <SyntaxHighlighter
+                            style={oneDark}
+                            language={match?.[1] ?? 'text'}
+                            PreTag="div"
+                            customStyle={{ borderRadius: '0.5rem', fontSize: '0.8rem' }}
+                          >
+                            {String(children).replace(/\n$/, '')}
+                          </SyntaxHighlighter>
+                        ) : (
+                          <code className="bg-gray-800 text-pink-400 px-1 py-0.5 rounded text-xs" {...props}>
+                            {children}
+                          </code>
+                        )
+                      },
+                    }}
+                  >
                     {draft.content || '*Nothing to preview*'}
                   </ReactMarkdown>
                 </div>
