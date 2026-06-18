@@ -28,8 +28,9 @@ func NewRouter(
 	settingSvc *appsetting.Service,
 	moneyMonkey *external.MoneyMonkeyClient,
 	payPinga *external.PayPingaClient,
-	claude *external.ClaudeClient,
-	hubExecutor *appai.HubExecutor,
+	claude  *external.ClaudeClient,
+	openai  *external.OpenAIClient,
+	hubExec *appai.HubExecutor,
 ) http.Handler {
 	r := chi.NewRouter()
 
@@ -53,7 +54,7 @@ func NewRouter(
 		r.Put("/settings", sh.Put)
 		r.Get("/finance/summary", handler.NewFinanceHandler(moneyMonkey).Summary)
 		r.Get("/cards/summary", handler.NewCardTrackerHandler(payPinga).Summary)
-		r.Post("/ai/chat", handler.NewAIHandler(claude, hubExecutor).Chat)
+		r.Post("/ai/chat", handler.NewAIHandler(claude, openai, hubExec).Chat)
 	})
 
 	r.Get("/health", func(w http.ResponseWriter, _ *http.Request) {

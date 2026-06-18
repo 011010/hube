@@ -40,10 +40,19 @@ const SUGGESTIONS = [
   'Create a task: Review pull requests',
 ]
 
+type Provider = 'auto' | 'anthropic' | 'openai'
+
+const PROVIDERS: { value: Provider; label: string }[] = [
+  { value: 'auto', label: 'Auto' },
+  { value: 'anthropic', label: 'Claude' },
+  { value: 'openai', label: 'OpenAI-compatible' },
+]
+
 export function AIPage() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [provider, setProvider] = useState<Provider>('auto')
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -82,7 +91,7 @@ export function AIPage() {
       const response = await fetch('/api/v1/ai/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: history }),
+        body: JSON.stringify({ messages: history, provider: provider === 'auto' ? '' : provider }),
       })
 
       if (!response.ok) {
@@ -146,6 +155,8 @@ export function AIPage() {
                 tc.tool === event.tool && !tc.done ? { ...tc, done: true } : tc
               ),
             }
+          case 'error':
+            return { ...m, content: `Error: ${event.error ?? 'Unknown error'}`, streaming: false }
           default:
             return m
         }
@@ -250,6 +261,22 @@ export function AIPage() {
       {/* Input */}
       <div className="shrink-0 px-4 py-4 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
         <div className="max-w-3xl mx-auto">
+          {/* Provider selector */}
+          <div className="flex gap-1 mb-2">
+            {PROVIDERS.map(p => (
+              <button
+                key={p.value}
+                onClick={() => setProvider(p.value)}
+                className={`px-2.5 py-1 rounded-md text-xs transition-colors ${
+                  provider === p.value
+                    ? 'bg-(--color-accent) text-white'
+                    : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300'
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
           <div className="flex gap-3 items-end">
             <textarea
               ref={inputRef}
@@ -270,7 +297,7 @@ export function AIPage() {
             </button>
           </div>
           <p className="text-xs text-gray-400 dark:text-gray-600 mt-2 text-center">
-            claude-sonnet-4-6 · tools: tasks, notes, projects, calendar, apps
+            tools: tasks, notes, projects, calendar, apps
           </p>
         </div>
       </div>

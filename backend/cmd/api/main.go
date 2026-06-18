@@ -53,7 +53,10 @@ func main() {
 		"integration.monkeyapi_key":  os.Getenv("MONKEYAPI_KEY"),
 		"integration.paypinga_url":   os.Getenv("PAYPINGA_URL"),
 		"integration.paypinga_key":   os.Getenv("PAYPINGA_KEY"),
-		"integration.claude_api_key": os.Getenv("ANTHROPIC_API_KEY"),
+		"integration.claude_api_key":  os.Getenv("ANTHROPIC_API_KEY"),
+		"integration.openai_api_key":  os.Getenv("OPENAI_API_KEY"),
+		"integration.openai_base_url": os.Getenv("OPENAI_BASE_URL"),
+		"integration.openai_model":    os.Getenv("OPENAI_MODEL"),
 	} {
 		if err := settingSvc.Seed(ctx, k, v); err != nil {
 			log.Printf("warn: seed setting %s: %v", k, err)
@@ -72,15 +75,21 @@ func main() {
 		log.Printf("PayPinga integration enabled: %s", url)
 	}
 
-	claudeKey := os.Getenv("ANTHROPIC_API_KEY")
 	var claudeClient *external.ClaudeClient
-	if claudeKey != "" {
-		claudeClient = external.NewClaudeClient(claudeKey)
-		log.Printf("Claude AI integration enabled (model: claude-sonnet-4-6)")
+	if key := os.Getenv("ANTHROPIC_API_KEY"); key != "" {
+		claudeClient = external.NewClaudeClient(key)
+		log.Printf("Anthropic Claude enabled (claude-sonnet-4-6)")
 	}
+
+	var openaiClient *external.OpenAIClient
+	if key := os.Getenv("OPENAI_API_KEY"); key != "" {
+		openaiClient = external.NewOpenAIClient(key, os.Getenv("OPENAI_BASE_URL"), os.Getenv("OPENAI_MODEL"))
+		log.Printf("OpenAI-compatible provider enabled (base: %s)", os.Getenv("OPENAI_BASE_URL"))
+	}
+
 	hubExecutor := appai.NewHubExecutor(taskSvc, noteSvc, projectSvc, eventSvc, appSvc)
 
-	router := hubehttp.NewRouter(taskSvc, eventSvc, appSvc, noteSvc, folderSvc, projectSvc, settingSvc, moneyMonkey, payPinga, claudeClient, hubExecutor)
+	router := hubehttp.NewRouter(taskSvc, eventSvc, appSvc, noteSvc, folderSvc, projectSvc, settingSvc, moneyMonkey, payPinga, claudeClient, openaiClient, hubExecutor)
 
 	addr := fmt.Sprintf(":%s", port)
 	log.Printf("hube API running on %s", addr)

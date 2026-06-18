@@ -13,12 +13,6 @@ import (
 
 const claudeModel = anthropic.ModelClaudeSonnet4_6
 
-// ToolExecutor runs a tool by name with the given JSON input and returns a result.
-type ToolExecutor interface {
-	Execute(ctx context.Context, name string, input json.RawMessage) (any, error)
-	Tools() []anthropic.ToolUnionParam
-}
-
 type ClaudeClient struct {
 	client anthropic.Client
 }
@@ -29,6 +23,23 @@ func NewClaudeClient(apiKey string) *ClaudeClient {
 	}
 }
 
+func toAnthropicTools(defs []aidom.ToolDef) []anthropic.ToolUnionParam {
+	out := make([]anthropic.ToolUnionParam, len(defs))
+	for i, d := range defs {
+		out[i] = anthropic.ToolUnionParam{
+			OfTool: &anthropic.ToolParam{
+				Name:        d.Name,
+				Description: anthropic.String(d.Description),
+				InputSchema: anthropic.ToolInputSchemaParam{
+					Properties: d.Properties,
+					Required:   d.Required,
+				},
+			},
+		}
+	}
+	return out
+}
+
 // writeNDJSON writes one JSON line to the response.
 func writeNDJSON(w http.ResponseWriter, event aidom.SSEEvent) {
 	b, _ := json.Marshal(event)
@@ -36,11 +47,12 @@ func writeNDJSON(w http.ResponseWriter, event aidom.SSEEvent) {
 }
 
 // Chat runs the full agentic loop — streaming text to w and executing tools as needed.
+// Implements aidom.Provider.
 func (c *ClaudeClient) Chat(
 	ctx context.Context,
 	systemPrompt string,
 	history []aidom.ChatMessage,
-	executor ToolExecutor,
+	executor aidom.ToolExecutor,
 	w http.ResponseWriter,
 ) error {
 	flusher, _ := w.(http.Flusher)
@@ -55,7 +67,7 @@ func (c *ClaudeClient) Chat(
 		}
 	}
 
-	tools := executor.Tools()
+	tools := toAnthropicTools(executor.Tools())
 
 	for round := 0; round < 10; round++ {
 		stream := c.client.Messages.NewStreaming(ctx, anthropic.MessageNewParams{

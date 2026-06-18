@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"time"
 
-	anthropic "github.com/anthropics/anthropic-sdk-go"
 	appapp "github.com/husari/hube/internal/application/app"
 	appevent "github.com/husari/hube/internal/application/event"
 	appnote "github.com/husari/hube/internal/application/note"
 	appproject "github.com/husari/hube/internal/application/project"
 	apptask "github.com/husari/hube/internal/application/task"
+	aidom "github.com/husari/hube/internal/domain/ai"
 	"github.com/husari/hube/internal/domain/note"
 	"github.com/husari/hube/internal/domain/task"
 )
@@ -35,121 +35,81 @@ func NewHubExecutor(
 	return &HubExecutor{tasks, notes, projects, events, apps}
 }
 
-// Tools returns the full tool definitions for Claude.
-func (e *HubExecutor) Tools() []anthropic.ToolUnionParam {
-	tool := func(name, desc string, props map[string]any) anthropic.ToolUnionParam {
-		return anthropic.ToolUnionParam{
-			OfTool: &anthropic.ToolParam{
-				Name:        name,
-				Description: anthropic.String(desc),
-				InputSchema: anthropic.ToolInputSchemaParam{Properties: props},
-			},
-		}
-	}
-
-	return []anthropic.ToolUnionParam{
-		tool("list_tasks",
-			"List tasks from the hub. Returns all tasks or those filtered by status.",
-			map[string]any{
+// Tools returns provider-agnostic tool definitions.
+func (e *HubExecutor) Tools() []aidom.ToolDef {
+	return []aidom.ToolDef{
+		{
+			Name:        "list_tasks",
+			Description: "List tasks from the hub. Returns all tasks or those filtered by status.",
+			Properties: map[string]any{
 				"status": map[string]any{
 					"type":        "string",
 					"enum":        []string{"todo", "in_progress", "done"},
 					"description": "Filter by task status",
 				},
-			}),
-		tool("create_task",
-			"Create a new task in the hub.",
-			map[string]any{
-				"title": map[string]any{
-					"type":        "string",
-					"description": "Task title (required)",
-				},
-				"description": map[string]any{
-					"type":        "string",
-					"description": "Task description",
-				},
-				"priority": map[string]any{
-					"type":        "string",
-					"enum":        []string{"low", "medium", "high"},
-					"description": "Priority level",
-				},
-				"due_date": map[string]any{
-					"type":        "string",
-					"description": "Due date in ISO 8601 format (YYYY-MM-DD)",
-				},
-				"project_id": map[string]any{
-					"type":        "string",
-					"description": "Associate with a project ID",
-				},
-			}),
-		tool("update_task",
-			"Update an existing task's status, title, or priority.",
-			map[string]any{
-				"id": map[string]any{
-					"type":        "string",
-					"description": "Task ID (required)",
-				},
-				"title": map[string]any{
-					"type":        "string",
-					"description": "New title",
-				},
-				"status": map[string]any{
-					"type":        "string",
-					"enum":        []string{"todo", "in_progress", "done"},
-					"description": "New status",
-				},
-				"priority": map[string]any{
-					"type":        "string",
-					"enum":        []string{"low", "medium", "high"},
-					"description": "New priority",
-				},
-			}),
-		tool("search_notes",
-			"Full-text search across all notes in the hub.",
-			map[string]any{
-				"query": map[string]any{
-					"type":        "string",
-					"description": "Search query (required)",
-				},
-			}),
-		tool("list_notes",
-			"List all notes, optionally filtered by folder.",
-			map[string]any{
-				"folder_id": map[string]any{
-					"type":        "string",
-					"description": "Filter by folder ID",
-				},
-			}),
-		tool("create_note",
-			"Create a new note in the hub.",
-			map[string]any{
-				"title": map[string]any{
-					"type":        "string",
-					"description": "Note title (required)",
-				},
-				"content": map[string]any{
-					"type":        "string",
-					"description": "Note content in Markdown",
-				},
-			}),
-		tool("list_projects",
-			"List all projects with progress, status, and task counts.",
-			map[string]any{}),
-		tool("list_events",
-			"List calendar events. Defaults to the next 30 days if no range given.",
-			map[string]any{
-				"from": map[string]any{
-					"type":        "string",
-					"description": "Start date ISO 8601 (YYYY-MM-DD). Defaults to today.",
-				},
-				"to": map[string]any{
-					"type":        "string",
-					"description": "End date ISO 8601 (YYYY-MM-DD). Defaults to 30 days from now.",
-				},
-			}),
-		tool("list_apps",
-			"List all installed apps/shortcuts in the hub launcher.",
-			map[string]any{}),
+			},
+		},
+		{
+			Name:        "create_task",
+			Description: "Create a new task in the hub.",
+			Properties: map[string]any{
+				"title":       map[string]any{"type": "string", "description": "Task title (required)"},
+				"description": map[string]any{"type": "string", "description": "Task description"},
+				"priority":    map[string]any{"type": "string", "enum": []string{"low", "medium", "high"}, "description": "Priority level"},
+				"due_date":    map[string]any{"type": "string", "description": "Due date ISO 8601 (YYYY-MM-DD)"},
+				"project_id":  map[string]any{"type": "string", "description": "Associate with a project ID"},
+			},
+			Required: []string{"title"},
+		},
+		{
+			Name:        "update_task",
+			Description: "Update an existing task's status, title, or priority.",
+			Properties: map[string]any{
+				"id":       map[string]any{"type": "string", "description": "Task ID (required)"},
+				"title":    map[string]any{"type": "string", "description": "New title"},
+				"status":   map[string]any{"type": "string", "enum": []string{"todo", "in_progress", "done"}, "description": "New status"},
+				"priority": map[string]any{"type": "string", "enum": []string{"low", "medium", "high"}, "description": "New priority"},
+			},
+			Required: []string{"id"},
+		},
+		{
+			Name:        "search_notes",
+			Description: "Full-text search across all notes in the hub.",
+			Properties:  map[string]any{"query": map[string]any{"type": "string", "description": "Search query (required)"}},
+			Required:    []string{"query"},
+		},
+		{
+			Name:        "list_notes",
+			Description: "List all notes, optionally filtered by folder.",
+			Properties:  map[string]any{"folder_id": map[string]any{"type": "string", "description": "Filter by folder ID"}},
+		},
+		{
+			Name:        "create_note",
+			Description: "Create a new note in the hub.",
+			Properties: map[string]any{
+				"title":   map[string]any{"type": "string", "description": "Note title (required)"},
+				"content": map[string]any{"type": "string", "description": "Note content in Markdown"},
+			},
+			Required: []string{"title"},
+		},
+		{
+			Name:        "list_projects",
+			Description: "List all projects with progress, status, and task counts.",
+			Properties:  map[string]any{},
+		},
+		{
+			Name:        "list_events",
+			Description: "List calendar events. Defaults to the next 30 days if no range given.",
+			Properties: map[string]any{
+				"from": map[string]any{"type": "string", "description": "Start date ISO 8601 (YYYY-MM-DD). Defaults to today."},
+				"to":   map[string]any{"type": "string", "description": "End date ISO 8601 (YYYY-MM-DD). Defaults to 30 days from now."},
+			},
+		},
+		{
+			Name:        "list_apps",
+			Description: "List all installed apps/shortcuts in the hub launcher.",
+			Properties:  map[string]any{},
+		},
 	}
 }
 
