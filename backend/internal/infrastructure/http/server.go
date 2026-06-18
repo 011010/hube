@@ -6,6 +6,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	appai "github.com/husari/hube/internal/application/ai"
 	appapp "github.com/husari/hube/internal/application/app"
 	appevent "github.com/husari/hube/internal/application/event"
 	appfolder "github.com/husari/hube/internal/application/folder"
@@ -27,6 +28,8 @@ func NewRouter(
 	settingSvc *appsetting.Service,
 	moneyMonkey *external.MoneyMonkeyClient,
 	payPinga *external.PayPingaClient,
+	claude *external.ClaudeClient,
+	hubExecutor *appai.HubExecutor,
 ) http.Handler {
 	r := chi.NewRouter()
 
@@ -50,6 +53,7 @@ func NewRouter(
 		r.Put("/settings", sh.Put)
 		r.Get("/finance/summary", handler.NewFinanceHandler(moneyMonkey).Summary)
 		r.Get("/cards/summary", handler.NewCardTrackerHandler(payPinga).Summary)
+		r.Post("/ai/chat", handler.NewAIHandler(claude, hubExecutor).Chat)
 	})
 
 	r.Get("/health", func(w http.ResponseWriter, _ *http.Request) {

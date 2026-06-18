@@ -7,6 +7,7 @@ const nav = [
   { to: '/calendar', label: 'Calendar', icon: '◷' },
   { to: '/notes', label: 'Notes', icon: '✎' },
   { to: '/projects', label: 'Projects', icon: '◻' },
+  { to: '/ai', label: 'IA', icon: '✦' },
 ]
 
 const navItemClass = ({ isActive }: { isActive: boolean }) =>

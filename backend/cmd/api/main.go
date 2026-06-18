@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 
+	appai "github.com/husari/hube/internal/application/ai"
 	appapp "github.com/husari/hube/internal/application/app"
 	appevent "github.com/husari/hube/internal/application/event"
 	appfolder "github.com/husari/hube/internal/application/folder"
@@ -48,10 +49,11 @@ func main() {
 	// Seed integration config from env vars (only if not already stored in DB)
 	ctx := context.Background()
 	for k, v := range map[string]string{
-		"integration.monkeyapi_url": os.Getenv("MONKEYAPI_URL"),
-		"integration.monkeyapi_key": os.Getenv("MONKEYAPI_KEY"),
-		"integration.paypinga_url":  os.Getenv("PAYPINGA_URL"),
-		"integration.paypinga_key":  os.Getenv("PAYPINGA_KEY"),
+		"integration.monkeyapi_url":  os.Getenv("MONKEYAPI_URL"),
+		"integration.monkeyapi_key":  os.Getenv("MONKEYAPI_KEY"),
+		"integration.paypinga_url":   os.Getenv("PAYPINGA_URL"),
+		"integration.paypinga_key":   os.Getenv("PAYPINGA_KEY"),
+		"integration.claude_api_key": os.Getenv("ANTHROPIC_API_KEY"),
 	} {
 		if err := settingSvc.Seed(ctx, k, v); err != nil {
 			log.Printf("warn: seed setting %s: %v", k, err)
@@ -70,7 +72,15 @@ func main() {
 		log.Printf("PayPinga integration enabled: %s", url)
 	}
 
-	router := hubehttp.NewRouter(taskSvc, eventSvc, appSvc, noteSvc, folderSvc, projectSvc, settingSvc, moneyMonkey, payPinga)
+	claudeKey := os.Getenv("ANTHROPIC_API_KEY")
+	var claudeClient *external.ClaudeClient
+	if claudeKey != "" {
+		claudeClient = external.NewClaudeClient(claudeKey)
+		log.Printf("Claude AI integration enabled (model: claude-sonnet-4-6)")
+	}
+	hubExecutor := appai.NewHubExecutor(taskSvc, noteSvc, projectSvc, eventSvc, appSvc)
+
+	router := hubehttp.NewRouter(taskSvc, eventSvc, appSvc, noteSvc, folderSvc, projectSvc, settingSvc, moneyMonkey, payPinga, claudeClient, hubExecutor)
 
 	addr := fmt.Sprintf(":%s", port)
 	log.Printf("hube API running on %s", addr)
