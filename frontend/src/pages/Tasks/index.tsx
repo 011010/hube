@@ -67,7 +67,7 @@ export function TasksPage() {
                   />
                   <button
                     onClick={() => setEditTask(task)}
-                    className={`flex-1 text-sm text-left transition-colors ${
+                    className={`flex-1 min-w-0 text-sm text-left transition-colors ${
                       task.status === 'done'
                         ? 'line-through text-gray-500'
                         : 'text-gray-200 hover:text-white'
