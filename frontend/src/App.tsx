@@ -11,6 +11,7 @@ import { ProjectsPage } from './pages/Projects'
 import { ProjectDetailPage } from './pages/Projects/Detail'
 import { AIPage } from './pages/AI'
 import { SettingsPage } from './pages/Settings'
+import { WishlistPage } from './pages/Wishlist'
 
 const queryClient = new QueryClient()
 
@@ -31,6 +32,7 @@ export default function App() {
                 <Route path="/projects" element={<ProjectsPage />} />
                 <Route path="/projects/:id" element={<ProjectDetailPage />} />
                 <Route path="/ai" element={<AIPage />} />
+                <Route path="/wishlist" element={<WishlistPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
               </Routes>
             </main>

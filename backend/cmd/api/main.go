@@ -15,6 +15,7 @@ import (
 	appproject "github.com/husari/hube/internal/application/project"
 	appsetting "github.com/husari/hube/internal/application/setting"
 	apptask "github.com/husari/hube/internal/application/task"
+	appwishlist "github.com/husari/hube/internal/application/wishlist"
 	"github.com/husari/hube/internal/infrastructure/external"
 	hubehttp "github.com/husari/hube/internal/infrastructure/http"
 	"github.com/husari/hube/internal/infrastructure/sqlite"
@@ -42,6 +43,7 @@ func main() {
 	noteSvc := appnote.NewService(sqlite.NewNoteRepo(db))
 	folderSvc := appfolder.NewService(sqlite.NewFolderRepo(db))
 	projectSvc := appproject.NewService(sqlite.NewProjectRepo(db))
+	wishlistSvc := appwishlist.NewService(sqlite.NewWishlistRepo(db))
 
 	settingRepo := sqlite.NewSettingRepo(db)
 	settingSvc := appsetting.NewService(settingRepo)
@@ -89,7 +91,7 @@ func main() {
 
 	hubExecutor := appai.NewHubExecutor(taskSvc, noteSvc, projectSvc, eventSvc, appSvc)
 
-	router := hubehttp.NewRouter(taskSvc, eventSvc, appSvc, noteSvc, folderSvc, projectSvc, settingSvc, moneyMonkey, payPinga, claudeClient, openaiClient, hubExecutor)
+	router := hubehttp.NewRouter(taskSvc, eventSvc, appSvc, noteSvc, folderSvc, projectSvc, settingSvc, wishlistSvc, moneyMonkey, payPinga, claudeClient, openaiClient, hubExecutor)
 
 	addr := fmt.Sprintf(":%s", port)
 	log.Printf("hube API running on %s", addr)

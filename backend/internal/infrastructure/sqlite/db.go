@@ -20,6 +20,9 @@ var projectsSQL string
 //go:embed migrations/004_settings.sql
 var settingsSQL string
 
+//go:embed migrations/005_wishlist.sql
+var wishlistSQL string
+
 type migration struct {
 	name string
 	sql  string
@@ -30,6 +33,7 @@ var migrations = []migration{
 	{"002_notes", notesSQL},
 	{"003_projects", projectsSQL},
 	{"004_settings", settingsSQL},
+	{"005_wishlist", wishlistSQL},
 }
 
 func Open(path string) (*sqlx.DB, error) {

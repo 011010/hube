@@ -14,6 +14,7 @@ import (
 	appproject "github.com/husari/hube/internal/application/project"
 	appsetting "github.com/husari/hube/internal/application/setting"
 	apptask "github.com/husari/hube/internal/application/task"
+	appwishlist "github.com/husari/hube/internal/application/wishlist"
 	"github.com/husari/hube/internal/infrastructure/external"
 	"github.com/husari/hube/internal/infrastructure/http/handler"
 )
@@ -26,6 +27,7 @@ func NewRouter(
 	folderSvc *appfolder.Service,
 	projectSvc *appproject.Service,
 	settingSvc *appsetting.Service,
+	wishlistSvc *appwishlist.Service,
 	moneyMonkey *external.MoneyMonkeyClient,
 	payPinga *external.PayPingaClient,
 	claude  *external.ClaudeClient,
@@ -49,6 +51,7 @@ func NewRouter(
 		r.Route("/notes", handler.NewNoteHandler(noteSvc).Routes())
 		r.Route("/folders", handler.NewFolderHandler(folderSvc).Routes())
 		r.Route("/projects", handler.NewProjectHandler(projectSvc).Routes())
+		r.Route("/wishlist", handler.NewWishlistHandler(wishlistSvc).Routes())
 		sh := handler.NewSettingHandler(settingSvc)
 		r.Get("/settings", sh.Get)
 		r.Put("/settings", sh.Put)

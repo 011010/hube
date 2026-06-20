@@ -104,3 +104,21 @@ export interface App {
   sort_order: number
   active: boolean
 }
+
+export type WishlistStatus = 'pending' | 'purchased'
+
+export interface WishlistItem {
+  id: string
+  name: string
+  description: string
+  url: string
+  store: string
+  target_price: number
+  current_price: number
+  currency: string
+  priority: Priority
+  status: WishlistStatus
+  notes: string
+  created_at: string
+  updated_at: string
+}
