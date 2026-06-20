@@ -138,6 +138,28 @@ func (r *NoteRepo) Delete(ctx context.Context, id string) error {
 	return err
 }
 
+func (r *NoteRepo) StoreEmbedding(ctx context.Context, noteID string, embedding []byte) error {
+	_, err := r.db.ExecContext(ctx, `UPDATE notes SET embedding=? WHERE id=?`, string(embedding), noteID)
+	return err
+}
+
+type noteEmbeddingRow struct {
+	ID        string `db:"id"`
+	Embedding string `db:"embedding"`
+}
+
+func (r *NoteRepo) FindAllEmbeddings(ctx context.Context) ([]note.EmbeddingRecord, error) {
+	rows := make([]noteEmbeddingRow, 0)
+	if err := r.db.SelectContext(ctx, &rows, `SELECT id, embedding FROM notes WHERE embedding != ''`); err != nil {
+		return nil, err
+	}
+	result := make([]note.EmbeddingRecord, len(rows))
+	for i, row := range rows {
+		result[i] = note.EmbeddingRecord{ID: row.ID, Embedding: []byte(row.Embedding)}
+	}
+	return result, nil
+}
+
 func (r *NoteRepo) SetTags(ctx context.Context, noteID string, tags []string) error {
 	if _, err := r.db.ExecContext(ctx, `DELETE FROM note_tags WHERE note_id = ?`, noteID); err != nil {
 		return fmt.Errorf("clear tags: %w", err)

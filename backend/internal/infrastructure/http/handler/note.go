@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -9,14 +10,20 @@ import (
 	"github.com/husari/hube/internal/domain/note"
 )
 
-type NoteHandler struct{ svc *appnote.Service }
+type NoteHandler struct {
+	svc *appnote.Service
+	rag *appnote.RAGService
+}
 
-func NewNoteHandler(svc *appnote.Service) *NoteHandler { return &NoteHandler{svc: svc} }
+func NewNoteHandler(svc *appnote.Service, rag *appnote.RAGService) *NoteHandler {
+	return &NoteHandler{svc: svc, rag: rag}
+}
 
 func (h *NoteHandler) Routes() func(chi.Router) {
 	return func(r chi.Router) {
 		r.Get("/", h.list)
 		r.Get("/search", h.search)
+		r.Post("/semantic-search", h.semanticSearch)
 		r.Post("/", h.create)
 		r.Get("/{id}", h.get)
 		r.Put("/{id}", h.update)
@@ -64,6 +71,30 @@ func (h *NoteHandler) get(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, n)
 }
 
+func (h *NoteHandler) semanticSearch(w http.ResponseWriter, r *http.Request) {
+	if h.rag == nil {
+		writeError(w, http.StatusServiceUnavailable, fmt.Errorf("semantic search not configured (set OPENAI_API_KEY)"))
+		return
+	}
+	var body struct {
+		Q    string `json:"q"`
+		TopK int    `json:"top_k"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Q == "" {
+		writeError(w, http.StatusBadRequest, fmt.Errorf("q is required"))
+		return
+	}
+	if body.TopK == 0 {
+		body.TopK = 5
+	}
+	results, err := h.rag.SemanticSearch(r.Context(), body.Q, body.TopK)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, results)
+}
+
 func (h *NoteHandler) create(w http.ResponseWriter, r *http.Request) {
 	var n note.Note
 	if err := json.NewDecoder(r.Body).Decode(&n); err != nil {
@@ -73,6 +104,9 @@ func (h *NoteHandler) create(w http.ResponseWriter, r *http.Request) {
 	if err := h.svc.Create(r.Context(), &n); err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
+	}
+	if h.rag != nil {
+		go h.rag.IndexNote(r.Context(), &n)
 	}
 	writeJSON(w, http.StatusCreated, n)
 }
@@ -87,6 +121,9 @@ func (h *NoteHandler) update(w http.ResponseWriter, r *http.Request) {
 	if err := h.svc.Update(r.Context(), &n); err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
+	}
+	if h.rag != nil {
+		go h.rag.IndexNote(r.Context(), &n)
 	}
 	writeJSON(w, http.StatusOK, n)
 }

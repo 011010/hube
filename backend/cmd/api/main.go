@@ -9,13 +9,13 @@ import (
 
 	appai "github.com/husari/hube/internal/application/ai"
 	appapp "github.com/husari/hube/internal/application/app"
+	appdiagram "github.com/husari/hube/internal/application/diagram"
 	appevent "github.com/husari/hube/internal/application/event"
 	appfolder "github.com/husari/hube/internal/application/folder"
 	appnote "github.com/husari/hube/internal/application/note"
 	appproject "github.com/husari/hube/internal/application/project"
 	appsetting "github.com/husari/hube/internal/application/setting"
 	apptask "github.com/husari/hube/internal/application/task"
-	appdiagram "github.com/husari/hube/internal/application/diagram"
 	appwishlist "github.com/husari/hube/internal/application/wishlist"
 	"github.com/husari/hube/internal/infrastructure/external"
 	hubehttp "github.com/husari/hube/internal/infrastructure/http"
@@ -43,11 +43,19 @@ func main() {
 	go apptask.NewScheduler(taskRepo).Run(context.Background())
 	eventSvc := appevent.NewService(sqlite.NewEventRepo(db))
 	appSvc := appapp.NewService(sqlite.NewAppRepo(db))
-	noteSvc := appnote.NewService(sqlite.NewNoteRepo(db))
+	noteRepo := sqlite.NewNoteRepo(db)
+	noteSvc := appnote.NewService(noteRepo)
 	folderSvc := appfolder.NewService(sqlite.NewFolderRepo(db))
 	projectSvc := appproject.NewService(sqlite.NewProjectRepo(db))
 	wishlistSvc := appwishlist.NewService(sqlite.NewWishlistRepo(db))
 	diagramSvc := appdiagram.NewService(sqlite.NewDiagramRepo(db))
+
+	var ragSvc *appnote.RAGService
+	if key := os.Getenv("OPENAI_API_KEY"); key != "" {
+		embClient := external.NewEmbeddingsClient(key, os.Getenv("OPENAI_BASE_URL"), os.Getenv("OPENAI_EMBEDDING_MODEL"))
+		ragSvc = appnote.NewRAGService(noteRepo, embClient)
+		log.Printf("RAG semantic search enabled")
+	}
 
 	settingRepo := sqlite.NewSettingRepo(db)
 	settingSvc := appsetting.NewService(settingRepo)
@@ -100,7 +108,7 @@ func main() {
 		origins = append(origins, "https://"+domain, "http://"+domain)
 	}
 
-	router := hubehttp.NewRouter(taskSvc, eventSvc, appSvc, noteSvc, folderSvc, projectSvc, settingSvc, wishlistSvc, diagramSvc, moneyMonkey, payPinga, claudeClient, openaiClient, hubExecutor, origins)
+	router := hubehttp.NewRouter(taskSvc, eventSvc, appSvc, noteSvc, folderSvc, projectSvc, settingSvc, wishlistSvc, diagramSvc, ragSvc, moneyMonkey, payPinga, claudeClient, openaiClient, hubExecutor, origins)
 
 	addr := fmt.Sprintf(":%s", port)
 	log.Printf("hube API running on %s", addr)

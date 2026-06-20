@@ -9,9 +9,9 @@ import (
 	appai "github.com/husari/hube/internal/application/ai"
 	appapp "github.com/husari/hube/internal/application/app"
 	appdiagram "github.com/husari/hube/internal/application/diagram"
+	appnote "github.com/husari/hube/internal/application/note"
 	appevent "github.com/husari/hube/internal/application/event"
 	appfolder "github.com/husari/hube/internal/application/folder"
-	appnote "github.com/husari/hube/internal/application/note"
 	appproject "github.com/husari/hube/internal/application/project"
 	appsetting "github.com/husari/hube/internal/application/setting"
 	apptask "github.com/husari/hube/internal/application/task"
@@ -30,6 +30,7 @@ func NewRouter(
 	settingSvc *appsetting.Service,
 	wishlistSvc *appwishlist.Service,
 	diagramSvc *appdiagram.Service,
+	ragSvc *appnote.RAGService,
 	moneyMonkey *external.MoneyMonkeyClient,
 	payPinga *external.PayPingaClient,
 	claude  *external.ClaudeClient,
@@ -51,7 +52,7 @@ func NewRouter(
 		r.Route("/tasks", handler.NewTaskHandler(taskSvc).Routes())
 		r.Route("/events", handler.NewEventHandler(eventSvc).Routes())
 		r.Route("/apps", handler.NewAppHandler(appSvc).Routes())
-		r.Route("/notes", handler.NewNoteHandler(noteSvc).Routes())
+		r.Route("/notes", handler.NewNoteHandler(noteSvc, ragSvc).Routes())
 		r.Route("/folders", handler.NewFolderHandler(folderSvc).Routes())
 		r.Route("/projects", handler.NewProjectHandler(projectSvc).Routes())
 		r.Route("/wishlist", handler.NewWishlistHandler(wishlistSvc).Routes())

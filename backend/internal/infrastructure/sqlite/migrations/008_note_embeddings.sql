@@ -1,0 +1,1 @@
+ALTER TABLE notes ADD COLUMN embedding TEXT NOT NULL DEFAULT '';

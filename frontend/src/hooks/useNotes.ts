@@ -27,6 +27,21 @@ export function useSearchNotes(query: string) {
   })
 }
 
+export interface SemanticResult {
+  note: Note
+  score: number
+}
+
+export function useSemanticSearch(query: string) {
+  return useQuery<SemanticResult[]>({
+    queryKey: ['notes', 'semantic', query],
+    queryFn: () =>
+      api.post<SemanticResult[]>('/notes/semantic-search', { q: query, top_k: 5 }).then(r => r.data),
+    enabled: query.length > 2,
+    retry: false,
+  })
+}
+
 export function useCreateNote() {
   const qc = useQueryClient()
   return useMutation({

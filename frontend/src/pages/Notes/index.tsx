@@ -5,7 +5,7 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import {
   useNotes, useNote, useCreateNote, useUpdateNote, useDeleteNote,
-  useFolders, useCreateFolder, useDeleteFolder, useSearchNotes,
+  useFolders, useCreateFolder, useDeleteFolder, useSearchNotes, useSemanticSearch,
 } from '../../hooks/useNotes'
 
 type ViewMode = 'edit' | 'preview' | 'split'
@@ -14,13 +14,15 @@ export function NotesPage() {
   const [selectedFolder, setSelectedFolder] = useState<string | undefined>(undefined)
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
+  const [semanticMode, setSemanticMode] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>('split')
   const [newFolderName, setNewFolderName] = useState('')
   const [showNewFolder, setShowNewFolder] = useState(false)
 
   const { data: folders = [] } = useFolders()
   const { data: notes = [] } = useNotes(selectedFolder)
-  const { data: searchResults } = useSearchNotes(search)
+  const { data: searchResults } = useSearchNotes(semanticMode ? '' : search)
+  const { data: semanticResults } = useSemanticSearch(semanticMode ? search : '')
   const { data: activeNote } = useNote(selectedNoteId)
   const createNote = useCreateNote()
   const updateNote = useUpdateNote()
@@ -72,7 +74,11 @@ export function NotesPage() {
     })
   }
 
-  const displayNotes = search.length > 1 ? (searchResults ?? []) : notes
+  const displayNotes = search.length > 1
+    ? semanticMode
+      ? (semanticResults ?? []).map(r => r.note)
+      : (searchResults ?? [])
+    : notes
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -88,13 +94,19 @@ export function NotesPage() {
         </div>
 
         {/* Search */}
-        <div className="px-3 py-2 border-b border-gray-800">
+        <div className="px-3 py-2 border-b border-gray-800 space-y-1.5">
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Search..."
+            placeholder={semanticMode ? 'Semantic search…' : 'Search…'}
             className="w-full bg-gray-900 border border-gray-700 rounded-md px-2 py-1 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500"
           />
+          <button
+            onClick={() => setSemanticMode(m => !m)}
+            className={`text-xs px-2 py-0.5 rounded transition-colors ${semanticMode ? 'bg-indigo-700 text-indigo-200' : 'text-gray-600 hover:text-gray-400'}`}
+          >
+            ✦ Semantic
+          </button>
         </div>
 
         {/* All notes */}

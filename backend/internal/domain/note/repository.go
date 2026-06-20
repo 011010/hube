@@ -11,3 +11,14 @@ type Repository interface {
 	Delete(ctx context.Context, id string) error
 	SetTags(ctx context.Context, noteID string, tags []string) error
 }
+
+type EmbeddingRecord struct {
+	ID        string
+	Embedding []byte
+}
+
+type EmbeddingRepository interface {
+	Repository
+	StoreEmbedding(ctx context.Context, noteID string, embedding []byte) error
+	FindAllEmbeddings(ctx context.Context) ([]EmbeddingRecord, error)
+}
