@@ -9,6 +9,7 @@ export interface Task {
   status: TaskStatus
   due_date: string | null
   project_id: string | null
+  recurrence: string
   created_at: string
   updated_at: string
 }

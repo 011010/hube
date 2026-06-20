@@ -1,0 +1,2 @@
+ALTER TABLE tasks ADD COLUMN recurrence TEXT NOT NULL DEFAULT '';
+ALTER TABLE tasks ADD COLUMN last_recurred_at DATETIME;

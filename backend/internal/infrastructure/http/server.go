@@ -33,13 +33,14 @@ func NewRouter(
 	claude  *external.ClaudeClient,
 	openai  *external.OpenAIClient,
 	hubExec *appai.HubExecutor,
+	allowedOrigins []string,
 ) http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(chimiddleware.Logger)
 	r.Use(chimiddleware.Recoverer)
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins: []string{"http://localhost:5173", "http://localhost:4173"},
+		AllowedOrigins: allowedOrigins,
 		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders: []string{"Accept", "Authorization", "Content-Type"},
 	}))

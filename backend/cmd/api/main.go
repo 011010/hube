@@ -37,7 +37,9 @@ func main() {
 	}
 	defer db.Close()
 
-	taskSvc := apptask.NewService(sqlite.NewTaskRepo(db))
+	taskRepo := sqlite.NewTaskRepo(db)
+	taskSvc := apptask.NewService(taskRepo)
+	go apptask.NewScheduler(taskRepo).Run(context.Background())
 	eventSvc := appevent.NewService(sqlite.NewEventRepo(db))
 	appSvc := appapp.NewService(sqlite.NewAppRepo(db))
 	noteSvc := appnote.NewService(sqlite.NewNoteRepo(db))
@@ -91,7 +93,12 @@ func main() {
 
 	hubExecutor := appai.NewHubExecutor(taskSvc, noteSvc, projectSvc, eventSvc, appSvc)
 
-	router := hubehttp.NewRouter(taskSvc, eventSvc, appSvc, noteSvc, folderSvc, projectSvc, settingSvc, wishlistSvc, moneyMonkey, payPinga, claudeClient, openaiClient, hubExecutor)
+	origins := []string{"http://localhost:5173", "http://localhost:4173"}
+	if domain := os.Getenv("HUBE_DOMAIN"); domain != "" {
+		origins = append(origins, "https://"+domain, "http://"+domain)
+	}
+
+	router := hubehttp.NewRouter(taskSvc, eventSvc, appSvc, noteSvc, folderSvc, projectSvc, settingSvc, wishlistSvc, moneyMonkey, payPinga, claudeClient, openaiClient, hubExecutor, origins)
 
 	addr := fmt.Sprintf(":%s", port)
 	log.Printf("hube API running on %s", addr)

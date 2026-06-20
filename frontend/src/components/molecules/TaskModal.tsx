@@ -9,6 +9,7 @@ interface TaskForm {
   priority: Priority
   status: TaskStatus
   due_date: string
+  recurrence: string
 }
 
 interface TaskModalProps {
@@ -48,6 +49,7 @@ export function TaskModal({ open, onClose, onSave, task, isPending }: TaskModalP
     priority: 'medium',
     status: 'todo',
     due_date: '',
+    recurrence: '',
   })
 
   useEffect(() => {
@@ -58,6 +60,7 @@ export function TaskModal({ open, onClose, onSave, task, isPending }: TaskModalP
         priority: task?.priority ?? 'medium',
         status: task?.status ?? 'todo',
         due_date: task?.due_date?.slice(0, 10) ?? '',
+        recurrence: task?.recurrence ?? '',
       })
     }
   }, [open, task])
@@ -72,6 +75,7 @@ export function TaskModal({ open, onClose, onSave, task, isPending }: TaskModalP
       status: form.status,
       due_date: form.due_date || null,
       project_id: task?.project_id ?? null,
+      recurrence: form.recurrence,
     })
   }
 
@@ -149,6 +153,20 @@ export function TaskModal({ open, onClose, onSave, task, isPending }: TaskModalP
             </div>
           </div>
         )}
+
+        <div>
+          <p className="text-xs text-gray-500 mb-2">Recurrence</p>
+          <select
+            value={form.recurrence}
+            onChange={e => setForm(f => ({ ...f, recurrence: e.target.value }))}
+            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+          >
+            <option value="">None</option>
+            <option value="daily">Daily</option>
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
+          </select>
+        </div>
 
         <div className="flex justify-end gap-2 pt-1">
           <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>

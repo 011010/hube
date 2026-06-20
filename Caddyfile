@@ -1,0 +1,4 @@
+{$HUBE_DOMAIN} {
+    reverse_proxy /api/* api:8090
+    reverse_proxy /* web:80
+}

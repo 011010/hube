@@ -1,0 +1,50 @@
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    environment:
+      HUBE_DOMAIN: ${HUBE_DOMAIN}
+    depends_on:
+      - web
+      - api
+
+  api:
+    image: ghcr.io/011010/hube-api:latest
+    restart: unless-stopped
+    environment:
+      PORT: "8090"
+      DB_PATH: /data/hube.db
+      MONKEYAPI_URL: ${MONKEYAPI_URL:-}
+      MONKEYAPI_KEY: ${MONKEYAPI_KEY:-}
+      PAYPINGA_URL: ${PAYPINGA_URL:-}
+      PAYPINGA_KEY: ${PAYPINGA_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-}
+    volumes:
+      - db-data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8090/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  web:
+    image: ghcr.io/011010/hube-web:latest
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  db-data:
+  caddy-data:
+  caddy-config:
