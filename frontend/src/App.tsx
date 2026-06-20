@@ -13,6 +13,7 @@ import { AIPage } from './pages/AI'
 import { SettingsPage } from './pages/Settings'
 import { WishlistPage } from './pages/Wishlist'
 import { NetworkPage } from './pages/Network'
+import { DocsPage } from './pages/Docs'
 import { ErrorBoundary } from './components/ErrorBoundary'
 
 const queryClient = new QueryClient()
@@ -38,6 +39,7 @@ export default function App() {
                 <Route path="/wishlist" element={<WishlistPage />} />
                 <Route path="/network" element={<NetworkPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
+                <Route path="/docs" element={<DocsPage />} />
               </Routes>
               </ErrorBoundary>
             </main>
