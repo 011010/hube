@@ -26,6 +26,9 @@ var wishlistSQL string
 //go:embed migrations/006_task_recurrence.sql
 var taskRecurrenceSQL string
 
+//go:embed migrations/007_diagrams.sql
+var diagramsSQL string
+
 type migration struct {
 	name string
 	sql  string
@@ -38,6 +41,7 @@ var migrations = []migration{
 	{"004_settings", settingsSQL},
 	{"005_wishlist", wishlistSQL},
 	{"006_task_recurrence", taskRecurrenceSQL},
+	{"007_diagrams", diagramsSQL},
 }
 
 func Open(path string) (*sqlx.DB, error) {

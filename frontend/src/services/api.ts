@@ -1,5 +1,5 @@
 import axios from 'axios'
-import type { Task, CalendarEvent, App, WishlistItem } from '../types'
+import type { Task, CalendarEvent, App, WishlistItem, Diagram } from '../types'
 
 const http = axios.create({ baseURL: import.meta.env.VITE_API_URL ?? '/api/v1' })
 
@@ -32,6 +32,16 @@ export const appsApi = {
   update: (id: string, data: Partial<App>) =>
     http.put<App>(`/apps/${id}`, data).then(r => r.data),
   delete: (id: string) => http.delete(`/apps/${id}`),
+}
+
+export const diagramsApi = {
+  list: () => http.get<Diagram[]>('/diagrams').then(r => r.data),
+  get: (id: string) => http.get<Diagram>(`/diagrams/${id}`).then(r => r.data),
+  create: (data: Pick<Diagram, 'name'>) =>
+    http.post<Diagram>('/diagrams', data).then(r => r.data),
+  update: (id: string, data: Partial<Diagram>) =>
+    http.put<Diagram>(`/diagrams/${id}`, data).then(r => r.data),
+  delete: (id: string) => http.delete(`/diagrams/${id}`),
 }
 
 export const wishlistApi = {

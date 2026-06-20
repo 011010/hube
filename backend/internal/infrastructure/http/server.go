@@ -8,6 +8,7 @@ import (
 	"github.com/go-chi/cors"
 	appai "github.com/husari/hube/internal/application/ai"
 	appapp "github.com/husari/hube/internal/application/app"
+	appdiagram "github.com/husari/hube/internal/application/diagram"
 	appevent "github.com/husari/hube/internal/application/event"
 	appfolder "github.com/husari/hube/internal/application/folder"
 	appnote "github.com/husari/hube/internal/application/note"
@@ -28,6 +29,7 @@ func NewRouter(
 	projectSvc *appproject.Service,
 	settingSvc *appsetting.Service,
 	wishlistSvc *appwishlist.Service,
+	diagramSvc *appdiagram.Service,
 	moneyMonkey *external.MoneyMonkeyClient,
 	payPinga *external.PayPingaClient,
 	claude  *external.ClaudeClient,
@@ -53,6 +55,7 @@ func NewRouter(
 		r.Route("/folders", handler.NewFolderHandler(folderSvc).Routes())
 		r.Route("/projects", handler.NewProjectHandler(projectSvc).Routes())
 		r.Route("/wishlist", handler.NewWishlistHandler(wishlistSvc).Routes())
+		r.Route("/diagrams", handler.NewDiagramHandler(diagramSvc).Routes())
 		sh := handler.NewSettingHandler(settingSvc)
 		r.Get("/settings", sh.Get)
 		r.Put("/settings", sh.Put)

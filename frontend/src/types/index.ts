@@ -106,6 +106,15 @@ export interface App {
   active: boolean
 }
 
+export interface Diagram {
+  id: string
+  name: string
+  nodes: string
+  edges: string
+  created_at: string
+  updated_at: string
+}
+
 export type WishlistStatus = 'pending' | 'purchased'
 
 export interface WishlistItem {
