@@ -14,6 +14,7 @@ import (
 
 	appai "github.com/husari/hube/internal/application/ai"
 	appapp "github.com/husari/hube/internal/application/app"
+	"github.com/husari/hube/internal/application/backup"
 	appdiagram "github.com/husari/hube/internal/application/diagram"
 	appemail "github.com/husari/hube/internal/application/email"
 	appevent "github.com/husari/hube/internal/application/event"
@@ -122,12 +123,25 @@ func main() {
 
 	hubExecutor := appai.NewHubExecutor(taskSvc, noteSvc, projectSvc, eventSvc, appSvc)
 
+	backupSvc := backup.NewService(db, dbPath, os.Getenv("BACKUP_DIR"), 7)
+	go backupSvc.Run(ctx)
+
+	exportSvc := backup.NewExportService(
+		sqlite.NewNoteRepo(db),
+		sqlite.NewTaskRepo(db),
+		sqlite.NewEventRepo(db),
+		sqlite.NewAppRepo(db),
+		sqlite.NewWishlistRepo(db),
+		sqlite.NewProjectRepo(db),
+		sqlite.NewDiagramRepo(db),
+	)
+
 	origins := []string{"http://localhost:5173", "http://localhost:4173"}
 	if domain := os.Getenv("HUBE_DOMAIN"); domain != "" {
 		origins = append(origins, "https://"+domain, "http://"+domain)
 	}
 
-	router := hubehttp.NewRouter(taskSvc, eventSvc, appSvc, noteSvc, folderSvc, projectSvc, settingSvc, wishlistSvc, diagramSvc, ragSvc, emailSvc, moneyMonkey, payPinga, claudeClient, openaiClient, hubExecutor, origins)
+	router := hubehttp.NewRouter(taskSvc, eventSvc, appSvc, noteSvc, folderSvc, projectSvc, settingSvc, wishlistSvc, diagramSvc, ragSvc, emailSvc, moneyMonkey, payPinga, claudeClient, openaiClient, hubExecutor, backupSvc, exportSvc, origins)
 
 	addr := fmt.Sprintf(":%s", port)
 	log.Printf("hube API running on %s", addr)

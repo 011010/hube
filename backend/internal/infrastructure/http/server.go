@@ -8,6 +8,7 @@ import (
 	"github.com/go-chi/cors"
 	appai "github.com/husari/hube/internal/application/ai"
 	appapp "github.com/husari/hube/internal/application/app"
+	"github.com/husari/hube/internal/application/backup"
 	appdiagram "github.com/husari/hube/internal/application/diagram"
 	appemail "github.com/husari/hube/internal/application/email"
 	appnote "github.com/husari/hube/internal/application/note"
@@ -35,9 +36,11 @@ func NewRouter(
 	emailSvc *appemail.Service,
 	moneyMonkey *external.MoneyMonkeyClient,
 	payPinga *external.PayPingaClient,
-	claude  *external.ClaudeClient,
-	openai  *external.OpenAIClient,
+	claude *external.ClaudeClient,
+	openai *external.OpenAIClient,
 	hubExec *appai.HubExecutor,
+	backupSvc *backup.Service,
+	exportSvc *backup.ExportService,
 	allowedOrigins []string,
 ) http.Handler {
 	r := chi.NewRouter()
@@ -73,6 +76,12 @@ func NewRouter(
 		r.Get("/finance/summary", handler.NewFinanceHandler(moneyMonkey).Summary)
 		r.Get("/cards/summary", handler.NewCardTrackerHandler(payPinga).Summary)
 		r.Post("/ai/chat", handler.NewAIHandler(claude, openai, hubExec).Chat)
+
+		if backupSvc != nil || exportSvc != nil {
+			bh := handler.NewBackupHandler(backupSvc, exportSvc)
+			r.Post("/backup", bh.CreateBackup)
+			r.Get("/export", bh.Export)
+		}
 	})
 
 	r.Get("/health", func(w http.ResponseWriter, _ *http.Request) {

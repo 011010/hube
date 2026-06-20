@@ -107,6 +107,53 @@ function EmailSection() {
   )
 }
 
+function ExportSection() {
+  const [status, setStatus] = useState<'idle' | 'exporting' | 'err'>('idle')
+  const [errMsg, setErrMsg] = useState('')
+
+  async function handleExport() {
+    setStatus('exporting')
+    try {
+      const res = await fetch('/api/v1/export')
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({ error: res.statusText }))
+        throw new Error(body?.error ?? res.statusText)
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `hube_export_${new Date().toISOString().slice(0, 10)}.zip`
+      a.click()
+      URL.revokeObjectURL(url)
+      setStatus('idle')
+    } catch (e: unknown) {
+      setErrMsg(e instanceof Error ? e.message : String(e))
+      setStatus('err')
+      setTimeout(() => setStatus('idle'), 4000)
+    }
+  }
+
+  return (
+    <Section title="Export data">
+      <p className="text-xs text-gray-400 dark:text-gray-600 mb-4">
+        Download all your data as a ZIP archive — notes (Markdown), tasks, events (iCal), apps,
+        wishlist, projects, and diagrams (JSON).
+      </p>
+      <button
+        onClick={handleExport}
+        disabled={status === 'exporting'}
+        className="px-4 py-2 bg-(--color-accent) hover:bg-(--color-accent-hover) disabled:opacity-50 text-white text-sm rounded-lg transition-colors"
+      >
+        {status === 'exporting' ? 'Exporting…' : 'Export data'}
+      </button>
+      {status === 'err' && (
+        <p className="text-xs text-red-400 mt-2">{errMsg}</p>
+      )}
+    </Section>
+  )
+}
+
 export function SettingsPage() {
   const { data, isLoading } = useSettings()
   const update = useUpdateSettings()
@@ -262,6 +309,8 @@ export function SettingsPage() {
       </Section>
 
       <EmailSection />
+
+      <ExportSection />
 
       <Section title="System">
         <div className="grid grid-cols-2 gap-4 text-sm">
