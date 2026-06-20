@@ -13,6 +13,7 @@ import { AIPage } from './pages/AI'
 import { SettingsPage } from './pages/Settings'
 import { WishlistPage } from './pages/Wishlist'
 import { NetworkPage } from './pages/Network'
+import { ErrorBoundary } from './components/ErrorBoundary'
 
 const queryClient = new QueryClient()
 
@@ -24,6 +25,7 @@ export default function App() {
           <div className="flex h-screen overflow-hidden bg-gray-50 dark:bg-gray-950">
             <Sidebar />
             <main className="flex-1 overflow-y-auto">
+              <ErrorBoundary>
               <Routes>
                 <Route path="/" element={<DashboardPage />} />
                 <Route path="/launcher" element={<LauncherPage />} />
@@ -37,6 +39,7 @@ export default function App() {
                 <Route path="/network" element={<NetworkPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
               </Routes>
+              </ErrorBoundary>
             </main>
           </div>
         </BrowserRouter>

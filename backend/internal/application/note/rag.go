@@ -27,7 +27,11 @@ func (s *RAGService) IndexNote(ctx context.Context, n *note.Note) {
 		log.Printf("rag: embed note %s: %v", n.ID, err)
 		return
 	}
-	data, _ := json.Marshal(vec)
+	data, err := json.Marshal(vec)
+	if err != nil {
+		log.Printf("rag: marshal embedding %s: %v", n.ID, err)
+		return
+	}
 	if err := s.repo.StoreEmbedding(ctx, n.ID, data); err != nil {
 		log.Printf("rag: store embedding %s: %v", n.ID, err)
 	}

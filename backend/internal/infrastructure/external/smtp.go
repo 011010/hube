@@ -7,6 +7,11 @@ import (
 	"strings"
 )
 
+// sanitizeHeader removes CR/LF to prevent header injection.
+func sanitizeHeader(s string) string {
+	return strings.NewReplacer("\r", "", "\n", "").Replace(s)
+}
+
 type SMTPClient struct {
 	host string
 	port string
@@ -25,9 +30,13 @@ func NewSMTPClient(host, port, user, pass, from string) *SMTPClient {
 func (c *SMTPClient) Send(to []string, subject, body string) error {
 	addr := c.host + ":" + c.port
 
-	msg := "From: " + c.from + "\r\n" +
-		"To: " + strings.Join(to, ", ") + "\r\n" +
-		"Subject: " + subject + "\r\n" +
+	cleanTo := make([]string, len(to))
+	for i, addr := range to {
+		cleanTo[i] = sanitizeHeader(addr)
+	}
+	msg := "From: " + sanitizeHeader(c.from) + "\r\n" +
+		"To: " + strings.Join(cleanTo, ", ") + "\r\n" +
+		"Subject: " + sanitizeHeader(subject) + "\r\n" +
 		"MIME-Version: 1.0\r\n" +
 		"Content-Type: text/plain; charset=UTF-8\r\n" +
 		"\r\n" +

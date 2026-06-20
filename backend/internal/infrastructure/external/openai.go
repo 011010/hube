@@ -8,12 +8,15 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	aidom "github.com/husari/hube/internal/domain/ai"
 )
 
 const defaultOpenAIBase = "https://api.openai.com/v1"
 const defaultOpenAIModel = "gpt-4o"
+
+var httpClient = &http.Client{Timeout: 60 * time.Second}
 
 type OpenAIClient struct {
 	apiKey  string
@@ -141,7 +144,7 @@ func (c *OpenAIClient) Chat(
 		httpReq.Header.Set("Content-Type", "application/json")
 		httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
 
-		resp, err := http.DefaultClient.Do(httpReq)
+		resp, err := httpClient.Do(httpReq)
 		if err != nil {
 			return err
 		}

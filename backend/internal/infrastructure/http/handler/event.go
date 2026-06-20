@@ -55,7 +55,7 @@ func (h *EventHandler) list(w http.ResponseWriter, r *http.Request) {
 func (h *EventHandler) get(w http.ResponseWriter, r *http.Request) {
 	e, err := h.svc.Get(r.Context(), chi.URLParam(r, "id"))
 	if err != nil {
-		writeError(w, http.StatusNotFound, err)
+		writeError(w, http.StatusNotFound, nil)
 		return
 	}
 	writeJSON(w, http.StatusOK, e)
@@ -75,17 +75,22 @@ func (h *EventHandler) create(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *EventHandler) update(w http.ResponseWriter, r *http.Request) {
-	var e event.Event
-	if err := json.NewDecoder(r.Body).Decode(&e); err != nil {
+	id := chi.URLParam(r, "id")
+	existing, err := h.svc.Get(r.Context(), id)
+	if err != nil || existing == nil {
+		writeError(w, http.StatusNotFound, nil)
+		return
+	}
+	if err := json.NewDecoder(r.Body).Decode(existing); err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
-	e.ID = chi.URLParam(r, "id")
-	if err := h.svc.Update(r.Context(), &e); err != nil {
+	existing.ID = id
+	if err := h.svc.Update(r.Context(), existing); err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, e)
+	writeJSON(w, http.StatusOK, existing)
 }
 
 func (h *EventHandler) delete(w http.ResponseWriter, r *http.Request) {

@@ -1,4 +1,5 @@
 import { useTasks } from '../../hooks/useTasks'
+import { safeHref } from '../../utils/url'
 import { useApps } from '../../hooks/useApps'
 import { Badge } from '../../components/atoms/Badge'
 import { FinanceWidgets } from '../../components/organisms/FinanceWidgets'
@@ -55,7 +56,7 @@ export function DashboardPage() {
           {apps.map(app => (
             <a
               key={app.id}
-              href={app.url}
+              href={safeHref(app.url)}
               target="_blank"
               rel="noreferrer"
               className="flex items-center gap-2 bg-gray-900 hover:bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 transition-colors"

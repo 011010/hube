@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { safeHref } from '../../utils/url'
 import { useWishlist, useCreateWishlistItem, useUpdateWishlistItem, useDeleteWishlistItem } from '../../hooks/useWishlist'
 import { Badge } from '../../components/atoms/Badge'
 import { Button } from '../../components/atoms/Button'
@@ -221,7 +222,7 @@ export function WishlistPage() {
               <Badge label={item.priority} variant={priorityVariant(item.priority)} />
               {item.url && (
                 <a
-                  href={item.url}
+                  href={safeHref(item.url)}
                   target="_blank"
                   rel="noreferrer"
                   className="text-gray-600 hover:text-indigo-400 text-xs transition-colors"

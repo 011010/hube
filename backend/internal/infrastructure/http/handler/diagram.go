@@ -37,7 +37,7 @@ func (h *DiagramHandler) list(w http.ResponseWriter, r *http.Request) {
 func (h *DiagramHandler) get(w http.ResponseWriter, r *http.Request) {
 	d, err := h.svc.Get(r.Context(), chi.URLParam(r, "id"))
 	if err != nil {
-		writeError(w, http.StatusNotFound, err)
+		writeError(w, http.StatusNotFound, nil)
 		return
 	}
 	writeJSON(w, http.StatusOK, d)
@@ -57,17 +57,22 @@ func (h *DiagramHandler) create(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *DiagramHandler) update(w http.ResponseWriter, r *http.Request) {
-	var d diagram.Diagram
-	if err := json.NewDecoder(r.Body).Decode(&d); err != nil {
+	id := chi.URLParam(r, "id")
+	existing, err := h.svc.Get(r.Context(), id)
+	if err != nil || existing == nil {
+		writeError(w, http.StatusNotFound, nil)
+		return
+	}
+	if err := json.NewDecoder(r.Body).Decode(existing); err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
-	d.ID = chi.URLParam(r, "id")
-	if err := h.svc.Update(r.Context(), &d); err != nil {
+	existing.ID = id
+	if err := h.svc.Update(r.Context(), existing); err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, d)
+	writeJSON(w, http.StatusOK, existing)
 }
 
 func (h *DiagramHandler) delete(w http.ResponseWriter, r *http.Request) {

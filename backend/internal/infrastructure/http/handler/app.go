@@ -35,7 +35,7 @@ func (h *AppHandler) list(w http.ResponseWriter, r *http.Request) {
 func (h *AppHandler) get(w http.ResponseWriter, r *http.Request) {
 	a, err := h.svc.Get(r.Context(), chi.URLParam(r, "id"))
 	if err != nil {
-		writeError(w, http.StatusNotFound, err)
+		writeError(w, http.StatusNotFound, nil)
 		return
 	}
 	writeJSON(w, http.StatusOK, a)

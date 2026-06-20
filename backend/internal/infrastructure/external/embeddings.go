@@ -47,7 +47,7 @@ func (c *EmbeddingsClient) Embed(ctx context.Context, text string) ([]float32, e
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+c.apiKey)
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("embeddings request: %w", err)
 	}

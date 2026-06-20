@@ -37,7 +37,7 @@ func (h *WishlistHandler) list(w http.ResponseWriter, r *http.Request) {
 func (h *WishlistHandler) get(w http.ResponseWriter, r *http.Request) {
 	item, err := h.svc.Get(r.Context(), chi.URLParam(r, "id"))
 	if err != nil {
-		writeError(w, http.StatusNotFound, err)
+		writeError(w, http.StatusNotFound, nil)
 		return
 	}
 	writeJSON(w, http.StatusOK, item)
@@ -57,17 +57,22 @@ func (h *WishlistHandler) create(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *WishlistHandler) update(w http.ResponseWriter, r *http.Request) {
-	var item wishlist.Item
-	if err := json.NewDecoder(r.Body).Decode(&item); err != nil {
+	id := chi.URLParam(r, "id")
+	existing, err := h.svc.Get(r.Context(), id)
+	if err != nil || existing == nil {
+		writeError(w, http.StatusNotFound, nil)
+		return
+	}
+	if err := json.NewDecoder(r.Body).Decode(existing); err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
-	item.ID = chi.URLParam(r, "id")
-	if err := h.svc.Update(r.Context(), &item); err != nil {
+	existing.ID = id
+	if err := h.svc.Update(r.Context(), existing); err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, item)
+	writeJSON(w, http.StatusOK, existing)
 }
 
 func (h *WishlistHandler) delete(w http.ResponseWriter, r *http.Request) {

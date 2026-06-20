@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -84,7 +85,7 @@ func (h *NoteHandler) semanticSearch(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, fmt.Errorf("q is required"))
 		return
 	}
-	if body.TopK == 0 {
+	if body.TopK <= 0 || body.TopK > 50 {
 		body.TopK = 5
 	}
 	results, err := h.rag.SemanticSearch(r.Context(), body.Q, body.TopK)
@@ -106,26 +107,32 @@ func (h *NoteHandler) create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if h.rag != nil {
-		go h.rag.IndexNote(r.Context(), &n)
+		// Detach from request context so indexing isn't cancelled when the handler returns.
+		go h.rag.IndexNote(context.WithoutCancel(r.Context()), &n)
 	}
 	writeJSON(w, http.StatusCreated, n)
 }
 
 func (h *NoteHandler) update(w http.ResponseWriter, r *http.Request) {
-	var n note.Note
-	if err := json.NewDecoder(r.Body).Decode(&n); err != nil {
+	id := chi.URLParam(r, "id")
+	existing, err := h.svc.Get(r.Context(), id)
+	if err != nil || existing == nil {
+		writeError(w, http.StatusNotFound, nil)
+		return
+	}
+	if err := json.NewDecoder(r.Body).Decode(existing); err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
-	n.ID = chi.URLParam(r, "id")
-	if err := h.svc.Update(r.Context(), &n); err != nil {
+	existing.ID = id
+	if err := h.svc.Update(r.Context(), existing); err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
 	if h.rag != nil {
-		go h.rag.IndexNote(r.Context(), &n)
+		go h.rag.IndexNote(context.WithoutCancel(r.Context()), existing)
 	}
-	writeJSON(w, http.StatusOK, n)
+	writeJSON(w, http.StatusOK, existing)
 }
 
 func (h *NoteHandler) delete(w http.ResponseWriter, r *http.Request) {

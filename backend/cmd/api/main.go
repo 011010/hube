@@ -6,6 +6,9 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	appai "github.com/husari/hube/internal/application/ai"
 	appapp "github.com/husari/hube/internal/application/app"
@@ -39,9 +42,12 @@ func main() {
 	}
 	defer db.Close()
 
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
 	taskRepo := sqlite.NewTaskRepo(db)
 	taskSvc := apptask.NewService(taskRepo)
-	go apptask.NewScheduler(taskRepo).Run(context.Background())
+	go apptask.NewScheduler(taskRepo).Run(ctx)
 	eventSvc := appevent.NewService(sqlite.NewEventRepo(db))
 	appSvc := appapp.NewService(sqlite.NewAppRepo(db))
 	noteRepo := sqlite.NewNoteRepo(db)
@@ -62,7 +68,6 @@ func main() {
 	settingSvc := appsetting.NewService(settingRepo)
 
 	// Seed integration config from env vars (only if not already stored in DB)
-	ctx := context.Background()
 	for k, v := range map[string]string{
 		"integration.monkeyapi_url":  os.Getenv("MONKEYAPI_URL"),
 		"integration.monkeyapi_key":  os.Getenv("MONKEYAPI_KEY"),
@@ -120,7 +125,14 @@ func main() {
 
 	addr := fmt.Sprintf(":%s", port)
 	log.Printf("hube API running on %s", addr)
-	if err := http.ListenAndServe(addr, router); err != nil {
+	srv := &http.Server{
+		Addr:         addr,
+		Handler:      router,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 60 * time.Second,
+		IdleTimeout:  120 * time.Second,
+	}
+	if err := srv.ListenAndServe(); err != nil {
 		log.Fatal(err)
 	}
 }

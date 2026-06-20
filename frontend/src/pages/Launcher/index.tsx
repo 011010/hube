@@ -1,4 +1,5 @@
 import { useApps } from '../../hooks/useApps'
+import { safeHref } from '../../utils/url'
 
 export function LauncherPage() {
   const { data: apps = [], isLoading } = useApps()
@@ -11,7 +12,7 @@ export function LauncherPage() {
         {apps.map(app => (
           <a
             key={app.id}
-            href={app.url}
+            href={safeHref(app.url)}
             target="_blank"
             rel="noreferrer"
             className="group flex flex-col items-center gap-3 bg-gray-900 hover:bg-gray-800 border border-gray-800 hover:border-gray-600 rounded-2xl p-6 transition-all"

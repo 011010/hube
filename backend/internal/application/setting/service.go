@@ -9,8 +9,10 @@ import (
 const masked = "••••••••"
 
 var sensitiveKeys = map[string]bool{
-	"integration.monkeyapi_key": true,
-	"integration.paypinga_key":  true,
+	"integration.monkeyapi_key":  true,
+	"integration.paypinga_key":   true,
+	"integration.claude_api_key": true,
+	"integration.openai_api_key": true,
 }
 
 type Service struct{ repo *sqlite.SettingRepo }

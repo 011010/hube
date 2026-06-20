@@ -12,8 +12,8 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 }
 
 func writeError(w http.ResponseWriter, status int, err error) {
-	msg := "internal error"
-	if err != nil {
+	msg := "internal server error"
+	if status < 500 && err != nil {
 		msg = err.Error()
 	}
 	writeJSON(w, status, map[string]string{"error": msg})

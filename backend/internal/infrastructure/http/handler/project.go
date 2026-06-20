@@ -59,17 +59,22 @@ func (h *ProjectHandler) create(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *ProjectHandler) update(w http.ResponseWriter, r *http.Request) {
-	var p project.Project
-	if err := json.NewDecoder(r.Body).Decode(&p); err != nil {
+	id := chi.URLParam(r, "id")
+	existing, err := h.svc.Get(r.Context(), id)
+	if err != nil || existing == nil {
+		writeError(w, http.StatusNotFound, nil)
+		return
+	}
+	if err := json.NewDecoder(r.Body).Decode(existing); err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
-	p.ID = chi.URLParam(r, "id")
-	if err := h.svc.Update(r.Context(), &p); err != nil {
+	existing.ID = id
+	if err := h.svc.Update(r.Context(), existing); err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, p)
+	writeJSON(w, http.StatusOK, existing)
 }
 
 func (h *ProjectHandler) delete(w http.ResponseWriter, r *http.Request) {

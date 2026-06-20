@@ -69,15 +69,26 @@ func Open(path string) (*sqlx.DB, error) {
 
 	for _, m := range migrations {
 		var count int
-		db.QueryRow(`SELECT COUNT(*) FROM schema_migrations WHERE name = ?`, m.name).Scan(&count)
+		if err := db.QueryRow(`SELECT COUNT(*) FROM schema_migrations WHERE name = ?`, m.name).Scan(&count); err != nil {
+			return nil, fmt.Errorf("check migration %s: %w", m.name, err)
+		}
 		if count > 0 {
 			continue
 		}
-		if _, err = db.Exec(m.sql); err != nil {
+		tx, err := db.Begin()
+		if err != nil {
+			return nil, fmt.Errorf("begin migration %s: %w", m.name, err)
+		}
+		if _, err = tx.Exec(m.sql); err != nil {
+			tx.Rollback()
 			return nil, fmt.Errorf("run migration %s: %w", m.name, err)
 		}
-		if _, err = db.Exec(`INSERT INTO schema_migrations (name) VALUES (?)`, m.name); err != nil {
+		if _, err = tx.Exec(`INSERT INTO schema_migrations (name) VALUES (?)`, m.name); err != nil {
+			tx.Rollback()
 			return nil, fmt.Errorf("record migration %s: %w", m.name, err)
+		}
+		if err = tx.Commit(); err != nil {
+			return nil, fmt.Errorf("commit migration %s: %w", m.name, err)
 		}
 	}
 

@@ -49,12 +49,14 @@ function applyTheme(mode: ThemeMode, accent: AccentColor) {
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [mode, setModeState] = useState<ThemeMode>(
-    () => (localStorage.getItem('theme-mode') as ThemeMode) ?? 'dark'
-  )
-  const [accent, setAccentState] = useState<AccentColor>(
-    () => (localStorage.getItem('theme-accent') as AccentColor) ?? 'indigo'
-  )
+  const [mode, setModeState] = useState<ThemeMode>(() => {
+    const v = localStorage.getItem('theme-mode')
+    return (v === 'dark' || v === 'light' || v === 'system') ? v : 'dark'
+  })
+  const [accent, setAccentState] = useState<AccentColor>(() => {
+    const v = localStorage.getItem('theme-accent')
+    return (v === 'indigo' || v === 'violet' || v === 'rose' || v === 'emerald' || v === 'sky' || v === 'orange') ? v : 'indigo'
+  })
 
   useEffect(() => {
     applyTheme(mode, accent)

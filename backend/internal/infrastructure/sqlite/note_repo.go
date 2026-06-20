@@ -84,6 +84,9 @@ func (r *NoteRepo) FindByID(ctx context.Context, id string) (*note.Note, error) 
 }
 
 func (r *NoteRepo) Search(ctx context.Context, query string) ([]note.Note, error) {
+	if len(query) > 500 {
+		query = query[:500]
+	}
 	rows := make([]noteRow, 0)
 	err := r.db.SelectContext(ctx, &rows, `
 		SELECT n.id, n.title, n.content, n.folder_id, n.created_at, n.updated_at
@@ -93,7 +96,8 @@ func (r *NoteRepo) Search(ctx context.Context, query string) ([]note.Note, error
 		ORDER BY rank
 	`, query+"*")
 	if err != nil {
-		return nil, err
+		// FTS syntax errors are user input errors, not server faults.
+		return []note.Note{}, nil
 	}
 	notes := make([]note.Note, 0, len(rows))
 	for _, row := range rows {
