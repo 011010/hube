@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import axios from 'axios'
 import { useSettings, useUpdateSettings } from '../../hooks/useSettings'
 import type { Settings } from '../../hooks/useSettings'
 import { useTheme } from '../../contexts/ThemeContext'
@@ -53,6 +54,58 @@ const ACCENTS: { value: AccentColor; color: string }[] = [
   { value: 'sky',     color: 'oklch(62.72% 0.198 237.08)' },
   { value: 'orange',  color: 'oklch(65.87% 0.216  47.40)' },
 ]
+
+const api = axios.create({ baseURL: '/api/v1' })
+
+function EmailSection() {
+  const toRef = useRef<HTMLInputElement>(null)
+  const [status, setStatus] = useState<'idle' | 'sending' | 'ok' | 'err'>('idle')
+  const [errMsg, setErrMsg] = useState('')
+
+  async function sendDigest() {
+    const to = toRef.current?.value.trim()
+    if (!to) return
+    setStatus('sending')
+    try {
+      await api.post('/email/digest', { to: [to] })
+      setStatus('ok')
+      setTimeout(() => setStatus('idle'), 3000)
+    } catch (e: unknown) {
+      const msg = axios.isAxiosError(e) ? e.response?.data?.error ?? e.message : String(e)
+      setErrMsg(msg)
+      setStatus('err')
+      setTimeout(() => setStatus('idle'), 4000)
+    }
+  }
+
+  return (
+    <Section title="Email digest">
+      <p className="text-xs text-gray-400 dark:text-gray-600 mb-4">
+        Sends a plain-text task digest to the specified address. Configure SMTP via{' '}
+        <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded text-[11px]">SMTP_HOST / SMTP_USER / SMTP_PASS / SMTP_FROM</code>{' '}
+        environment variables on the server.
+      </p>
+      <div className="flex gap-2">
+        <input
+          ref={toRef}
+          type="email"
+          className={INPUT + ' flex-1'}
+          placeholder="you@example.com"
+        />
+        <button
+          onClick={sendDigest}
+          disabled={status === 'sending'}
+          className="px-4 py-2 bg-(--color-accent) hover:bg-(--color-accent-hover) disabled:opacity-50 text-white text-sm rounded-lg transition-colors whitespace-nowrap"
+        >
+          {status === 'sending' ? 'Sending…' : status === 'ok' ? '✓ Sent' : 'Send digest'}
+        </button>
+      </div>
+      {status === 'err' && (
+        <p className="text-xs text-red-400 mt-2">{errMsg}</p>
+      )}
+    </Section>
+  )
+}
 
 export function SettingsPage() {
   const { data, isLoading } = useSettings()
@@ -207,6 +260,8 @@ export function SettingsPage() {
           </Field>
         </div>
       </Section>
+
+      <EmailSection />
 
       <Section title="System">
         <div className="grid grid-cols-2 gap-4 text-sm">

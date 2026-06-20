@@ -10,6 +10,7 @@ import (
 	appai "github.com/husari/hube/internal/application/ai"
 	appapp "github.com/husari/hube/internal/application/app"
 	appdiagram "github.com/husari/hube/internal/application/diagram"
+	appemail "github.com/husari/hube/internal/application/email"
 	appevent "github.com/husari/hube/internal/application/event"
 	appfolder "github.com/husari/hube/internal/application/folder"
 	appnote "github.com/husari/hube/internal/application/note"
@@ -101,6 +102,13 @@ func main() {
 		log.Printf("OpenAI-compatible provider enabled (base: %s)", os.Getenv("OPENAI_BASE_URL"))
 	}
 
+	var emailSvc *appemail.Service
+	if host := os.Getenv("SMTP_HOST"); host != "" {
+		smtpClient := external.NewSMTPClient(host, os.Getenv("SMTP_PORT"), os.Getenv("SMTP_USER"), os.Getenv("SMTP_PASS"), os.Getenv("SMTP_FROM"))
+		emailSvc = appemail.NewService(smtpClient, taskSvc)
+		log.Printf("Email (SMTP) enabled: %s", host)
+	}
+
 	hubExecutor := appai.NewHubExecutor(taskSvc, noteSvc, projectSvc, eventSvc, appSvc)
 
 	origins := []string{"http://localhost:5173", "http://localhost:4173"}
@@ -108,7 +116,7 @@ func main() {
 		origins = append(origins, "https://"+domain, "http://"+domain)
 	}
 
-	router := hubehttp.NewRouter(taskSvc, eventSvc, appSvc, noteSvc, folderSvc, projectSvc, settingSvc, wishlistSvc, diagramSvc, ragSvc, moneyMonkey, payPinga, claudeClient, openaiClient, hubExecutor, origins)
+	router := hubehttp.NewRouter(taskSvc, eventSvc, appSvc, noteSvc, folderSvc, projectSvc, settingSvc, wishlistSvc, diagramSvc, ragSvc, emailSvc, moneyMonkey, payPinga, claudeClient, openaiClient, hubExecutor, origins)
 
 	addr := fmt.Sprintf(":%s", port)
 	log.Printf("hube API running on %s", addr)

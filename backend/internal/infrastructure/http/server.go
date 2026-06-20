@@ -9,6 +9,7 @@ import (
 	appai "github.com/husari/hube/internal/application/ai"
 	appapp "github.com/husari/hube/internal/application/app"
 	appdiagram "github.com/husari/hube/internal/application/diagram"
+	appemail "github.com/husari/hube/internal/application/email"
 	appnote "github.com/husari/hube/internal/application/note"
 	appevent "github.com/husari/hube/internal/application/event"
 	appfolder "github.com/husari/hube/internal/application/folder"
@@ -31,6 +32,7 @@ func NewRouter(
 	wishlistSvc *appwishlist.Service,
 	diagramSvc *appdiagram.Service,
 	ragSvc *appnote.RAGService,
+	emailSvc *appemail.Service,
 	moneyMonkey *external.MoneyMonkeyClient,
 	payPinga *external.PayPingaClient,
 	claude  *external.ClaudeClient,
@@ -60,6 +62,8 @@ func NewRouter(
 		sh := handler.NewSettingHandler(settingSvc)
 		r.Get("/settings", sh.Get)
 		r.Put("/settings", sh.Put)
+		eh := handler.NewEmailHandler(emailSvc)
+		r.Post("/email/digest", eh.SendDigest)
 		r.Get("/finance/summary", handler.NewFinanceHandler(moneyMonkey).Summary)
 		r.Get("/cards/summary", handler.NewCardTrackerHandler(payPinga).Summary)
 		r.Post("/ai/chat", handler.NewAIHandler(claude, openai, hubExec).Chat)
