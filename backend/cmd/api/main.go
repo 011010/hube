@@ -8,6 +8,8 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+
+	"github.com/joho/godotenv"
 	"time"
 
 	appai "github.com/husari/hube/internal/application/ai"
@@ -27,6 +29,10 @@ import (
 )
 
 func main() {
+	if err := godotenv.Load(); err == nil {
+		log.Println("loaded .env")
+	}
+
 	dbPath := os.Getenv("DB_PATH")
 	if dbPath == "" {
 		dbPath = "./hube.db"

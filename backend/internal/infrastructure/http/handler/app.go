@@ -55,17 +55,22 @@ func (h *AppHandler) create(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AppHandler) update(w http.ResponseWriter, r *http.Request) {
-	var a app.App
-	if err := json.NewDecoder(r.Body).Decode(&a); err != nil {
+	id := chi.URLParam(r, "id")
+	existing, err := h.svc.Get(r.Context(), id)
+	if err != nil || existing == nil {
+		writeError(w, http.StatusNotFound, nil)
+		return
+	}
+	if err := json.NewDecoder(r.Body).Decode(existing); err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
-	a.ID = chi.URLParam(r, "id")
-	if err := h.svc.Update(r.Context(), &a); err != nil {
+	existing.ID = id
+	if err := h.svc.Update(r.Context(), existing); err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, a)
+	writeJSON(w, http.StatusOK, existing)
 }
 
 func (h *AppHandler) delete(w http.ResponseWriter, r *http.Request) {
