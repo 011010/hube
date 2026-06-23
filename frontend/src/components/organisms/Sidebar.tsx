@@ -6,11 +6,10 @@ const nav = [
   { to: '/tasks', label: 'Tasks', icon: '✓' },
   { to: '/calendar', label: 'Calendar', icon: '◷' },
   { to: '/notes', label: 'Notes', icon: '✎' },
-  { to: '/projects', label: 'Projects', icon: '◻' },
+  { to: '/projects', label: 'Projects', icon: '◫' },
   { to: '/ai', label: 'IA', icon: '✦' },
   { to: '/wishlist', label: 'Wishlist', icon: '♡' },
-  { to: '/network', label: 'Network', icon: '⬡' },
-  { to: '/docs',    label: 'Docs',    icon: '⊘' },
+  { to: '/network', label: 'Network', icon: '⊛' },
 ]
 
 const navItemClass = ({ isActive }: { isActive: boolean }) =>
@@ -34,7 +33,11 @@ export function Sidebar() {
           </NavLink>
         ))}
       </nav>
-      <div className="px-3 py-3 border-t border-gray-200 dark:border-gray-800">
+      <div className="px-3 py-3 border-t border-gray-200 dark:border-gray-800 space-y-0.5">
+        <NavLink to="/docs" className={navItemClass}>
+          <span className="text-base">☰</span>
+          Docs
+        </NavLink>
         <NavLink to="/settings" className={navItemClass}>
           <span className="text-base">⚙</span>
           Settings
