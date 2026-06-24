@@ -1,4 +1,5 @@
 import { NavLink } from 'react-router-dom'
+import { HubeLogo } from '../atoms/HubeLogo'
 
 const nav = [
   { to: '/', label: 'Dashboard', icon: '⊞' },
@@ -23,7 +24,10 @@ export function Sidebar() {
   return (
     <aside className="w-56 shrink-0 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 flex flex-col">
       <div className="px-5 py-5 border-b border-gray-200 dark:border-gray-800">
-        <span className="text-lg font-semibold tracking-tight text-gray-900 dark:text-white">hube</span>
+        <div className="flex items-center gap-2.5">
+          <HubeLogo size={20} />
+          <span className="text-lg font-semibold tracking-tight text-gray-900 dark:text-white">hube</span>
+        </div>
       </div>
       <nav className="flex-1 px-3 py-4 space-y-0.5">
         {nav.map(({ to, label, icon }) => (
