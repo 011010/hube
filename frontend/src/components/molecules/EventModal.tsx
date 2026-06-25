@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { Modal } from '../atoms/Modal'
 import { Button } from '../atoms/Button'
+import { Input } from '../atoms/Input'
+import { Textarea } from '../atoms/Textarea'
 import type { CalendarEvent } from '../../types'
 
 const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316']
@@ -67,13 +69,12 @@ export function EventModal({ open, onClose, onSave, onDelete, event, defaultDate
   return (
     <Modal open={open} onClose={onClose} title={isEdit ? 'Edit event' : 'New event'}>
       <form onSubmit={handleSubmit} className="space-y-4">
-        <input
+        <Input
           autoFocus
           value={title}
           onChange={e => setTitle(e.target.value)}
           placeholder="Event title"
           required
-          className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
         />
 
         <div className="flex items-center gap-2">
@@ -82,44 +83,42 @@ export function EventModal({ open, onClose, onSave, onDelete, event, defaultDate
             id="allday"
             checked={allDay}
             onChange={e => setAllDay(e.target.checked)}
-            className="accent-indigo-500"
+            className="accent-(--color-accent) h-4 w-4 rounded border-border bg-surface-elevated text-(--color-accent)"
           />
-          <label htmlFor="allday" className="text-sm text-gray-400">All day</label>
+          <label htmlFor="allday" className="text-sm text-text-secondary">All day</label>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">Start</label>
-            <input
+            <label className="text-xs text-text-secondary mb-1 block">Start</label>
+            <Input
               type={allDay ? 'date' : 'datetime-local'}
               value={allDay ? startAt.slice(0, 10) : startAt}
               onChange={e => setStartAt(allDay ? `${e.target.value}T00:00` : e.target.value)}
               required
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
             />
           </div>
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">End</label>
-            <input
+            <label className="text-xs text-text-secondary mb-1 block">End</label>
+            <Input
               type={allDay ? 'date' : 'datetime-local'}
               value={allDay ? endAt.slice(0, 10) : endAt}
               onChange={e => setEndAt(allDay ? `${e.target.value}T23:59` : e.target.value)}
               required
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
             />
           </div>
         </div>
 
-        <textarea
+        <Textarea
           value={description}
           onChange={e => setDescription(e.target.value)}
           placeholder="Description (optional)"
           rows={2}
-          className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 resize-none"
+          autoResize
         />
 
         <div>
-          <label className="text-xs text-gray-500 mb-2 block">Color</label>
+          <label className="text-xs text-text-secondary mb-2 block">Color</label>
           <div className="flex gap-2">
             {COLORS.map(c => (
               <button
@@ -129,7 +128,7 @@ export function EventModal({ open, onClose, onSave, onDelete, event, defaultDate
                 className="w-6 h-6 rounded-full transition-transform hover:scale-110"
                 style={{
                   backgroundColor: c,
-                  outline: color === c ? `2px solid white` : 'none',
+                  outline: color === c ? `2px solid var(--color-text-primary)` : 'none',
                   outlineOffset: '2px',
                 }}
               />

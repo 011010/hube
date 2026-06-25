@@ -11,9 +11,9 @@ export function FinanceWidgets() {
 
   if (isError || !data || data.configured === false) {
     return (
-      <div className="bg-gray-900 border border-gray-800 rounded-xl px-5 py-4 text-sm text-gray-500">
+      <div className="bg-surface-elevated border border-border rounded-xl px-5 py-4 text-sm text-text-muted">
         Money Monkey not connected.{' '}
-        <span className="text-gray-600">Set MONKEYAPI_URL and MONKEYAPI_KEY to enable.</span>
+        <span className="text-text-secondary">Set MONKEYAPI_URL and MONKEYAPI_KEY to enable.</span>
       </div>
     )
   }
@@ -47,18 +47,18 @@ export function FinanceWidgets() {
 
       {/* Recent transactions */}
       {data.recent_transactions?.length > 0 && (
-        <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
-          <div className="px-5 py-3 border-b border-gray-800">
-            <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Recent transactions</span>
+        <div className="bg-surface-elevated border border-border rounded-xl overflow-hidden">
+          <div className="px-5 py-3 border-b border-border">
+            <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">Recent transactions</span>
           </div>
-          <ul className="divide-y divide-gray-800">
+          <ul className="divide-y divide-border">
             {data.recent_transactions.map(tx => (
               <li key={tx.id} className="flex items-center justify-between px-5 py-3">
                 <div className="flex items-center gap-3">
                   <span className={`w-1.5 h-1.5 rounded-full ${tx.type === 'income' ? 'bg-emerald-400' : 'bg-red-400'}`} />
                   <div>
-                    <p className="text-sm text-gray-200">{tx.description || (tx.category !== 'All' ? tx.category : 'Expense')}</p>
-                    <p className="text-xs text-gray-500">{tx.category !== 'All' ? tx.category : ''}{tx.category !== 'All' ? ' · ' : ''}{tx.date.slice(0, 10)}</p>
+                    <p className="text-sm text-text-primary">{tx.description || (tx.category !== 'All' ? tx.category : 'Expense')}</p>
+                    <p className="text-xs text-text-muted">{tx.category !== 'All' ? tx.category : ''}{tx.category !== 'All' ? ' · ' : ''}{tx.date.slice(0, 10)}</p>
                   </div>
                 </div>
                 <span className={`text-sm font-medium tabular-nums ${tx.type === 'income' ? 'text-emerald-400' : 'text-red-400'}`}>
@@ -67,12 +67,12 @@ export function FinanceWidgets() {
               </li>
             ))}
           </ul>
-          <div className="px-5 py-3 border-t border-gray-800">
+          <div className="px-5 py-3 border-t border-border">
             <a
               href="https://money-monkey-pwa.vercel.app"
               target="_blank"
               rel="noreferrer"
-              className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+              className="text-xs text-(--color-accent) hover:text-(--color-accent-hover) transition-colors"
             >
               Open Money Monkey →
             </a>
@@ -96,10 +96,10 @@ function FinanceCard({ label, value, sub, accent = 'indigo' }: {
     amber: 'text-amber-400',
   }
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-xl px-5 py-4">
-      <p className="text-xs text-gray-500 mb-1">{label}</p>
+    <div className="bg-surface-elevated border border-border rounded-xl px-5 py-4">
+      <p className="text-xs text-text-muted mb-1">{label}</p>
       <p className={`text-2xl font-semibold tabular-nums ${colors[accent]}`}>{value}</p>
-      {sub && <p className="text-xs text-gray-600 mt-1">{sub}</p>}
+      {sub && <p className="text-xs text-text-muted mt-1">{sub}</p>}
     </div>
   )
 }
@@ -108,7 +108,7 @@ function FinanceSkeleton() {
   return (
     <div className="grid grid-cols-3 gap-4 animate-pulse">
       {[0, 1, 2].map(i => (
-        <div key={i} className="bg-gray-900 border border-gray-800 rounded-xl px-5 py-4 h-20" />
+        <div key={i} className="bg-surface-elevated border border-border rounded-xl px-5 py-4 h-20" />
       ))}
     </div>
   )

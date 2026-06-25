@@ -18,9 +18,9 @@ export function CardTrackerWidget() {
 
   if (isError || !data || data.configured === false) {
     return (
-      <div className="bg-gray-900 border border-gray-800 rounded-xl px-5 py-4 text-sm text-gray-500">
+      <div className="bg-surface-elevated border border-border rounded-xl px-5 py-4 text-sm text-text-muted">
         PayPinga not connected.{' '}
-        <span className="text-gray-600">Set PAYPINGA_URL and PAYPINGA_KEY to enable.</span>
+        <span className="text-text-secondary">Set PAYPINGA_URL and PAYPINGA_KEY to enable.</span>
       </div>
     )
   }
@@ -30,15 +30,15 @@ export function CardTrackerWidget() {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
-        <div className="bg-gray-900 border border-gray-800 rounded-xl px-5 py-4">
-          <p className="text-xs text-gray-500 mb-1">Total debt</p>
+        <div className="bg-surface-elevated border border-border rounded-xl px-5 py-4">
+          <p className="text-xs text-text-muted mb-1">Total debt</p>
           <p className="text-2xl font-semibold tabular-nums text-red-400">{fmt(data.total_debt)}</p>
         </div>
-        <div className="bg-gray-900 border border-gray-800 rounded-xl px-5 py-4">
-          <p className="text-xs text-gray-500 mb-1">This month's payment</p>
+        <div className="bg-surface-elevated border border-border rounded-xl px-5 py-4">
+          <p className="text-xs text-text-muted mb-1">This month's payment</p>
           <p className="text-2xl font-semibold tabular-nums text-amber-400">{fmt(data.total_payment)}</p>
           {data.next_pay_date && (
-            <p className="text-xs text-gray-600 mt-1">
+            <p className="text-xs text-text-muted mt-1">
               Next due in {daysUntil(data.next_pay_date)}d · {data.next_pay_date}
             </p>
           )}
@@ -46,39 +46,39 @@ export function CardTrackerWidget() {
       </div>
 
       {activeCards.length > 0 && (
-        <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
-          <div className="px-5 py-3 border-b border-gray-800">
-            <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Cards</span>
+        <div className="bg-surface-elevated border border-border rounded-xl overflow-hidden">
+          <div className="px-5 py-3 border-b border-border">
+            <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">Cards</span>
           </div>
-          <ul className="divide-y divide-gray-800">
+          <ul className="divide-y divide-border">
             {data.cards.map(card => {
               const days = daysUntil(card.pay_date)
               const urgent = days <= 3
               return (
                 <li key={card.id} className="flex items-center justify-between px-5 py-3">
                   <div>
-                    <p className="text-sm text-gray-200">
+                    <p className="text-sm text-text-primary">
                       {card.alias}
-                      {card.last4 && <span className="text-gray-500 ml-1">···{card.last4}</span>}
+                      {card.last4 && <span className="text-text-muted ml-1">···{card.last4}</span>}
                     </p>
-                    <p className={`text-xs mt-0.5 ${urgent ? 'text-red-400' : 'text-gray-500'}`}>
+                    <p className={`text-xs mt-0.5 ${urgent ? 'text-red-400' : 'text-text-muted'}`}>
                       {card.bank} · pays {card.pay_date} ({days}d)
                     </p>
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-medium tabular-nums text-amber-400">{fmt(card.estimated_payment)}</p>
-                    <p className="text-xs text-gray-600 tabular-nums">{fmt(card.balance)} remaining</p>
+                    <p className="text-xs text-text-muted tabular-nums">{fmt(card.balance)} remaining</p>
                   </div>
                 </li>
               )
             })}
           </ul>
-          <div className="px-5 py-3 border-t border-gray-800">
+          <div className="px-5 py-3 border-t border-border">
             <a
               href="https://paypinga.vercel.app"
               target="_blank"
               rel="noreferrer"
-              className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+              className="text-xs text-(--color-accent) hover:text-(--color-accent-hover) transition-colors"
             >
               Open PayPinga →
             </a>
@@ -93,7 +93,7 @@ function Skeleton() {
   return (
     <div className="grid grid-cols-2 gap-4 animate-pulse">
       {[0, 1].map(i => (
-        <div key={i} className="bg-gray-900 border border-gray-800 rounded-xl px-5 py-4 h-20" />
+        <div key={i} className="bg-surface-elevated border border-border rounded-xl px-5 py-4 h-20" />
       ))}
     </div>
   )
