@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 
+
 interface NavSection {
   id: string
   label: string
@@ -27,7 +28,7 @@ const SECTIONS: NavSection[] = [
 
 function SectionHeading({ id, children }: { id: string; children: React.ReactNode }) {
   return (
-    <h2 id={id} className="text-xl font-semibold text-gray-900 dark:text-white mb-4 pt-2 scroll-mt-6">
+    <h2 id={id} className="text-xl font-semibold text-text-primary mb-4 pt-2 scroll-mt-6">
       {children}
     </h2>
   )
@@ -35,7 +36,7 @@ function SectionHeading({ id, children }: { id: string; children: React.ReactNod
 
 function SubHeading({ children }: { children: React.ReactNode }) {
   return (
-    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider mt-6 mb-3">
+    <h3 className="text-sm font-semibold text-text-secondary uppercase tracking-wider mt-6 mb-3">
       {children}
     </h3>
   )
@@ -43,7 +44,7 @@ function SubHeading({ children }: { children: React.ReactNode }) {
 
 function P({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed mb-3">
+    <p className="text-sm text-text-secondary leading-relaxed mb-3">
       {children}
     </p>
   )
@@ -51,7 +52,7 @@ function P({ children }: { children: React.ReactNode }) {
 
 function Code({ children }: { children: React.ReactNode }) {
   return (
-    <code className="bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 px-1.5 py-0.5 rounded text-[12px] font-mono">
+    <code className="bg-surface-elevated text-text-primary px-1.5 py-0.5 rounded text-[12px] font-mono">
       {children}
     </code>
   )
@@ -59,7 +60,7 @@ function Code({ children }: { children: React.ReactNode }) {
 
 function CodeBlock({ children }: { children: string }) {
   return (
-    <pre className="bg-gray-900 dark:bg-gray-950 border border-gray-700 dark:border-gray-800 rounded-xl p-4 text-[12px] font-mono text-gray-200 overflow-x-auto mb-4 leading-relaxed">
+    <pre className="bg-surface-base border border-border rounded-xl p-4 text-[12px] font-mono text-text-secondary overflow-x-auto mb-4 leading-relaxed">
       <code>{children}</code>
     </pre>
   )
@@ -76,11 +77,11 @@ function Table({
     <div className="overflow-x-auto mb-4">
       <table className="w-full text-sm border-collapse">
         <thead>
-          <tr className="border-b border-gray-200 dark:border-gray-700">
+          <tr className="border-b border-border">
             {headers.map((h) => (
               <th
                 key={h}
-                className="text-left py-2 pr-6 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap"
+                className="text-left py-2 pr-6 text-xs font-semibold text-text-muted uppercase tracking-wider whitespace-nowrap"
               >
                 {h}
               </th>
@@ -89,9 +90,9 @@ function Table({
         </thead>
         <tbody>
           {rows.map((row, i) => (
-            <tr key={i} className="border-b border-gray-100 dark:border-gray-800 last:border-0">
+            <tr key={i} className="border-b border-border/50 last:border-0">
               {row.map((cell, j) => (
-                <td key={j} className="py-2 pr-6 text-gray-700 dark:text-gray-300 align-top">
+                <td key={j} className="py-2 pr-6 text-text-secondary align-top">
                   {cell}
                 </td>
               ))}
@@ -104,15 +105,15 @@ function Table({
 }
 
 function Divider() {
-  return <hr className="border-gray-200 dark:border-gray-800 my-8" />
+  return <hr className="border-border my-8" />
 }
 
 function BulletList({ items }: { items: (string | React.ReactNode)[] }) {
   return (
     <ul className="space-y-1.5 mb-4">
       {items.map((item, i) => (
-        <li key={i} className="flex gap-2 text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
-          <span className="text-gray-400 dark:text-gray-600 shrink-0 mt-0.5">–</span>
+        <li key={i} className="flex gap-2 text-sm text-text-secondary leading-relaxed">
+          <span className="text-text-muted shrink-0 mt-0.5">–</span>
           {item}
         </li>
       ))}
@@ -145,7 +146,7 @@ function OverviewSection() {
       <SubHeading>Architecture</SubHeading>
       <P>
         The backend follows{' '}
-        <strong className="text-gray-900 dark:text-white">Hexagonal / Clean Architecture</strong>:
+        <strong className="text-text-primary">Hexagonal / Clean Architecture</strong>:
         domain → application → infrastructure layers. No business logic lives in HTTP handlers.
         Each module owns its repository interface; the SQLite layer provides the implementation.
         All <Code>PUT</Code> endpoints use fetch-then-merge so partial updates never erase existing fields.
@@ -496,7 +497,7 @@ function FinanceSection() {
       <SectionHeading id="finance">Finance</SectionHeading>
       <P>
         Read-only financial summary pulled from a{' '}
-        <strong className="text-gray-900 dark:text-white">Money Monkey</strong> instance.
+        <strong className="text-text-primary">Money Monkey</strong> instance.
         Configure with <Code>MONKEYAPI_URL</Code> and <Code>MONKEYAPI_KEY</Code>.
         Returns <Code>&#123;"configured": false&#125;</Code> if not set up.
       </P>
@@ -544,7 +545,7 @@ function CardsSection() {
       <SectionHeading id="cards">Card Tracker</SectionHeading>
       <P>
         Read-only credit card summary pulled from a{' '}
-        <strong className="text-gray-900 dark:text-white">PayPinga</strong> instance.
+        <strong className="text-text-primary">PayPinga</strong> instance.
         Configure with <Code>PAYPINGA_URL</Code> and <Code>PAYPINGA_KEY</Code>.
         Returns <Code>&#123;"configured": false&#125;</Code> if not set up.
       </P>
@@ -790,7 +791,7 @@ function BackupSection() {
       <SubHeading>Automatic backup</SubHeading>
       <P>
         SQLite is a single file — zero setup. Automatic backup runs every{' '}
-        <strong className="text-gray-900 dark:text-white">12 hours</strong> via{' '}
+        <strong className="text-text-primary">12 hours</strong> via{' '}
         <Code>VACUUM INTO</Code>, which is safe under concurrent writes. The{' '}
         <Code>BACKUP_RETAIN</Code> env var controls how many files to keep (default 7).
       </P>
@@ -867,8 +868,8 @@ export function DocsPage() {
 
   return (
     <div className="flex h-full">
-      <aside className="w-48 shrink-0 border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 sticky top-0 h-screen overflow-y-auto py-6 px-3">
-        <p className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-2 mb-3">
+      <aside className="w-48 shrink-0 border-r border-border bg-surface-base sticky top-0 h-screen overflow-y-auto py-6 px-3">
+        <p className="text-[10px] font-semibold text-text-muted uppercase tracking-wider px-2 mb-3">
           On this page
         </p>
         <nav className="space-y-0.5">
@@ -879,7 +880,7 @@ export function DocsPage() {
               className={`w-full text-left px-2 py-1.5 rounded-lg text-sm transition-colors ${
                 activeId === s.id
                   ? 'text-[color:var(--color-accent)] font-medium bg-[color:var(--color-accent)]/10'
-                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800'
+                  : 'text-text-muted hover:text-text-primary hover:bg-surface-elevated'
               }`}
             >
               {s.label}
@@ -891,10 +892,10 @@ export function DocsPage() {
       <div ref={contentRef} className="flex-1 overflow-y-auto">
         <div className="max-w-3xl mx-auto px-8 py-8">
           <div className="mb-8">
-            <h1 className="text-3xl font-semibold text-gray-900 dark:text-white mb-2">
+            <h1 className="text-3xl font-semibold text-text-primary mb-2">
               Documentation
             </h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+            <p className="text-sm text-text-muted">
               hube — self-hosted personal hub
             </p>
           </div>

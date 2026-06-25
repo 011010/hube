@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { ChevronLeft, ChevronRight, CalendarPlus } from 'lucide-react'
 import { useEvents, useCreateEvent, useUpdateEvent, useDeleteEvent } from '../../hooks/useEvents'
 import { EventChip } from '../../components/molecules/EventChip'
 import { EventModal } from '../../components/molecules/EventModal'
@@ -95,39 +96,41 @@ export function CalendarPage() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center justify-between px-8 py-5 border-b border-gray-800">
+      <div className="flex items-center justify-between px-8 py-5 border-b border-border bg-surface-elevated">
         <div className="flex items-center gap-4">
-          <h1 className="text-2xl font-semibold text-white">
+          <h1 className="text-2xl font-semibold text-text-primary">
             {MONTHS[cursor.month]} {cursor.year}
           </h1>
           <div className="flex gap-1">
             <button
               onClick={prevMonth}
-              className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:bg-gray-800 hover:text-white transition-colors"
+              className="w-8 h-8 flex items-center justify-center rounded-lg text-text-muted hover:bg-surface-card hover:text-text-primary transition-colors"
+              aria-label="Previous month"
             >
-              ‹
+              <ChevronLeft size={16} />
             </button>
             <button
               onClick={nextMonth}
-              className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:bg-gray-800 hover:text-white transition-colors"
+              className="w-8 h-8 flex items-center justify-center rounded-lg text-text-muted hover:bg-surface-card hover:text-text-primary transition-colors"
+              aria-label="Next month"
             >
-              ›
+              <ChevronRight size={16} />
             </button>
           </div>
           <button
             onClick={() => setCursor({ year: today.getFullYear(), month: today.getMonth() })}
-            className="text-xs text-gray-500 hover:text-white transition-colors px-2 py-1 rounded-md hover:bg-gray-800"
+            className="text-xs text-text-muted hover:text-text-primary transition-colors px-2 py-1 rounded-md hover:bg-surface-card"
           >
             Today
           </button>
         </div>
-        <Button size="sm" onClick={() => openNew(todayStr)}>+ Event</Button>
+        <Button size="sm" icon={<CalendarPlus size={14} />} onClick={() => openNew(todayStr)}>Event</Button>
       </div>
 
       {/* Day headers */}
-      <div className="grid grid-cols-7 border-b border-gray-800">
+      <div className="grid grid-cols-7 border-b border-border">
         {DAYS.map(d => (
-          <div key={d} className="py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+          <div key={d} className="py-2 text-center text-xs font-medium text-text-muted uppercase tracking-wider">
             {d}
           </div>
         ))}
@@ -145,21 +148,21 @@ export function CalendarPage() {
             <div
               key={i}
               onClick={() => openNew(ymd)}
-              className={`border-b border-r border-gray-800 p-1.5 min-h-0 cursor-pointer group transition-colors
-                ${isCurrentMonth ? 'bg-gray-950 hover:bg-gray-900' : 'bg-gray-950/50 hover:bg-gray-900/50'}
+              className={`border-b border-r border-border p-1.5 min-h-0 cursor-pointer group transition-colors
+                ${isCurrentMonth ? 'bg-surface-base hover:bg-surface-elevated' : 'bg-surface-base/50 hover:bg-surface-elevated/50'}
                 ${i % 7 === 0 ? 'border-l-0' : ''}
               `}
             >
               <div className="flex items-center justify-between mb-1">
                 <span
                   className={`text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full
-                    ${isToday ? 'bg-indigo-600 text-white' : isCurrentMonth ? 'text-gray-300' : 'text-gray-600'}
+                    ${isToday ? 'bg-(--color-accent) text-white' : isCurrentMonth ? 'text-text-secondary' : 'text-text-muted'}
                   `}
                 >
                   {date.getDate()}
                 </span>
                 {dayEvents.length > 0 && (
-                  <span className="text-xs text-gray-600 group-hover:text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <span className="text-xs text-text-muted group-hover:text-text-secondary opacity-0 group-hover:opacity-100 transition-opacity">
                     +
                   </span>
                 )}
@@ -173,7 +176,7 @@ export function CalendarPage() {
                   />
                 ))}
                 {dayEvents.length > 3 && (
-                  <span className="text-xs text-gray-500 pl-1">+{dayEvents.length - 3} more</span>
+                  <span className="text-xs text-text-muted pl-1">+{dayEvents.length - 3} more</span>
                 )}
               </div>
             </div>

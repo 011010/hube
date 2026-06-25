@@ -1,0 +1,49 @@
+# openspec/config.yaml — hube
+schema: spec-driven
+
+context: |
+  Personal self-hosted hub: Go 1.26 backend (Chi, SQLite, hexagonal),
+  React 19 + TypeScript 6 + Vite 8 + Tailwind v4 frontend (atomic design),
+  Tauri 2.0 desktop (WIP). 11 pages, dark/light mode, 6 OKLCH accents.
+  PNPM, Docker, GitHub Actions, ghcr.io.
+
+strict_tdd: true
+
+testing:
+  backend:
+    runner: go test ./...
+    integration: httptest + in-memory SQLite
+    coverage: go test -cover
+    linter: go vet
+    type_checker: go build ./...
+    formatter: gofmt (implicit)
+  frontend:
+    runner: none
+    linter: eslint .
+    type_checker: tsc -b
+    formatter: none
+  notes: "Frontend has NO test runner — strict_tdd: true governed by backend"
+
+rules:
+  proposal:
+    - Include context and motivation for every change
+    - Define scope boundaries clearly
+  specs:
+    - Use Given/When/Then for scenarios
+    - Use RFC 2119 keywords (MUST, SHALL, SHOULD, MAY)
+  design:
+    - Document architecture decisions with rationale
+    - Include data flow for cross-layer changes
+  tasks:
+    - Group by phase, use hierarchical numbering
+    - Keep tasks completable in one session
+  apply:
+    - Follow existing code patterns
+    tdd: true
+    test_command: go test ./...
+  verify:
+    test_command: go test ./...
+    build_command: go build ./... && cd frontend && pnpm run build
+    coverage_threshold: 0
+  archive:
+    - Warn before merging destructive deltas

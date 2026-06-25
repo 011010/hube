@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
+import { ArrowLeft, Plus, Trash2, Check } from 'lucide-react'
 import { useProject, useUpdateProject, useProjectTasks } from '../../hooks/useProjects'
 import { useCreateTask, useUpdateTask, useDeleteTask } from '../../hooks/useTasks'
 import { TaskModal } from '../../components/molecules/TaskModal'
@@ -14,7 +15,7 @@ const STATUS_OPTS: { value: ProjectStatus; label: string }[] = [
 ]
 
 const PRIORITY_DOT: Record<string, string> = {
-  low: 'bg-gray-500',
+  low: 'bg-surface-elevated',
   medium: 'bg-amber-400',
   high: 'bg-red-400',
 }
@@ -44,7 +45,7 @@ export function ProjectDetailPage() {
   const [editTask, setEditTask] = useState<Task | null>(null)
 
   if (isLoading || !project) {
-    return <div className="p-6 text-gray-500 text-sm">Loading…</div>
+    return <div className="p-6 text-text-muted text-sm">Loading…</div>
   }
 
   const pct = project.task_count === 0 ? 0 : Math.round((project.completed_count / project.task_count) * 100)
@@ -74,26 +75,27 @@ export function ProjectDetailPage() {
     <div className="p-6 max-w-4xl mx-auto">
       <button
         onClick={() => navigate('/projects')}
-        className="text-xs text-gray-500 hover:text-gray-300 mb-4 flex items-center gap-1 transition-colors"
+        className="text-xs text-text-muted hover:text-text-secondary mb-4 flex items-center gap-1 transition-colors"
       >
-        ← Projects
+        <ArrowLeft size={14} />
+        Projects
       </button>
 
       {/* Header */}
-      <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 mb-6">
+      <div className="bg-surface-elevated border border-border rounded-xl p-5 mb-6">
         <div className="flex items-start gap-3">
           <span className="w-4 h-4 rounded-full shrink-0 mt-0.5" style={{ backgroundColor: project.color }} />
           <div className="flex-1 min-w-0">
-            <h1 className="text-xl font-semibold text-white">{project.name}</h1>
+            <h1 className="text-xl font-semibold text-text-primary">{project.name}</h1>
             {project.description && (
-              <p className="text-sm text-gray-400 mt-1">{project.description}</p>
+              <p className="text-sm text-text-muted mt-1">{project.description}</p>
             )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <select
               value={project.status}
               onChange={e => handleStatusChange(e.target.value as ProjectStatus)}
-              className="bg-gray-800 border border-gray-700 text-sm text-gray-300 rounded-lg px-2 py-1 focus:outline-none focus:border-indigo-500"
+              className="bg-surface-base border border-border text-sm text-text-secondary rounded-lg px-2 py-1 focus:outline-none focus:border-(--color-accent) transition-colors"
             >
               {STATUS_OPTS.map(o => (
                 <option key={o.value} value={o.value}>{o.label}</option>
@@ -103,11 +105,11 @@ export function ProjectDetailPage() {
         </div>
 
         <div className="mt-4">
-          <div className="flex justify-between text-xs text-gray-500 mb-1">
+          <div className="flex justify-between text-xs text-text-muted mb-1">
             <span>{project.completed_count}/{project.task_count} tasks completed</span>
             <span>{pct}%</span>
           </div>
-          <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
+          <div className="h-2 bg-surface-base rounded-full overflow-hidden">
             <div
               className="h-full rounded-full transition-all duration-500"
               style={{ width: `${pct}%`, backgroundColor: project.color }}
@@ -118,19 +120,20 @@ export function ProjectDetailPage() {
 
       {/* Tasks */}
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-sm font-medium text-gray-400 uppercase tracking-wider">Tasks</h2>
+        <h2 className="text-sm font-medium text-text-muted uppercase tracking-wider">Tasks</h2>
         <button
           onClick={() => setShowNewTask(true)}
-          className="text-sm text-indigo-400 hover:text-indigo-300 transition-colors"
+          className="text-sm text-(--color-accent) hover:text-(--color-accent-hover) transition-colors flex items-center gap-1"
         >
-          + Add task
+          <Plus size={14} />
+          Add task
         </button>
       </div>
 
       {tasks.length === 0 && (
-        <div className="text-center py-12 text-gray-700 text-sm">
+        <div className="text-center py-12 text-text-muted text-sm">
           No tasks yet.{' '}
-          <button onClick={() => setShowNewTask(true)} className="text-indigo-500 hover:text-indigo-400 underline">
+          <button onClick={() => setShowNewTask(true)} className="text-(--color-accent) hover:text-(--color-accent-hover) underline">
             Add one.
           </button>
         </div>
@@ -142,12 +145,12 @@ export function ProjectDetailPage() {
         { label: 'Done', items: doneTasks },
       ].map(({ label, items }) => items.length > 0 && (
         <div key={label} className="mb-5">
-          <p className="text-xs text-gray-600 mb-2 uppercase tracking-wider">{label}</p>
+          <p className="text-xs text-text-muted mb-2 uppercase tracking-wider">{label}</p>
           <div className="space-y-2">
             {items.map(task => (
               <div
                 key={task.id}
-                className="flex items-center gap-3 bg-gray-900 border border-gray-800 rounded-lg px-4 py-3 group hover:border-gray-700 transition-colors"
+                className="flex items-center gap-3 bg-surface-elevated border border-border rounded-lg px-4 py-3 group hover:border-border-subtle transition-colors"
               >
                 <button
                   onClick={() => updateTask.mutate(
@@ -156,35 +159,37 @@ export function ProjectDetailPage() {
                   )}
                   className={`w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center transition-colors ${
                     task.status === 'done'
-                      ? 'bg-green-600 border-green-600 text-white'
-                      : 'border-gray-600 hover:border-gray-400'
+                      ? 'bg-emerald-600 border-emerald-600 text-white'
+                      : 'border-text-muted hover:border-text-secondary'
                   }`}
+                  aria-label={task.status === 'done' ? 'Mark as todo' : 'Mark as done'}
                 >
-                  {task.status === 'done' && <span className="text-[10px]">✓</span>}
+                  {task.status === 'done' && <Check size={12} strokeWidth={3} />}
                 </button>
 
                 <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${PRIORITY_DOT[task.priority]}`} />
 
                 <span
-                  className={`flex-1 text-sm cursor-pointer ${task.status === 'done' ? 'line-through text-gray-600' : 'text-gray-200'}`}
+                  className={`flex-1 text-sm cursor-pointer ${task.status === 'done' ? 'line-through text-text-muted' : 'text-text-secondary'}`}
                   onClick={() => setEditTask(task)}
                 >
                   {task.title}
                 </span>
 
                 {task.due_date && (
-                  <span className="text-xs text-gray-600 shrink-0">
+                  <span className="text-xs text-text-muted shrink-0">
                     {new Date(task.due_date).toLocaleDateString()}
                   </span>
                 )}
 
-                <span className="text-xs text-gray-600 shrink-0">{STATUS_LABEL[task.status]}</span>
+                <span className="text-xs text-text-muted shrink-0">{STATUS_LABEL[task.status]}</span>
 
                 <button
                   onClick={() => deleteTask.mutate(task.id)}
-                  className="text-gray-700 hover:text-red-400 text-xs opacity-0 group-hover:opacity-100 transition-all ml-1"
+                  className="text-text-muted hover:text-red-400 transition-all ml-1 opacity-0 group-hover:opacity-100"
+                  aria-label="Delete task"
                 >
-                  ✕
+                  <Trash2 size={14} />
                 </button>
               </div>
             ))}

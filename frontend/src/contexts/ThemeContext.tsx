@@ -1,33 +1,52 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 
 export type ThemeMode = 'dark' | 'light' | 'system'
-export type AccentColor = 'indigo' | 'violet' | 'rose' | 'emerald' | 'sky' | 'orange'
+
+export type ThemeName =
+  | 'solaris'
+  | 'apple-inspired'
+  | 'minimal-tech'
+  | 'glassmorphism'
+  | 'neobrutalism'
+  | 'synthwave'
+  | 'cyberpunk'
+  | 'solarpunk'
+  | 'frutiger-aero'
+  | 'japandi'
+  | 'dark-academia'
+  | 'luxury-black-gold'
+  | 'neo-tokyo'
+  | 'tulum-boho'
+  | 'retro-terminal'
+  | 'space-opera'
 
 interface ThemeContextValue {
   mode: ThemeMode
-  accent: AccentColor
+  theme: ThemeName
   setMode: (m: ThemeMode) => void
-  setAccent: (a: AccentColor) => void
+  setTheme: (t: ThemeName) => void
 }
 
 const ThemeContext = createContext<ThemeContextValue>({
   mode: 'dark',
-  accent: 'indigo',
+  theme: 'solaris',
   setMode: () => {},
-  setAccent: () => {},
+  setTheme: () => {},
 })
 
 export function useTheme() {
   return useContext(ThemeContext)
 }
 
-const ACCENT_CLASS: Record<AccentColor, string> = {
-  indigo: '',
-  violet: 'theme-violet',
-  rose: 'theme-rose',
-  emerald: 'theme-emerald',
-  sky: 'theme-sky',
-  orange: 'theme-orange',
+const ALL_THEMES: ThemeName[] = [
+  'solaris', 'apple-inspired', 'minimal-tech', 'glassmorphism',
+  'neobrutalism', 'synthwave', 'cyberpunk', 'solarpunk',
+  'frutiger-aero', 'japandi', 'dark-academia', 'luxury-black-gold',
+  'neo-tokyo', 'tulum-boho', 'retro-terminal', 'space-opera',
+]
+
+function isThemeName(v: string): v is ThemeName {
+  return (ALL_THEMES as readonly string[]).includes(v)
 }
 
 function resolvedDark(mode: ThemeMode): boolean {
@@ -36,16 +55,17 @@ function resolvedDark(mode: ThemeMode): boolean {
   return window.matchMedia('(prefers-color-scheme: dark)').matches
 }
 
-function applyTheme(mode: ThemeMode, accent: AccentColor) {
+function applyTheme(mode: ThemeMode, theme: ThemeName) {
   const html = document.documentElement
   const dark = resolvedDark(mode)
 
   html.classList.toggle('dark', dark)
 
-  // Remove all accent classes, add the new one
-  Object.values(ACCENT_CLASS).forEach(c => c && html.classList.remove(c))
-  const cls = ACCENT_CLASS[accent]
-  if (cls) html.classList.add(cls)
+  // Remove all theme classes, add the new one
+  for (const t of ALL_THEMES) {
+    html.classList.remove(`theme-${t}`)
+  }
+  html.classList.add(`theme-${theme}`)
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
@@ -53,36 +73,37 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const v = localStorage.getItem('theme-mode')
     return (v === 'dark' || v === 'light' || v === 'system') ? v : 'dark'
   })
-  const [accent, setAccentState] = useState<AccentColor>(() => {
-    const v = localStorage.getItem('theme-accent')
-    return (v === 'indigo' || v === 'violet' || v === 'rose' || v === 'emerald' || v === 'sky' || v === 'orange') ? v : 'indigo'
+  const [theme, setThemeState] = useState<ThemeName>(() => {
+    const raw = localStorage.getItem('theme-name')
+    if (raw && isThemeName(raw)) return raw
+    return 'solaris'
   })
 
   useEffect(() => {
-    applyTheme(mode, accent)
-  }, [mode, accent])
+    applyTheme(mode, theme)
+  }, [mode, theme])
 
   // React to system preference changes when mode === 'system'
   useEffect(() => {
     if (mode !== 'system') return
     const mq = window.matchMedia('(prefers-color-scheme: dark)')
-    const handler = () => applyTheme('system', accent)
+    const handler = () => applyTheme('system', theme)
     mq.addEventListener('change', handler)
     return () => mq.removeEventListener('change', handler)
-  }, [mode, accent])
+  }, [mode, theme])
 
   function setMode(m: ThemeMode) {
     localStorage.setItem('theme-mode', m)
     setModeState(m)
   }
 
-  function setAccent(a: AccentColor) {
-    localStorage.setItem('theme-accent', a)
-    setAccentState(a)
+  function setTheme(t: ThemeName) {
+    localStorage.setItem('theme-name', t)
+    setThemeState(t)
   }
 
   return (
-    <ThemeContext.Provider value={{ mode, accent, setMode, setAccent }}>
+    <ThemeContext.Provider value={{ mode, theme, setMode, setTheme }}>
       {children}
     </ThemeContext.Provider>
   )

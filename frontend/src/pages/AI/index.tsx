@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { Sparkles, Send, Square } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
@@ -172,14 +173,16 @@ export function AIPage() {
   }
 
   return (
-    <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-950">
+    <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shrink-0">
+      <div className="px-6 py-4 border-b border-border bg-surface-elevated shrink-0">
         <div className="flex items-center gap-3">
-          <span className="text-xl">✦</span>
+          <div className="w-8 h-8 rounded-lg bg-(--color-accent)/10 flex items-center justify-center shrink-0">
+            <Sparkles size={18} className="text-(--color-accent)" />
+          </div>
           <div>
-            <h1 className="text-base font-semibold text-gray-900 dark:text-white">IA Playground</h1>
-            <p className="text-xs text-gray-400 dark:text-gray-500">
+            <h1 className="text-base font-semibold text-text-primary">IA Playground</h1>
+            <p className="text-xs text-text-muted">
               Acceso completo al hub — tareas, notas, proyectos, calendario
             </p>
           </div>
@@ -191,8 +194,12 @@ export function AIPage() {
         <div className="max-w-3xl mx-auto space-y-6">
           {messages.length === 0 && (
             <div className="text-center py-16">
-              <div className="text-5xl mb-4">✦</div>
-              <p className="text-gray-500 dark:text-gray-400 text-sm mb-8">
+              <div className="mb-4 flex justify-center">
+                <div className="w-14 h-14 rounded-2xl bg-(--color-accent)/10 flex items-center justify-center">
+                  <Sparkles size={28} className="text-(--color-accent)" />
+                </div>
+              </div>
+              <p className="text-text-muted text-sm mb-8">
                 Ask anything about your hub. I can read and update your data.
               </p>
               <div className="flex flex-wrap justify-center gap-2">
@@ -200,7 +207,7 @@ export function AIPage() {
                   <button
                     key={s}
                     onClick={() => sendMessage(s)}
-                    className="text-xs px-3 py-1.5 rounded-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-(--color-accent) hover:text-gray-900 dark:hover:text-white transition-colors"
+                    className="text-xs px-3 py-1.5 rounded-full bg-surface-elevated border border-border text-text-secondary hover:border-(--color-accent) hover:text-text-primary transition-colors"
                   >
                     {s}
                   </button>
@@ -213,7 +220,7 @@ export function AIPage() {
             <div key={msg.id} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               {msg.role === 'assistant' && (
                 <div className="w-7 h-7 rounded-full bg-(--color-accent) flex items-center justify-center shrink-0 mt-0.5">
-                  <span className="text-white text-xs">✦</span>
+                  <Sparkles size={14} className="text-white" />
                 </div>
               )}
 
@@ -222,8 +229,8 @@ export function AIPage() {
                 {msg.toolCalls && msg.toolCalls.length > 0 && (
                   <div className="mb-2 space-y-1">
                     {msg.toolCalls.map((tc, i) => (
-                      <div key={i} className="flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500">
-                        <span className={`w-3 h-3 rounded-full ${tc.done ? 'bg-green-500' : 'bg-(--color-accent) animate-pulse'}`} />
+                      <div key={i} className="flex items-center gap-2 text-xs text-text-muted">
+                        <span className={`w-3 h-3 rounded-full ${tc.done ? 'bg-emerald-500' : 'bg-(--color-accent) animate-pulse'}`} />
                         {TOOL_LABELS[tc.tool] ?? tc.tool}
                       </div>
                     ))}
@@ -236,7 +243,7 @@ export function AIPage() {
                     {msg.content}
                   </div>
                 ) : (
-                  <div className="text-sm text-gray-800 dark:text-gray-200 prose prose-sm dark:prose-invert max-w-none">
+                  <div className="text-sm text-text-secondary prose prose-sm dark:prose-invert max-w-none">
                     {msg.content ? (
                       <MarkdownContent content={msg.content} />
                     ) : msg.streaming ? (
@@ -247,8 +254,8 @@ export function AIPage() {
               </div>
 
               {msg.role === 'user' && (
-                <div className="w-7 h-7 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center shrink-0 mt-0.5">
-                  <span className="text-gray-600 dark:text-gray-300 text-xs">U</span>
+                <div className="w-7 h-7 rounded-full bg-surface-elevated flex items-center justify-center shrink-0 mt-0.5">
+                  <span className="text-text-muted text-xs">U</span>
                 </div>
               )}
             </div>
@@ -259,7 +266,7 @@ export function AIPage() {
       </div>
 
       {/* Input */}
-      <div className="shrink-0 px-4 py-4 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
+      <div className="shrink-0 px-4 py-4 border-t border-border bg-surface-elevated">
         <div className="max-w-3xl mx-auto">
           {/* Provider selector */}
           <div className="flex gap-1 mb-2">
@@ -270,7 +277,7 @@ export function AIPage() {
                 className={`px-2.5 py-1 rounded-md text-xs transition-colors ${
                   provider === p.value
                     ? 'bg-(--color-accent) text-white'
-                    : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300'
+                    : 'text-text-muted hover:text-text-secondary'
                 }`}
               >
                 {p.label}
@@ -285,18 +292,19 @@ export function AIPage() {
               onKeyDown={handleKeyDown}
               placeholder="Ask anything… (Enter to send, Shift+Enter for newline)"
               rows={1}
-              className="flex-1 resize-none bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:border-(--color-accent) transition-colors"
+              className="flex-1 resize-none bg-surface-base border border-border rounded-xl px-4 py-3 text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-(--color-accent) transition-colors"
               style={{ maxHeight: '140px', overflowY: 'auto' }}
             />
             <button
               onClick={() => sendMessage(input)}
               disabled={!input.trim() || loading}
-              className="px-4 py-3 rounded-xl bg-(--color-accent) hover:bg-(--color-accent-hover) disabled:opacity-40 text-white text-sm font-medium transition-colors shrink-0"
+              className="w-10 h-10 rounded-xl bg-(--color-accent) hover:bg-(--color-accent-hover) disabled:opacity-40 text-white flex items-center justify-center transition-colors shrink-0"
+              aria-label="Send message"
             >
-              {loading ? '…' : '↑'}
+              {loading ? <Square size={14} /> : <Send size={14} />}
             </button>
           </div>
-          <p className="text-xs text-gray-400 dark:text-gray-600 mt-2 text-center">
+          <p className="text-xs text-text-muted mt-2 text-center">
             tools: tasks, notes, projects, calendar, apps
           </p>
         </div>
@@ -317,7 +325,7 @@ function MarkdownContent({ content }: { content: string }) {
               {String(children).replace(/\n$/, '')}
             </SyntaxHighlighter>
           ) : (
-            <code className="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded text-pink-500 dark:text-pink-400 text-xs" {...props}>
+            <code className="bg-surface-elevated px-1 py-0.5 rounded text-pink-400 text-xs" {...props}>
               {children}
             </code>
           )

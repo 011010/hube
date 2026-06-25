@@ -15,7 +15,7 @@ export class ErrorBoundary extends Component<Props, State> {
       return (
         <div className="flex flex-col items-center justify-center h-full p-8 text-center">
           <p className="text-red-400 text-sm font-medium mb-2">Something went wrong</p>
-          <p className="text-gray-500 text-xs font-mono">{this.state.error.message}</p>
+          <p className="text-text-muted text-xs font-mono">{this.state.error.message}</p>
           <button
             onClick={() => this.setState({ error: null })}
             className="mt-4 text-xs text-indigo-400 hover:text-indigo-300"

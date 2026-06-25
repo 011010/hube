@@ -23,9 +23,9 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <BrowserRouter>
-          <div className="flex h-screen overflow-hidden bg-gray-50 dark:bg-gray-950">
+          <div className="flex h-screen overflow-hidden bg-surface-base">
             <Sidebar />
-            <main className="flex-1 overflow-y-auto">
+            <main className="flex-1 overflow-y-auto animate-fadeIn">
               <ErrorBoundary>
               <Routes>
                 <Route path="/" element={<DashboardPage />} />
