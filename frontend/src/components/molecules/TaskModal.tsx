@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react'
 import { Modal } from '../atoms/Modal'
 import { Button } from '../atoms/Button'
+import { Input } from '../atoms/Input'
+import { Textarea } from '../atoms/Textarea'
+import { Select } from '../atoms/Select'
 import type { Task, Priority, TaskStatus } from '../../types'
 
 interface TaskForm {
@@ -30,16 +33,23 @@ const STATUS_LABEL: Record<TaskStatus, string> = {
 }
 
 const PRIORITY_COLOR: Record<Priority, string> = {
-  low: 'text-gray-400 border-gray-600 bg-gray-800',
-  medium: 'text-amber-400 border-amber-700 bg-amber-950/40',
-  high: 'text-red-400 border-red-700 bg-red-950/40',
+  low: 'border-border-subtle bg-surface-elevated text-text-secondary',
+  medium: 'border-amber-700/50 bg-amber-950/30 text-amber-400',
+  high: 'border-red-700/50 bg-red-950/30 text-red-400',
 }
 
 const PRIORITY_ACTIVE: Record<Priority, string> = {
-  low: 'border-gray-400 bg-gray-700 text-white',
+  low: 'border-text-secondary bg-text-secondary/20 text-text-primary',
   medium: 'border-amber-400 bg-amber-900/60 text-amber-300',
   high: 'border-red-400 bg-red-900/60 text-red-300',
 }
+
+const RECURRENCE_OPTIONS = [
+  { value: '', label: 'None' },
+  { value: 'daily', label: 'Daily' },
+  { value: 'weekly', label: 'Weekly' },
+  { value: 'monthly', label: 'Monthly' },
+]
 
 export function TaskModal({ open, onClose, onSave, task, isPending }: TaskModalProps) {
   const isEdit = Boolean(task)
@@ -82,29 +92,24 @@ export function TaskModal({ open, onClose, onSave, task, isPending }: TaskModalP
   return (
     <Modal open={open} onClose={onClose} title={isEdit ? 'Edit task' : 'New task'}>
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <input
-            autoFocus
-            value={form.title}
-            onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-            placeholder="Task title"
-            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
-          />
-        </div>
+        <Input
+          autoFocus
+          value={form.title}
+          onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+          placeholder="Task title"
+        />
 
-        <div>
-          <textarea
-            value={form.description}
-            onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-            placeholder="Description (optional)"
-            rows={2}
-            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 resize-none"
-          />
-        </div>
+        <Textarea
+          value={form.description}
+          onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+          placeholder="Description (optional)"
+          rows={2}
+          autoResize
+        />
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <p className="text-xs text-gray-500 mb-2">Priority</p>
+            <p className="text-xs text-text-secondary mb-2">Priority</p>
             <div className="flex gap-1.5">
               {PRIORITIES.map(p => (
                 <button
@@ -122,19 +127,18 @@ export function TaskModal({ open, onClose, onSave, task, isPending }: TaskModalP
           </div>
 
           <div>
-            <p className="text-xs text-gray-500 mb-2">Due date</p>
-            <input
+            <p className="text-xs text-text-secondary mb-2">Due date</p>
+            <Input
               type="date"
               value={form.due_date}
               onChange={e => setForm(f => ({ ...f, due_date: e.target.value }))}
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-indigo-500"
             />
           </div>
         </div>
 
         {isEdit && (
           <div>
-            <p className="text-xs text-gray-500 mb-2">Status</p>
+            <p className="text-xs text-text-secondary mb-2">Status</p>
             <div className="flex gap-1.5">
               {STATUSES.map(s => (
                 <button
@@ -143,8 +147,8 @@ export function TaskModal({ open, onClose, onSave, task, isPending }: TaskModalP
                   onClick={() => setForm(f => ({ ...f, status: s }))}
                   className={`flex-1 text-xs px-2 py-1.5 rounded-md border transition-colors ${
                     form.status === s
-                      ? 'border-indigo-500 bg-indigo-900/50 text-indigo-300'
-                      : 'border-gray-700 bg-gray-800 text-gray-400'
+                      ? 'border-(--color-accent) bg-(--color-accent)/15 text-(--color-accent)'
+                      : 'border-border bg-surface-elevated text-text-secondary'
                   }`}
                 >
                   {STATUS_LABEL[s]}
@@ -154,19 +158,12 @@ export function TaskModal({ open, onClose, onSave, task, isPending }: TaskModalP
           </div>
         )}
 
-        <div>
-          <p className="text-xs text-gray-500 mb-2">Recurrence</p>
-          <select
-            value={form.recurrence}
-            onChange={e => setForm(f => ({ ...f, recurrence: e.target.value }))}
-            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
-          >
-            <option value="">None</option>
-            <option value="daily">Daily</option>
-            <option value="weekly">Weekly</option>
-            <option value="monthly">Monthly</option>
-          </select>
-        </div>
+        <Select
+          label="Recurrence"
+          value={form.recurrence}
+          onChange={e => setForm(f => ({ ...f, recurrence: e.target.value }))}
+          options={RECURRENCE_OPTIONS}
+        />
 
         <div className="flex justify-end gap-2 pt-1">
           <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
