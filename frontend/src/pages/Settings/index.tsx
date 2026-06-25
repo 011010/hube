@@ -3,18 +3,21 @@ import axios from 'axios'
 import { useSettings, useUpdateSettings } from '../../hooks/useSettings'
 import type { Settings } from '../../hooks/useSettings'
 import { useTheme } from '../../contexts/ThemeContext'
-import type { ThemeMode, AccentColor } from '../../contexts/ThemeContext'
+import { Check, Moon, Sun, Monitor } from 'lucide-react'
+import { PageHeader } from '../../components/molecules/PageHeader'
+import { Input } from '../../components/atoms/Input'
+import type { ThemeMode, ThemeName } from '../../contexts/ThemeContext'
 
 function StatusDot({ active }: { active: boolean }) {
   return (
-    <span className={`inline-block w-2 h-2 rounded-full ${active ? 'bg-green-400' : 'bg-gray-600'}`} />
+    <span className={`inline-block w-2 h-2 rounded-full ${active ? 'bg-emerald-400' : 'bg-text-muted'}`} />
   )
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-6 mb-4">
-      <h2 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-5">{title}</h2>
+    <div className="bg-surface-elevated border border-border rounded-xl p-6 mb-4">
+      <h2 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-5">{title}</h2>
       {children}
     </div>
   )
@@ -31,28 +34,38 @@ function Field({
 }) {
   return (
     <div className="mb-4 last:mb-0">
-      <label className="block text-sm text-gray-700 dark:text-gray-300 mb-1">{label}</label>
-      {hint && <p className="text-xs text-gray-400 dark:text-gray-600 mb-1.5">{hint}</p>}
+      <label className="block text-sm text-text-secondary mb-1">{label}</label>
+      {hint && <p className="text-xs text-text-muted mb-1.5">{hint}</p>}
       {children}
     </div>
   )
 }
 
-const INPUT = 'w-full bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-(--color-accent) placeholder-gray-400 dark:placeholder-gray-600'
+import type { ReactNode } from 'react'
 
-const MODES: { value: ThemeMode; label: string; icon: string }[] = [
-  { value: 'dark', label: 'Dark', icon: '🌙' },
-  { value: 'light', label: 'Light', icon: '☀️' },
-  { value: 'system', label: 'System', icon: '💻' },
+const MODES: { value: ThemeMode; label: string; icon: ReactNode }[] = [
+  { value: 'dark', label: 'Dark', icon: <Moon size={16} /> },
+  { value: 'light', label: 'Light', icon: <Sun size={16} /> },
+  { value: 'system', label: 'System', icon: <Monitor size={16} /> },
 ]
 
-const ACCENTS: { value: AccentColor; color: string }[] = [
-  { value: 'indigo',  color: 'oklch(58.75% 0.265 296.96)' },
-  { value: 'violet',  color: 'oklch(55.67% 0.265 303.01)' },
-  { value: 'rose',    color: 'oklch(59.38% 0.24  12.25)'  },
-  { value: 'emerald', color: 'oklch(60.59% 0.185 152.63)' },
-  { value: 'sky',     color: 'oklch(62.72% 0.198 237.08)' },
-  { value: 'orange',  color: 'oklch(65.87% 0.216  47.40)' },
+const THEMES: { value: ThemeName; label: string; surface: string; accent: string }[] = [
+  { value: 'solaris',          label: 'Solaris',         surface: 'oklch(22% 0.025 55)',   accent: 'oklch(58.75% 0.265 296.96)' },
+  { value: 'apple-inspired',   label: 'Apple Inspired',  surface: 'oklch(16% 0.005 250)',  accent: 'oklch(55% 0.15 250)' },
+  { value: 'minimal-tech',     label: 'Minimal Tech',    surface: 'oklch(20% 0.01 260)',   accent: 'oklch(60% 0.18 240)' },
+  { value: 'glassmorphism',    label: 'Glassmorphism',   surface: 'oklch(23% 0.02 280)',   accent: 'oklch(70% 0.15 280)' },
+  { value: 'neobrutalism',     label: 'Neobrutalism',    surface: 'oklch(20% 0.005 0)',    accent: 'oklch(80% 0.15 90)' },
+  { value: 'synthwave',        label: 'Synthwave',       surface: 'oklch(18% 0.04 300)',   accent: 'oklch(65% 0.25 330)' },
+  { value: 'cyberpunk',        label: 'Cyberpunk',       surface: 'oklch(16% 0.02 160)',   accent: 'oklch(75% 0.2 140)' },
+  { value: 'solarpunk',        label: 'Solarpunk',       surface: 'oklch(23% 0.03 80)',    accent: 'oklch(70% 0.2 70)' },
+  { value: 'frutiger-aero',    label: 'Frutiger Aero',   surface: 'oklch(20% 0.02 220)',   accent: 'oklch(65% 0.15 200)' },
+  { value: 'japandi',          label: 'Japandi',         surface: 'oklch(24% 0.01 70)',    accent: 'oklch(55% 0.12 40)' },
+  { value: 'dark-academia',    label: 'Dark Academia',    surface: 'oklch(20% 0.02 50)',    accent: 'oklch(65% 0.12 80)' },
+  { value: 'luxury-black-gold',label: 'Luxury Black Gold',surface: 'oklch(14% 0.005 0)',    accent: 'oklch(75% 0.15 85)' },
+  { value: 'neo-tokyo',        label: 'Neo Tokyo',       surface: 'oklch(18% 0.02 280)',   accent: 'oklch(65% 0.15 210)' },
+  { value: 'tulum-boho',       label: 'Tulum Boho',      surface: 'oklch(24% 0.02 60)',    accent: 'oklch(65% 0.15 30)' },
+  { value: 'retro-terminal',   label: 'Retro Terminal',  surface: 'oklch(13% 0.01 150)',   accent: 'oklch(75% 0.2 140)' },
+  { value: 'space-opera',      label: 'Space Opera',     surface: 'oklch(13% 0.03 260)',   accent: 'oklch(65% 0.2 290)' },
 ]
 
 const api = axios.create({ baseURL: '/api/v1' })
@@ -80,24 +93,24 @@ function EmailSection() {
 
   return (
     <Section title="Email digest">
-      <p className="text-xs text-gray-400 dark:text-gray-600 mb-4">
+      <p className="text-xs text-text-muted mb-4">
         Sends a plain-text task digest to the specified address. Configure SMTP via{' '}
-        <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded text-[11px]">SMTP_HOST / SMTP_USER / SMTP_PASS / SMTP_FROM</code>{' '}
+        <code className="bg-surface-base px-1 rounded text-[11px]">SMTP_HOST / SMTP_USER / SMTP_PASS / SMTP_FROM</code>{' '}
         environment variables on the server.
       </p>
       <div className="flex gap-2">
-        <input
+        <Input
           ref={toRef}
           type="email"
-          className={INPUT + ' flex-1'}
           placeholder="you@example.com"
+          className="flex-1"
         />
         <button
           onClick={sendDigest}
           disabled={status === 'sending'}
           className="px-4 py-2 bg-(--color-accent) hover:bg-(--color-accent-hover) disabled:opacity-50 text-white text-sm rounded-lg transition-colors whitespace-nowrap"
         >
-          {status === 'sending' ? 'Sending…' : status === 'ok' ? '✓ Sent' : 'Send digest'}
+          {status === 'sending' ? 'Sending…' : status === 'ok' ? <><Check size={14} className="inline" /> Sent</> : 'Send digest'}
         </button>
       </div>
       {status === 'err' && (
@@ -136,7 +149,7 @@ function ExportSection() {
 
   return (
     <Section title="Export data">
-      <p className="text-xs text-gray-400 dark:text-gray-600 mb-4">
+      <p className="text-xs text-text-muted mb-4">
         Download all your data as a ZIP archive — notes (Markdown), tasks, events (iCal), apps,
         wishlist, projects, and diagrams (JSON).
       </p>
@@ -157,7 +170,7 @@ function ExportSection() {
 export function SettingsPage() {
   const { data, isLoading } = useSettings()
   const update = useUpdateSettings()
-  const { mode, accent, setMode, setAccent } = useTheme()
+  const { mode, theme, setMode, setTheme } = useTheme()
   const [form, setForm] = useState<Settings | null>(null)
   const [saved, setSaved] = useState(false)
 
@@ -165,7 +178,7 @@ export function SettingsPage() {
     if (data && !form) setForm(data)
   }, [data])
 
-  if (isLoading || !form) return <div className="p-6 text-gray-500 text-sm">Loading…</div>
+  if (isLoading || !form) return <div className="p-6 text-text-muted text-sm">Loading…</div>
 
   function setGeneral(patch: Partial<Settings['general']>) {
     setForm(f => f ? { ...f, general: { ...f.general, ...patch } } : f)
@@ -187,16 +200,18 @@ export function SettingsPage() {
 
   return (
     <div className="p-6 max-w-2xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Settings</h1>
-        <button
-          onClick={handleSave}
-          disabled={update.isPending}
-          className="px-4 py-2 bg-(--color-accent) hover:bg-(--color-accent-hover) disabled:opacity-50 text-white text-sm rounded-lg transition-colors"
-        >
-          {saved ? '✓ Saved' : update.isPending ? 'Saving…' : 'Save changes'}
-        </button>
-      </div>
+      <PageHeader
+        title="Settings"
+        actions={
+          <button
+            onClick={handleSave}
+            disabled={update.isPending}
+            className="px-4 py-2 bg-(--color-accent) hover:bg-(--color-accent-hover) disabled:opacity-50 text-white text-sm rounded-lg transition-colors"
+          >
+            {saved ? <><Check size={14} className="inline" /> Saved</> : update.isPending ? 'Saving…' : 'Save changes'}
+          </button>
+        }
+      />
 
       {/* Appearance */}
       <Section title="Appearance">
@@ -208,28 +223,46 @@ export function SettingsPage() {
                 onClick={() => setMode(m.value)}
                 className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm border transition-colors ${
                   mode === m.value
-                    ? 'border-(--color-accent) bg-(--color-accent)/10 text-gray-900 dark:text-white'
-                    : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600'
+                    ? 'border-(--color-accent) bg-(--color-accent)/10 text-text-primary'
+                    : 'border-border text-text-muted hover:border-border-subtle'
                 }`}
               >
-                <span>{m.icon}</span>
+                {m.icon}
                 {m.label}
               </button>
             ))}
           </div>
         </Field>
-        <Field label="Accent color">
-          <div className="flex gap-2">
-            {ACCENTS.map(a => (
+        <Field label="Theme" hint="Choose a visual theme for the entire interface.">
+          <div className="grid grid-cols-4 gap-2">
+            {THEMES.map(t => (
               <button
-                key={a.value}
-                onClick={() => setAccent(a.value)}
-                title={a.value}
-                className={`w-8 h-8 rounded-full border-2 transition-transform ${
-                  accent === a.value ? 'border-white dark:border-white scale-110' : 'border-transparent'
+                key={t.value}
+                onClick={() => setTheme(t.value)}
+                className={`rounded-xl border p-3 text-left transition-all ${
+                  theme === t.value
+                    ? 'border-(--color-accent) ring-1 ring-(--color-accent) bg-(--color-accent)/5'
+                    : 'border-border hover:border-border-subtle bg-surface-base/50'
                 }`}
-                style={{ backgroundColor: a.color }}
-              />
+              >
+                {/* Color preview */}
+                <div className="flex gap-1.5 mb-2">
+                  <span
+                    className="w-5 h-5 rounded-full border border-white/10"
+                    style={{ backgroundColor: t.surface }}
+                  />
+                  <span
+                    className="w-5 h-5 rounded-full border border-white/10"
+                    style={{ backgroundColor: t.accent }}
+                  />
+                </div>
+                {/* Theme name */}
+                <span className={`text-xs font-medium leading-tight ${
+                  theme === t.value ? 'text-text-primary' : 'text-text-secondary'
+                }`}>
+                  {t.label}
+                </span>
+              </button>
             ))}
           </div>
         </Field>
@@ -237,43 +270,40 @@ export function SettingsPage() {
 
       <Section title="General">
         <Field label="Display name" hint="Shown in the sidebar header.">
-          <input
-            className={INPUT}
+          <Input
             value={form.general.display_name}
-            onChange={e => setGeneral({ display_name: e.target.value })}
+            onChange={e => setGeneral({ display_name: (e.target as HTMLInputElement).value })}
             placeholder="e.g. Iosif"
           />
         </Field>
       </Section>
 
       <Section title="Integrations">
-        <p className="text-xs text-gray-400 dark:text-gray-600 mb-5">
+        <p className="text-xs text-text-muted mb-5">
           Changes are stored in the database. Restart the server to apply new credentials to active clients.
         </p>
 
         {/* Money Monkey */}
-        <div className="mb-6 pb-6 border-b border-gray-100 dark:border-gray-800">
+        <div className="mb-6 pb-6 border-b border-border">
           <div className="flex items-center gap-2 mb-3">
             <StatusDot active={form.integrations.monkeyapi_enabled} />
-            <span className="text-sm font-medium text-gray-800 dark:text-gray-200">Money Monkey</span>
-            <span className={`text-xs ml-1 ${form.integrations.monkeyapi_enabled ? 'text-green-500' : 'text-gray-600'}`}>
+            <span className="text-sm font-medium text-text-primary">Money Monkey</span>
+            <span className={`text-xs ml-1 ${form.integrations.monkeyapi_enabled ? 'text-emerald-500' : 'text-text-muted'}`}>
               {form.integrations.monkeyapi_enabled ? 'Connected' : 'Not configured'}
             </span>
           </div>
           <Field label="API URL">
-            <input
-              className={INPUT}
+            <Input
               value={form.integrations.monkeyapi_url}
-              onChange={e => setIntegration({ monkeyapi_url: e.target.value })}
+              onChange={e => setIntegration({ monkeyapi_url: (e.target as HTMLInputElement).value })}
               placeholder="https://your-app.vercel.app"
             />
           </Field>
           <Field label="API Key">
-            <input
-              className={INPUT}
+            <Input
               type="password"
               value={form.integrations.monkeyapi_key}
-              onChange={e => setIntegration({ monkeyapi_key: e.target.value })}
+              onChange={e => setIntegration({ monkeyapi_key: (e.target as HTMLInputElement).value })}
               placeholder="Leave unchanged to keep current key"
             />
           </Field>
@@ -283,25 +313,23 @@ export function SettingsPage() {
         <div>
           <div className="flex items-center gap-2 mb-3">
             <StatusDot active={form.integrations.paypinga_enabled} />
-            <span className="text-sm font-medium text-gray-800 dark:text-gray-200">PayPinga</span>
-            <span className={`text-xs ml-1 ${form.integrations.paypinga_enabled ? 'text-green-500' : 'text-gray-600'}`}>
+            <span className="text-sm font-medium text-text-primary">PayPinga</span>
+            <span className={`text-xs ml-1 ${form.integrations.paypinga_enabled ? 'text-emerald-500' : 'text-text-muted'}`}>
               {form.integrations.paypinga_enabled ? 'Connected' : 'Not configured'}
             </span>
           </div>
           <Field label="API URL">
-            <input
-              className={INPUT}
+            <Input
               value={form.integrations.paypinga_url}
-              onChange={e => setIntegration({ paypinga_url: e.target.value })}
+              onChange={e => setIntegration({ paypinga_url: (e.target as HTMLInputElement).value })}
               placeholder="https://your-app.vercel.app"
             />
           </Field>
           <Field label="API Key">
-            <input
-              className={INPUT}
+            <Input
               type="password"
               value={form.integrations.paypinga_key}
-              onChange={e => setIntegration({ paypinga_key: e.target.value })}
+              onChange={e => setIntegration({ paypinga_key: (e.target as HTMLInputElement).value })}
               placeholder="Leave unchanged to keep current key"
             />
           </Field>
@@ -315,20 +343,20 @@ export function SettingsPage() {
       <Section title="System">
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div>
-            <p className="text-gray-600 text-xs mb-0.5">Backend</p>
-            <p className="text-gray-700 dark:text-gray-300">Go + chi + SQLite</p>
+            <p className="text-text-muted text-xs mb-0.5">Backend</p>
+            <p className="text-text-secondary">Go + chi + SQLite</p>
           </div>
           <div>
-            <p className="text-gray-400 dark:text-gray-600 text-xs mb-0.5">Frontend</p>
-            <p className="text-gray-700 dark:text-gray-300">React + Vite + TanStack Query</p>
+            <p className="text-text-muted text-xs mb-0.5">Frontend</p>
+            <p className="text-text-secondary">React + Vite + TanStack Query</p>
           </div>
           <div>
-            <p className="text-gray-400 dark:text-gray-600 text-xs mb-0.5">Database</p>
-            <p className="text-gray-700 dark:text-gray-300">SQLite (FTS5 + WAL)</p>
+            <p className="text-text-muted text-xs mb-0.5">Database</p>
+            <p className="text-text-secondary">SQLite (FTS5 + WAL)</p>
           </div>
           <div>
-            <p className="text-gray-400 dark:text-gray-600 text-xs mb-0.5">Version</p>
-            <p className="text-gray-700 dark:text-gray-300">0.1.0</p>
+            <p className="text-text-muted text-xs mb-0.5">Version</p>
+            <p className="text-text-secondary">0.1.0</p>
           </div>
         </div>
       </Section>

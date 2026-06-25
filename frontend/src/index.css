@@ -45,6 +45,427 @@ html:not(.dark) {
   --color-accent-hover:     oklch(64.39% 0.245 297.37);
 }
 
+/* ═══════════════════════════════════════════════════
+   16 Complete Themes
+   Each defines ALL visual tokens for dark and light.
+   ═══════════════════════════════════════════════════ */
+
+/* ── Solaris ── */
+.theme-solaris {
+  --color-surface-base:     oklch(14%   0.015 60);
+  --color-surface-elevated: oklch(18%   0.02  55);
+  --color-surface-card:     oklch(22%   0.025 55);
+  --color-text-primary:     oklch(92%   0.01  60);
+  --color-text-secondary:   oklch(65%   0.02  55);
+  --color-text-muted:       oklch(49%   0.02  55);
+  --color-border:           oklch(28%   0.025 55);
+  --color-border-subtle:    oklch(23%   0.02  55);
+  --color-accent:           oklch(58.75% 0.265 296.96);
+  --color-accent-hover:     oklch(64.39% 0.245 297.37);
+}
+html:not(.dark) .theme-solaris {
+  --color-surface-base:     oklch(97%   0.01  60);
+  --color-surface-elevated: oklch(94%   0.015 55);
+  --color-surface-card:     oklch(92%   0.015 55);
+  --color-text-primary:     oklch(18%   0.015 60);
+  --color-text-secondary:   oklch(45%   0.02  55);
+  --color-text-muted:       oklch(60%   0.02  55);
+  --color-border:           oklch(85%   0.015 55);
+  --color-border-subtle:    oklch(88%   0.015 55);
+  --color-accent:           oklch(58.75% 0.265 296.96);
+  --color-accent-hover:     oklch(64.39% 0.245 297.37);
+}
+
+/* ── apple-inspired — Clean white/silver minimalism ── */
+.theme-apple-inspired {
+  --color-surface-base:     oklch(8%   0.005 250);
+  --color-surface-elevated: oklch(12%  0.005 250);
+  --color-surface-card:     oklch(16%  0.005 250);
+  --color-text-primary:     oklch(93%  0.005 250);
+  --color-text-secondary:   oklch(63%  0.01  250);
+  --color-text-muted:       oklch(48%  0.01  250);
+  --color-border:           oklch(22%  0.008 250);
+  --color-border-subtle:    oklch(19%  0.005 250);
+  --color-accent:           oklch(55%  0.15  250);
+  --color-accent-hover:     oklch(60%  0.17  250);
+}
+html:not(.dark) .theme-apple-inspired {
+  --color-surface-base:     oklch(98%  0.003 250);
+  --color-surface-elevated: oklch(94%  0.005 250);
+  --color-surface-card:     oklch(90%  0.005 250);
+  --color-text-primary:     oklch(16%  0.005 250);
+  --color-text-secondary:   oklch(42%  0.01  250);
+  --color-text-muted:       oklch(58%  0.01  250);
+  --color-border:           oklch(83%  0.008 250);
+  --color-border-subtle:    oklch(86%  0.005 250);
+  --color-accent:           oklch(50%  0.15  250);
+  --color-accent-hover:     oklch(55%  0.17  250);
+}
+
+/* ── minimal-tech — Dark grey + electric blue ── */
+.theme-minimal-tech {
+  --color-surface-base:     oklch(12%  0.01  260);
+  --color-surface-elevated: oklch(16%  0.01  260);
+  --color-surface-card:     oklch(20%  0.01  260);
+  --color-text-primary:     oklch(93%  0.008 260);
+  --color-text-secondary:   oklch(63%  0.01  260);
+  --color-text-muted:       oklch(48%  0.01  260);
+  --color-border:           oklch(26%  0.01  260);
+  --color-border-subtle:    oklch(23%  0.01  260);
+  --color-accent:           oklch(60%  0.18  240);
+  --color-accent-hover:     oklch(65%  0.20  240);
+}
+html:not(.dark) .theme-minimal-tech {
+  --color-surface-base:     oklch(96%  0.008 260);
+  --color-surface-elevated: oklch(92%  0.008 260);
+  --color-surface-card:     oklch(88%  0.008 260);
+  --color-text-primary:     oklch(16%  0.008 260);
+  --color-text-secondary:   oklch(42%  0.01  260);
+  --color-text-muted:       oklch(58%  0.01  260);
+  --color-border:           oklch(82%  0.01  260);
+  --color-border-subtle:    oklch(85%  0.01  260);
+  --color-accent:           oklch(55%  0.18  240);
+  --color-accent-hover:     oklch(60%  0.20  240);
+}
+
+/* ── glassmorphism — Frosted glass, translucent ── */
+.theme-glassmorphism {
+  --color-surface-base:     oklch(15%  0.02  280);
+  --color-surface-elevated: oklch(19%  0.02  280);
+  --color-surface-card:     oklch(23%  0.02  280);
+  --color-text-primary:     oklch(93%  0.01  280);
+  --color-text-secondary:   oklch(63%  0.015 280);
+  --color-text-muted:       oklch(48%  0.015 280);
+  --color-border:           oklch(29%  0.02  280);
+  --color-border-subtle:    oklch(26%  0.02  280);
+  --color-accent:           oklch(70%  0.15  280);
+  --color-accent-hover:     oklch(75%  0.17  280);
+}
+html:not(.dark) .theme-glassmorphism {
+  --color-surface-base:     oklch(90%  0.01  280);
+  --color-surface-elevated: oklch(86%  0.01  280);
+  --color-surface-card:     oklch(82%  0.01  280);
+  --color-text-primary:     oklch(16%  0.01  280);
+  --color-text-secondary:   oklch(42%  0.015 280);
+  --color-text-muted:       oklch(58%  0.015 280);
+  --color-border:           oklch(76%  0.01  280);
+  --color-border-subtle:    oklch(79%  0.01  280);
+  --color-accent:           oklch(60%  0.15  280);
+  --color-accent-hover:     oklch(65%  0.17  280);
+}
+
+/* ── neobrutalism — High contrast, bold colors ── */
+.theme-neobrutalism {
+  --color-surface-base:     oklch(12%  0.005 0);
+  --color-surface-elevated: oklch(16%  0.005 0);
+  --color-surface-card:     oklch(20%  0.005 0);
+  --color-text-primary:     oklch(93%  0.003 0);
+  --color-text-secondary:   oklch(63%  0.005 0);
+  --color-text-muted:       oklch(48%  0.005 0);
+  --color-border:           oklch(26%  0.005 0);
+  --color-border-subtle:    oklch(23%  0.005 0);
+  --color-accent:           oklch(80%  0.15  90);
+  --color-accent-hover:     oklch(85%  0.17  90);
+}
+html:not(.dark) .theme-neobrutalism {
+  --color-surface-base:     oklch(95%  0.005 0);
+  --color-surface-elevated: oklch(91%  0.005 0);
+  --color-surface-card:     oklch(87%  0.005 0);
+  --color-text-primary:     oklch(16%  0.005 0);
+  --color-text-secondary:   oklch(42%  0.008 0);
+  --color-text-muted:       oklch(58%  0.008 0);
+  --color-border:           oklch(81%  0.005 0);
+  --color-border-subtle:    oklch(84%  0.005 0);
+  --color-accent:           oklch(75%  0.15  90);
+  --color-accent-hover:     oklch(80%  0.17  90);
+}
+
+/* ── synthwave — Purple/pink/cyan retro 80s ── */
+.theme-synthwave {
+  --color-surface-base:     oklch(10%  0.04  300);
+  --color-surface-elevated: oklch(14%  0.04  300);
+  --color-surface-card:     oklch(18%  0.04  300);
+  --color-text-primary:     oklch(93%  0.02  300);
+  --color-text-secondary:   oklch(63%  0.03  300);
+  --color-text-muted:       oklch(48%  0.03  300);
+  --color-border:           oklch(24%  0.04  300);
+  --color-border-subtle:    oklch(21%  0.04  300);
+  --color-accent:           oklch(65%  0.25  330);
+  --color-accent-hover:     oklch(70%  0.27  330);
+}
+html:not(.dark) .theme-synthwave {
+  --color-surface-base:     oklch(92%  0.02  300);
+  --color-surface-elevated: oklch(88%  0.015 300);
+  --color-surface-card:     oklch(84%  0.015 300);
+  --color-text-primary:     oklch(16%  0.02  300);
+  --color-text-secondary:   oklch(42%  0.025 300);
+  --color-text-muted:       oklch(58%  0.025 300);
+  --color-border:           oklch(78%  0.02  300);
+  --color-border-subtle:    oklch(81%  0.02  300);
+  --color-accent:           oklch(55%  0.25  330);
+  --color-accent-hover:     oklch(60%  0.27  330);
+}
+
+/* ── cyberpunk — Dark + acid neon ── */
+.theme-cyberpunk {
+  --color-surface-base:     oklch(8%   0.02  160);
+  --color-surface-elevated: oklch(12%  0.02  160);
+  --color-surface-card:     oklch(16%  0.02  160);
+  --color-text-primary:     oklch(93%  0.01  160);
+  --color-text-secondary:   oklch(63%  0.015 160);
+  --color-text-muted:       oklch(48%  0.015 160);
+  --color-border:           oklch(22%  0.02  160);
+  --color-border-subtle:    oklch(19%  0.02  160);
+  --color-accent:           oklch(75%  0.2   140);
+  --color-accent-hover:     oklch(80%  0.22  140);
+}
+html:not(.dark) .theme-cyberpunk {
+  --color-surface-base:     oklch(90%  0.01  160);
+  --color-surface-elevated: oklch(86%  0.01  160);
+  --color-surface-card:     oklch(82%  0.01  160);
+  --color-text-primary:     oklch(16%  0.01  160);
+  --color-text-secondary:   oklch(42%  0.015 160);
+  --color-text-muted:       oklch(58%  0.015 160);
+  --color-border:           oklch(76%  0.01  160);
+  --color-border-subtle:    oklch(79%  0.01  160);
+  --color-accent:           oklch(65%  0.2   140);
+  --color-accent-hover:     oklch(70%  0.22  140);
+}
+
+/* ── solarpunk — Warm bright, optimistic ── */
+.theme-solarpunk {
+  --color-surface-base:     oklch(15%  0.03  80);
+  --color-surface-elevated: oklch(19%  0.03  80);
+  --color-surface-card:     oklch(23%  0.03  80);
+  --color-text-primary:     oklch(93%  0.02  80);
+  --color-text-secondary:   oklch(63%  0.025 80);
+  --color-text-muted:       oklch(48%  0.025 80);
+  --color-border:           oklch(29%  0.03  80);
+  --color-border-subtle:    oklch(26%  0.03  80);
+  --color-accent:           oklch(70%  0.2   70);
+  --color-accent-hover:     oklch(75%  0.22  70);
+}
+html:not(.dark) .theme-solarpunk {
+  --color-surface-base:     oklch(95%  0.02  80);
+  --color-surface-elevated: oklch(91%  0.015 80);
+  --color-surface-card:     oklch(87%  0.015 80);
+  --color-text-primary:     oklch(16%  0.02  80);
+  --color-text-secondary:   oklch(42%  0.025 80);
+  --color-text-muted:       oklch(58%  0.025 80);
+  --color-border:           oklch(81%  0.02  80);
+  --color-border-subtle:    oklch(84%  0.015 80);
+  --color-accent:           oklch(60%  0.2   70);
+  --color-accent-hover:     oklch(65%  0.22  70);
+}
+
+/* ── frutiger-aero — Clean aqua/teal, glossy ── */
+.theme-frutiger-aero {
+  --color-surface-base:     oklch(12%  0.02  220);
+  --color-surface-elevated: oklch(16%  0.02  220);
+  --color-surface-card:     oklch(20%  0.02  220);
+  --color-text-primary:     oklch(93%  0.01  220);
+  --color-text-secondary:   oklch(63%  0.015 220);
+  --color-text-muted:       oklch(48%  0.015 220);
+  --color-border:           oklch(26%  0.02  220);
+  --color-border-subtle:    oklch(23%  0.02  220);
+  --color-accent:           oklch(65%  0.15  200);
+  --color-accent-hover:     oklch(70%  0.17  200);
+}
+html:not(.dark) .theme-frutiger-aero {
+  --color-surface-base:     oklch(94%  0.01  220);
+  --color-surface-elevated: oklch(90%  0.01  220);
+  --color-surface-card:     oklch(86%  0.01  220);
+  --color-text-primary:     oklch(16%  0.01  220);
+  --color-text-secondary:   oklch(42%  0.015 220);
+  --color-text-muted:       oklch(58%  0.015 220);
+  --color-border:           oklch(80%  0.015 220);
+  --color-border-subtle:    oklch(83%  0.015 220);
+  --color-accent:           oklch(55%  0.15  200);
+  --color-accent-hover:     oklch(60%  0.17  200);
+}
+
+/* ── japandi — Warm beige, muted earth ── */
+.theme-japandi {
+  --color-surface-base:     oklch(16%  0.01  70);
+  --color-surface-elevated: oklch(20%  0.01  70);
+  --color-surface-card:     oklch(24%  0.01  70);
+  --color-text-primary:     oklch(93%  0.008 70);
+  --color-text-secondary:   oklch(63%  0.01  70);
+  --color-text-muted:       oklch(48%  0.01  70);
+  --color-border:           oklch(30%  0.01  70);
+  --color-border-subtle:    oklch(27%  0.01  70);
+  --color-accent:           oklch(55%  0.12  40);
+  --color-accent-hover:     oklch(60%  0.14  40);
+}
+html:not(.dark) .theme-japandi {
+  --color-surface-base:     oklch(93%  0.02  70);
+  --color-surface-elevated: oklch(89%  0.015 70);
+  --color-surface-card:     oklch(85%  0.015 70);
+  --color-text-primary:     oklch(16%  0.015 70);
+  --color-text-secondary:   oklch(42%  0.02  70);
+  --color-text-muted:       oklch(58%  0.02  70);
+  --color-border:           oklch(79%  0.015 70);
+  --color-border-subtle:    oklch(82%  0.015 70);
+  --color-accent:           oklch(50%  0.12  40);
+  --color-accent-hover:     oklch(55%  0.14  40);
+}
+
+/* ── dark-academia — Warm brown, vintage ── */
+.theme-dark-academia {
+  --color-surface-base:     oklch(12%  0.02  50);
+  --color-surface-elevated: oklch(16%  0.02  50);
+  --color-surface-card:     oklch(20%  0.02  50);
+  --color-text-primary:     oklch(93%  0.01  50);
+  --color-text-secondary:   oklch(63%  0.015 50);
+  --color-text-muted:       oklch(48%  0.015 50);
+  --color-border:           oklch(26%  0.02  50);
+  --color-border-subtle:    oklch(23%  0.02  50);
+  --color-accent:           oklch(65%  0.12  80);
+  --color-accent-hover:     oklch(70%  0.14  80);
+}
+html:not(.dark) .theme-dark-academia {
+  --color-surface-base:     oklch(92%  0.02  50);
+  --color-surface-elevated: oklch(88%  0.015 50);
+  --color-surface-card:     oklch(84%  0.015 50);
+  --color-text-primary:     oklch(16%  0.015 50);
+  --color-text-secondary:   oklch(42%  0.02  50);
+  --color-text-muted:       oklch(58%  0.02  50);
+  --color-border:           oklch(78%  0.015 50);
+  --color-border-subtle:    oklch(81%  0.015 50);
+  --color-accent:           oklch(60%  0.12  80);
+  --color-accent-hover:     oklch(65%  0.14  80);
+}
+
+/* ── luxury-black-gold — Elegant black + gold ── */
+.theme-luxury-black-gold {
+  --color-surface-base:     oklch(6%   0.005 0);
+  --color-surface-elevated: oklch(10%  0.005 0);
+  --color-surface-card:     oklch(14%  0.005 0);
+  --color-text-primary:     oklch(93%  0.003 0);
+  --color-text-secondary:   oklch(63%  0.005 0);
+  --color-text-muted:       oklch(48%  0.005 0);
+  --color-border:           oklch(20%  0.005 0);
+  --color-border-subtle:    oklch(17%  0.005 0);
+  --color-accent:           oklch(75%  0.15  85);
+  --color-accent-hover:     oklch(80%  0.17  85);
+}
+html:not(.dark) .theme-luxury-black-gold {
+  --color-surface-base:     oklch(97%  0.005 0);
+  --color-surface-elevated: oklch(93%  0.005 0);
+  --color-surface-card:     oklch(89%  0.005 0);
+  --color-text-primary:     oklch(16%  0.005 0);
+  --color-text-secondary:   oklch(42%  0.008 0);
+  --color-text-muted:       oklch(58%  0.008 0);
+  --color-border:           oklch(83%  0.005 0);
+  --color-border-subtle:    oklch(86%  0.005 0);
+  --color-accent:           oklch(65%  0.15  85);
+  --color-accent-hover:     oklch(70%  0.17  85);
+}
+
+/* ── neo-tokyo — Cyan/magenta on dark ── */
+.theme-neo-tokyo {
+  --color-surface-base:     oklch(10%  0.02  280);
+  --color-surface-elevated: oklch(14%  0.02  280);
+  --color-surface-card:     oklch(18%  0.02  280);
+  --color-text-primary:     oklch(93%  0.01  280);
+  --color-text-secondary:   oklch(63%  0.015 280);
+  --color-text-muted:       oklch(48%  0.015 280);
+  --color-border:           oklch(24%  0.02  280);
+  --color-border-subtle:    oklch(21%  0.02  280);
+  --color-accent:           oklch(65%  0.15  210);
+  --color-accent-hover:     oklch(70%  0.17  210);
+}
+html:not(.dark) .theme-neo-tokyo {
+  --color-surface-base:     oklch(95%  0.01  280);
+  --color-surface-elevated: oklch(91%  0.01  280);
+  --color-surface-card:     oklch(87%  0.01  280);
+  --color-text-primary:     oklch(16%  0.01  280);
+  --color-text-secondary:   oklch(42%  0.015 280);
+  --color-text-muted:       oklch(58%  0.015 280);
+  --color-border:           oklch(81%  0.015 280);
+  --color-border-subtle:    oklch(84%  0.01  280);
+  --color-accent:           oklch(55%  0.15  210);
+  --color-accent-hover:     oklch(60%  0.17  210);
+}
+
+/* ── tulum-boho — Warm sand, bohemian ── */
+.theme-tulum-boho {
+  --color-surface-base:     oklch(16%  0.02  60);
+  --color-surface-elevated: oklch(20%  0.02  60);
+  --color-surface-card:     oklch(24%  0.02  60);
+  --color-text-primary:     oklch(93%  0.01  60);
+  --color-text-secondary:   oklch(63%  0.015 60);
+  --color-text-muted:       oklch(48%  0.015 60);
+  --color-border:           oklch(30%  0.02  60);
+  --color-border-subtle:    oklch(27%  0.02  60);
+  --color-accent:           oklch(65%  0.15  30);
+  --color-accent-hover:     oklch(70%  0.17  30);
+}
+html:not(.dark) .theme-tulum-boho {
+  --color-surface-base:     oklch(94%  0.02  60);
+  --color-surface-elevated: oklch(90%  0.015 60);
+  --color-surface-card:     oklch(86%  0.015 60);
+  --color-text-primary:     oklch(16%  0.015 60);
+  --color-text-secondary:   oklch(42%  0.02  60);
+  --color-text-muted:       oklch(58%  0.02  60);
+  --color-border:           oklch(80%  0.015 60);
+  --color-border-subtle:    oklch(83%  0.015 60);
+  --color-accent:           oklch(60%  0.15  30);
+  --color-accent-hover:     oklch(65%  0.17  30);
+}
+
+/* ── retro-terminal — Green on black ── */
+.theme-retro-terminal {
+  --color-surface-base:     oklch(5%   0.01  150);
+  --color-surface-elevated: oklch(9%   0.01  150);
+  --color-surface-card:     oklch(13%  0.01  150);
+  --color-text-primary:     oklch(93%  0.008 150);
+  --color-text-secondary:   oklch(63%  0.01  150);
+  --color-text-muted:       oklch(48%  0.01  150);
+  --color-border:           oklch(19%  0.01  150);
+  --color-border-subtle:    oklch(16%  0.01  150);
+  --color-accent:           oklch(75%  0.2   140);
+  --color-accent-hover:     oklch(80%  0.22  140);
+}
+html:not(.dark) .theme-retro-terminal {
+  --color-surface-base:     oklch(90%  0.01  150);
+  --color-surface-elevated: oklch(86%  0.01  150);
+  --color-surface-card:     oklch(82%  0.01  150);
+  --color-text-primary:     oklch(16%  0.01  150);
+  --color-text-secondary:   oklch(42%  0.015 150);
+  --color-text-muted:       oklch(58%  0.015 150);
+  --color-border:           oklch(76%  0.015 150);
+  --color-border-subtle:    oklch(79%  0.01  150);
+  --color-accent:           oklch(65%  0.2   140);
+  --color-accent-hover:     oklch(70%  0.22  140);
+}
+
+/* ── space-opera — Deep space, dramatic ── */
+.theme-space-opera {
+  --color-surface-base:     oklch(5%   0.03  260);
+  --color-surface-elevated: oklch(9%   0.03  260);
+  --color-surface-card:     oklch(13%  0.03  260);
+  --color-text-primary:     oklch(93%  0.01  260);
+  --color-text-secondary:   oklch(63%  0.02  260);
+  --color-text-muted:       oklch(48%  0.02  260);
+  --color-border:           oklch(19%  0.025 260);
+  --color-border-subtle:    oklch(16%  0.025 260);
+  --color-accent:           oklch(65%  0.2   290);
+  --color-accent-hover:     oklch(70%  0.22  290);
+}
+html:not(.dark) .theme-space-opera {
+  --color-surface-base:     oklch(92%  0.02  260);
+  --color-surface-elevated: oklch(88%  0.015 260);
+  --color-surface-card:     oklch(84%  0.015 260);
+  --color-text-primary:     oklch(16%  0.015 260);
+  --color-text-secondary:   oklch(42%  0.02  260);
+  --color-text-muted:       oklch(58%  0.02  260);
+  --color-border:           oklch(78%  0.02  260);
+  --color-border-subtle:    oklch(81%  0.015 260);
+  --color-accent:           oklch(55%  0.2   290);
+  --color-accent-hover:     oklch(60%  0.22  290);
+}
+
 /* ── Base element resets ── */
 body {
   margin: 0;

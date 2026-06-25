@@ -1,8 +1,14 @@
 import { useState } from 'react'
 import { safeHref } from '../../utils/url'
+import { Check, Trash2, Heart, ExternalLink } from 'lucide-react'
 import { useWishlist, useCreateWishlistItem, useUpdateWishlistItem, useDeleteWishlistItem } from '../../hooks/useWishlist'
 import { Badge } from '../../components/atoms/Badge'
 import { Button } from '../../components/atoms/Button'
+import { Input } from '../../components/atoms/Input'
+import { Textarea } from '../../components/atoms/Textarea'
+import { Select } from '../../components/atoms/Select'
+import { Modal } from '../../components/atoms/Modal'
+import { PageHeader } from '../../components/molecules/PageHeader'
 import type { Priority, WishlistItem, WishlistStatus } from '../../types'
 
 type ItemForm = Omit<WishlistItem, 'id' | 'created_at' | 'updated_at'>
@@ -24,7 +30,7 @@ function priorityVariant(p: Priority): 'default' | 'warning' | 'danger' {
   return p === 'high' ? 'danger' : p === 'medium' ? 'warning' : 'default'
 }
 
-interface ModalProps {
+interface WishlistModalProps {
   open: boolean
   item?: WishlistItem
   isPending: boolean
@@ -32,7 +38,7 @@ interface ModalProps {
   onSave: (data: ItemForm) => void
 }
 
-function WishlistModal({ open, item, isPending, onClose, onSave }: ModalProps) {
+function WishlistModal({ open, item, isPending, onClose, onSave }: WishlistModalProps) {
   const [form, setForm] = useState<ItemForm>(item ? {
     name: item.name,
     description: item.description,
@@ -46,99 +52,88 @@ function WishlistModal({ open, item, isPending, onClose, onSave }: ModalProps) {
     notes: item.notes,
   } : emptyForm())
 
-  if (!open) return null
-
   const set = <K extends keyof ItemForm>(k: K, v: ItemForm[K]) =>
     setForm(f => ({ ...f, [k]: v }))
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-      <div className="bg-gray-900 border border-gray-700 rounded-xl p-6 w-full max-w-md space-y-4">
-        <h2 className="text-lg font-semibold text-white">{item ? 'Edit item' : 'New wishlist item'}</h2>
-
-        <div className="space-y-3">
-          <input
-            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
-            placeholder="Name *"
-            value={form.name}
-            onChange={e => set('name', e.target.value)}
+    <Modal open={open} onClose={onClose} title={item ? 'Edit item' : 'New wishlist item'}>
+      <div className="space-y-3">
+        <Input
+          placeholder="Name *"
+          value={form.name}
+          onChange={e => set('name', (e.target as HTMLInputElement).value)}
+        />
+        <div className="grid grid-cols-2 gap-3">
+          <Input
+            placeholder="Store"
+            value={form.store}
+            onChange={e => set('store', (e.target as HTMLInputElement).value)}
           />
-          <div className="grid grid-cols-2 gap-3">
-            <input
-              className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
-              placeholder="Store"
-              value={form.store}
-              onChange={e => set('store', e.target.value)}
-            />
-            <input
-              className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
-              placeholder="URL"
-              value={form.url}
-              onChange={e => set('url', e.target.value)}
-            />
-          </div>
-          <div className="grid grid-cols-3 gap-3">
-            <input
-              type="number"
-              min={0}
-              step={0.01}
-              className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
-              placeholder="Target price"
-              value={form.target_price || ''}
-              onChange={e => set('target_price', parseFloat(e.target.value) || 0)}
-            />
-            <input
-              type="number"
-              min={0}
-              step={0.01}
-              className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
-              placeholder="Current price"
-              value={form.current_price || ''}
-              onChange={e => set('current_price', parseFloat(e.target.value) || 0)}
-            />
-            <input
-              className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
-              placeholder="Currency"
-              value={form.currency}
-              onChange={e => set('currency', e.target.value.toUpperCase())}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <select
-              className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
-              value={form.priority}
-              onChange={e => set('priority', e.target.value as Priority)}
-            >
-              <option value="low">Low priority</option>
-              <option value="medium">Medium priority</option>
-              <option value="high">High priority</option>
-            </select>
-            <select
-              className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
-              value={form.status}
-              onChange={e => set('status', e.target.value as WishlistStatus)}
-            >
-              <option value="pending">Pending</option>
-              <option value="purchased">Purchased</option>
-            </select>
-          </div>
-          <textarea
-            rows={2}
-            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 resize-none"
-            placeholder="Notes"
-            value={form.notes}
-            onChange={e => set('notes', e.target.value)}
+          <Input
+            placeholder="URL"
+            value={form.url}
+            onChange={e => set('url', (e.target as HTMLInputElement).value)}
           />
         </div>
-
-        <div className="flex justify-end gap-2 pt-2">
-          <Button variant="ghost" onClick={onClose}>Cancel</Button>
-          <Button onClick={() => onSave(form)} disabled={!form.name || isPending}>
-            {isPending ? 'Saving…' : 'Save'}
-          </Button>
+        <div className="grid grid-cols-3 gap-3">
+          <Input
+            type="number"
+            min={0}
+            step={0.01}
+            placeholder="Target price"
+            value={form.target_price || ''}
+            onChange={e => set('target_price', parseFloat((e.target as HTMLInputElement).value) || 0)}
+          />
+          <Input
+            type="number"
+            min={0}
+            step={0.01}
+            placeholder="Current price"
+            value={form.current_price || ''}
+            onChange={e => set('current_price', parseFloat((e.target as HTMLInputElement).value) || 0)}
+          />
+          <Input
+            placeholder="Currency"
+            value={form.currency}
+            onChange={e => set('currency', (e.target as HTMLInputElement).value.toUpperCase())}
+          />
         </div>
+        <div className="grid grid-cols-2 gap-3">
+          <Select
+            label="Priority"
+            value={form.priority}
+            onChange={e => set('priority', e.target.value as Priority)}
+            options={[
+              { value: 'low', label: 'Low priority' },
+              { value: 'medium', label: 'Medium priority' },
+              { value: 'high', label: 'High priority' },
+            ]}
+          />
+          <Select
+            label="Status"
+            value={form.status}
+            onChange={e => set('status', e.target.value as WishlistStatus)}
+            options={[
+              { value: 'pending', label: 'Pending' },
+              { value: 'purchased', label: 'Purchased' },
+            ]}
+          />
+        </div>
+        <Textarea
+          rows={2}
+          placeholder="Notes"
+          value={form.notes}
+          onChange={e => set('notes', (e.target as HTMLTextAreaElement).value)}
+        />
       </div>
-    </div>
+
+      <div className="flex justify-end gap-2 pt-4">
+        <Button variant="ghost" onClick={onClose}>Cancel</Button>
+        <Button onClick={() => onSave(form)} disabled={!form.name || isPending}>
+          {isPending ? 'Saving…' : 'Save'}
+        </Button>
+      </div>
+    </Modal>
   )
 }
 
@@ -175,10 +170,10 @@ export function WishlistPage() {
     const curr = item.currency || 'USD'
     const below = item.current_price > 0 && item.current_price <= item.target_price
     return (
-      <span className={`text-xs ${below ? 'text-emerald-400' : 'text-gray-500'}`}>
+      <span className={`text-xs ${below ? 'text-emerald-400' : 'text-text-muted'}`}>
         {item.current_price > 0 ? `${curr} ${item.current_price.toFixed(2)} / ` : ''}
         target {curr} {item.target_price.toFixed(2)}
-        {below && ' ✓'}
+        {below && <><Check size={12} className="inline" /> </>}
       </span>
     )
   }
@@ -187,36 +182,36 @@ export function WishlistPage() {
     if (group.length === 0) return null
     return (
       <section>
-        <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">
+        <h2 className="text-xs font-semibold text-text-muted uppercase tracking-widest mb-2">
           {label} · {group.length}
         </h2>
         <ul className="space-y-2">
           {group.map(item => (
             <li
               key={item.id}
-              className="flex items-center gap-3 bg-gray-900 border border-gray-800 rounded-lg px-4 py-3 group"
+              className="flex items-center gap-3 bg-surface-elevated border border-border rounded-lg px-4 py-3 group"
             >
               <input
                 type="checkbox"
                 checked={item.status === 'purchased'}
                 onChange={() => togglePurchased(item)}
-                className="w-4 h-4 accent-indigo-500 shrink-0"
+                className="w-4 h-4 accent-(--color-accent) shrink-0"
               />
               <button
                 onClick={() => setEditItem(item)}
                 className={`flex-1 min-w-0 text-sm text-left transition-colors ${
                   item.status === 'purchased'
-                    ? 'line-through text-gray-500'
-                    : 'text-gray-200 hover:text-white'
+                    ? 'line-through text-text-muted'
+                    : 'text-text-secondary hover:text-text-primary'
                 }`}
               >
                 <div className="flex items-center gap-2">
                   <span>{item.name}</span>
-                  {item.store && <span className="text-xs text-gray-500">{item.store}</span>}
+                  {item.store && <span className="text-xs text-text-muted">{item.store}</span>}
                 </div>
                 {priceLabel(item)}
                 {item.notes && (
-                  <span className="block text-xs text-gray-500 mt-0.5 truncate">{item.notes}</span>
+                  <span className="block text-xs text-text-muted mt-0.5 truncate">{item.notes}</span>
                 )}
               </button>
               <Badge label={item.priority} variant={priorityVariant(item.priority)} />
@@ -225,17 +220,18 @@ export function WishlistPage() {
                   href={safeHref(item.url)}
                   target="_blank"
                   rel="noreferrer"
-                  className="text-gray-600 hover:text-indigo-400 text-xs transition-colors"
+                  className="text-text-muted hover:text-(--color-accent) transition-colors"
                   onClick={e => e.stopPropagation()}
                 >
-                  ↗
+                  <ExternalLink size={14} />
                 </a>
               )}
               <button
                 onClick={() => remove.mutate(item.id)}
-                className="text-gray-700 hover:text-red-400 transition-colors text-xs opacity-0 group-hover:opacity-100"
+                className="text-text-muted hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
+                aria-label="Delete item"
               >
-                ✕
+                <Trash2 size={14} />
               </button>
             </li>
           ))}
@@ -246,18 +242,20 @@ export function WishlistPage() {
 
   return (
     <div className="p-8 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-white">Wishlist</h1>
-        <Button onClick={() => setCreateOpen(true)}>+ New item</Button>
-      </div>
+      <PageHeader
+        title="Wishlist"
+        actions={
+          <Button onClick={() => setCreateOpen(true)} icon={<Heart size={16} />}>New item</Button>
+        }
+      />
 
-      {isLoading && <p className="text-gray-400 text-sm">Loading…</p>}
+      {isLoading && <p className="text-text-muted text-sm">Loading…</p>}
 
       {renderGroup(pending, 'Pending')}
       {renderGroup(purchased, 'Purchased')}
 
       {items.length === 0 && !isLoading && (
-        <p className="text-gray-500 text-sm">No items yet. Add something you want to buy.</p>
+        <p className="text-text-muted text-sm">No items yet. Add something you want to buy.</p>
       )}
 
       <WishlistModal
