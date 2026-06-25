@@ -3,38 +3,69 @@
 /* Class-based dark mode for Tailwind v4 */
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* Accent color themes */
+/* ── Default color-scheme ── */
 :root {
-  --color-accent:       oklch(58.75% 0.265 296.96); /* indigo  */
-  --color-accent-hover: oklch(64.39% 0.245 297.37); /* indigo lighter */
   color-scheme: dark;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-.theme-violet  { --color-accent: oklch(55.67% 0.265 303.01); --color-accent-hover: oklch(61% 0.245 303); }
-.theme-rose    { --color-accent: oklch(59.38% 0.24  12.25);  --color-accent-hover: oklch(65% 0.22  12);  }
-.theme-emerald { --color-accent: oklch(60.59% 0.185 152.63); --color-accent-hover: oklch(66% 0.17  152); }
-.theme-sky     { --color-accent: oklch(62.72% 0.198 237.08); --color-accent-hover: oklch(68% 0.18  237); }
-.theme-orange  { --color-accent: oklch(65.87% 0.216  47.40); --color-accent-hover: oklch(71% 0.20   47); }
+/* ── Solaris — default theme ── */
+@theme {
+  --font-sans: 'Instrument Sans', 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
 
-/* Light mode overrides */
+  --color-surface-base:     oklch(14%   0.015 60);
+  --color-surface-elevated: oklch(18%   0.02  55);
+  --color-surface-card:     oklch(22%   0.025 55);
+  --color-text-primary:     oklch(92%   0.01  60);
+  --color-text-secondary:   oklch(65%   0.02  55);
+  --color-text-muted:       oklch(49%   0.02  55);
+  --color-border:           oklch(28%   0.025 55);
+  --color-border-subtle:    oklch(23%   0.02  55);
+  --color-accent:           oklch(58.75% 0.265 296.96);
+  --color-accent-hover:     oklch(64.39% 0.245 297.37);
+
+  --animate-fadeIn:  fadeIn 200ms ease-out;
+  --animate-scaleIn: scaleIn 200ms ease-out;
+}
+
+/* Light mode — Solaris defaults */
 html:not(.dark) {
   color-scheme: light;
+  --color-surface-base:     oklch(97%   0.01  60);
+  --color-surface-elevated: oklch(94%   0.015 55);
+  --color-surface-card:     oklch(92%   0.015 55);
+  --color-text-primary:     oklch(18%   0.015 60);
+  --color-text-secondary:   oklch(45%   0.02  55);
+  --color-text-muted:       oklch(60%   0.02  55);
+  --color-border:           oklch(85%   0.015 55);
+  --color-border-subtle:    oklch(88%   0.015 55);
+  --color-accent:           oklch(58.75% 0.265 296.96);
+  --color-accent-hover:     oklch(64.39% 0.245 297.37);
 }
 
+/* ── Base element resets ── */
 body {
   margin: 0;
-  font-family: system-ui, -apple-system, sans-serif;
-  @apply bg-gray-950 text-gray-100;
-}
-
-html:not(.dark) body {
-  @apply bg-gray-50 text-gray-900;
+  font-family: var(--font-sans);
+  background-color: var(--color-surface-base);
+  color: var(--color-text-primary);
 }
 
 #root {
   min-height: 100svh;
   display: flex;
   flex-direction: column;
+}
+
+/* ── Animation keyframes ── */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
 }

@@ -4,7 +4,7 @@ interface BadgeProps {
 }
 
 const variants = {
-  default: 'bg-gray-700 text-gray-300',
+  default: 'bg-(--color-surface-card) text-(--color-text-muted)',
   success: 'bg-emerald-900 text-emerald-300',
   warning: 'bg-amber-900 text-amber-300',
   danger: 'bg-red-900 text-red-300',
