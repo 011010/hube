@@ -31,3 +31,33 @@ func TestSettings_ViewPreferences(t *testing.T) {
 	assert.Equal(t, "Hube", general["display_name"])
 	assert.Equal(t, `{"tasks_view":"kanban","projects_view":"table","notes_view":"kanban"}`, general["view_preferences"])
 }
+
+func TestSettings_ViewPreferences_OmittedOnPut(t *testing.T) {
+	srv := newTestServer(t)
+	base := srv.URL + "/api/v1/settings"
+
+	// Seed a value first.
+	resp := mustPut(t, base, `{"general":{"display_name":"Hube","view_preferences":"{\"tasks_view\":\"kanban\"}"}}`)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	resp.Body.Close()
+
+	// PUT settings without view_preferences — full replacement erases the previous value.
+	resp = mustPut(t, base, `{"general":{"display_name":"NoPrefs"}}`)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	var putResult map[string]any
+	mustDecode(t, resp, &putResult)
+	general, ok := putResult["general"].(map[string]any)
+	assert.True(t, ok)
+	assert.Equal(t, "NoPrefs", general["display_name"])
+	assert.Nil(t, general["view_preferences"], "view_preferences should be omitted when not provided")
+
+	// GET settings and verify view_preferences is no longer present.
+	resp = mustGet(t, base)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	var fetched map[string]any
+	mustDecode(t, resp, &fetched)
+	general, ok = fetched["general"].(map[string]any)
+	assert.True(t, ok)
+	assert.Equal(t, "NoPrefs", general["display_name"])
+	assert.Nil(t, general["view_preferences"], "view_preferences should be erased after PUT without it")
+}

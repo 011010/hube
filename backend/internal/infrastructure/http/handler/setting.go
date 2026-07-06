@@ -12,8 +12,8 @@ type SettingHandler struct{ svc *appsetting.Service }
 func NewSettingHandler(svc *appsetting.Service) *SettingHandler { return &SettingHandler{svc: svc} }
 
 type settingsPayload struct {
-	General      generalSettings      `json:"general"`
-	Integrations integrationSettings  `json:"integrations"`
+	General      generalSettings     `json:"general"`
+	Integrations integrationSettings `json:"integrations"`
 }
 
 type generalSettings struct {
@@ -62,12 +62,12 @@ func (h *SettingHandler) Put(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx := r.Context()
 	pairs := map[string]string{
-		"general.display_name":        payload.General.DisplayName,
-		"general.view_preferences":    payload.General.ViewPreferences,
-		"integration.monkeyapi_url":   payload.Integrations.MonkeyAPIURL,
-		"integration.monkeyapi_key":   payload.Integrations.MonkeyAPIKey,
-		"integration.paypinga_url":    payload.Integrations.PayPingaURL,
-		"integration.paypinga_key":    payload.Integrations.PayPingaKey,
+		"general.display_name":      payload.General.DisplayName,
+		"general.view_preferences":  payload.General.ViewPreferences,
+		"integration.monkeyapi_url": payload.Integrations.MonkeyAPIURL,
+		"integration.monkeyapi_key": payload.Integrations.MonkeyAPIKey,
+		"integration.paypinga_url":  payload.Integrations.PayPingaURL,
+		"integration.paypinga_key":  payload.Integrations.PayPingaKey,
 	}
 	for k, v := range pairs {
 		if err := h.svc.Set(ctx, k, v); err != nil {
