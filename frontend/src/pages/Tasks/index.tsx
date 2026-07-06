@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Plus, Trash2, ListChecks, Circle, CheckCircle2 } from 'lucide-react'
 import { useTasks, useCreateTask, useUpdateTask, useDeleteTask } from '../../hooks/useTasks'
 import { useViewPreference } from '../../hooks/useViewPreference'
+import { formatDate } from '../../utils/date'
 import { Badge } from '../../components/atoms/Badge'
 import { Button } from '../../components/atoms/Button'
 import { PageHeader } from '../../components/molecules/PageHeader'
@@ -31,14 +32,14 @@ export function TasksPage() {
   const handleUpdate = (data: Omit<Task, 'id' | 'created_at' | 'updated_at'>) => {
     if (!editTask) return
     updateTask.mutate(
-      { id: editTask.id, data: { ...editTask, ...data } },
+      { id: editTask.id, data },
       { onSuccess: () => setEditTask(null) },
     )
   }
 
   const toggleStatus = (task: Task) => {
     const next: TaskStatus = task.status === 'done' ? 'todo' : 'done'
-    updateTask.mutate({ id: task.id, data: { ...task, status: next } })
+    updateTask.mutate({ id: task.id, data: { status: next } })
   }
 
   const priorityVariant = (p: Priority) =>
@@ -60,49 +61,55 @@ export function TasksPage() {
     if (!VALID_STATUSES.includes(targetColumnId as TaskStatus)) return
     const task = tasks.find(t => t.id === itemId)
     if (!task || task.status === targetColumnId) return
-    updateTask.mutate({ id: task.id, data: { ...task, status: targetColumnId as TaskStatus } })
+    updateTask.mutate({ id: task.id, data: { status: targetColumnId as TaskStatus } })
   }
 
-  const renderCard = (task: Task) => (
-    <div className="space-y-2">
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex items-start gap-2 flex-1 min-w-0">
+  const renderCard = (task: Task) => {
+    const dueDate = formatDate(task.due_date)
+    return (
+      <div className="space-y-2">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-start gap-2 flex-1 min-w-0">
+            <button
+              type="button"
+              onClick={() => toggleStatus(task)}
+              className="shrink-0 text-text-muted hover:text-(--color-accent) transition-colors mt-0.5"
+              aria-label={task.status === 'done' ? 'Mark as todo' : 'Mark as done'}
+            >
+              {task.status === 'done' ? (
+                <CheckCircle2 size={18} className="text-emerald-400" />
+              ) : (
+                <Circle size={18} />
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => setEditTask(task)}
+              className={`text-left text-sm font-medium min-w-0 ${
+                task.status === 'done'
+                  ? 'line-through text-text-muted'
+                  : 'text-text-secondary hover:text-text-primary'
+              }`}
+            >
+              {task.title}
+            </button>
+          </div>
           <button
-            onClick={() => toggleStatus(task)}
-            className="shrink-0 text-text-muted hover:text-(--color-accent) transition-colors mt-0.5"
-            aria-label={task.status === 'done' ? 'Mark as todo' : 'Mark as done'}
+            type="button"
+            onClick={() => deleteTask.mutate(task.id)}
+            className="text-text-muted hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
+            aria-label="Delete task"
           >
-            {task.status === 'done' ? (
-              <CheckCircle2 size={18} className="text-emerald-400" />
-            ) : (
-              <Circle size={18} />
-            )}
-          </button>
-          <button
-            onClick={() => setEditTask(task)}
-            className={`text-left text-sm font-medium min-w-0 ${
-              task.status === 'done'
-                ? 'line-through text-text-muted'
-                : 'text-text-secondary hover:text-text-primary'
-            }`}
-          >
-            {task.title}
+            <Trash2 size={14} />
           </button>
         </div>
-        <button
-          onClick={() => deleteTask.mutate(task.id)}
-          className="text-text-muted hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
-          aria-label="Delete task"
-        >
-          <Trash2 size={14} />
-        </button>
+        {dueDate && (
+          <p className="text-xs text-text-muted">{dueDate}</p>
+        )}
+        <Badge label={task.priority} variant={priorityVariant(task.priority)} />
       </div>
-      {task.due_date && (
-        <p className="text-xs text-text-muted">{task.due_date.slice(0, 10)}</p>
-      )}
-      <Badge label={task.priority} variant={priorityVariant(task.priority)} />
-    </div>
-  )
+    )
+  }
 
   const tableColumns = [
     {
@@ -111,6 +118,7 @@ export function TasksPage() {
       render: (task: Task) => (
         <div>
           <button
+            type="button"
             onClick={() => setEditTask(task)}
             className={`text-left text-sm font-medium ${
               task.status === 'done'
@@ -154,9 +162,10 @@ export function TasksPage() {
       header: 'Due date',
       sortable: true,
       sortValue: (task: Task) => task.due_date ?? '',
-      render: (task: Task) => (
-        <span className="text-text-secondary">{task.due_date ? task.due_date.slice(0, 10) : '-'}</span>
-      ),
+      render: (task: Task) => {
+        const dueDate = formatDate(task.due_date)
+        return <span className="text-text-secondary">{dueDate ?? '-'}</span>
+      },
     },
     {
       key: 'actions',
