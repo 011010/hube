@@ -110,9 +110,13 @@ export function ProjectsPage() {
               className="w-3 h-3 rounded-full shrink-0"
               style={{ backgroundColor: project.color }}
             />
-            <h3 className="text-sm font-medium text-text-primary leading-snug truncate">
+            <button
+              type="button"
+              onClick={e => { e.stopPropagation(); navigate(`/projects/${project.id}`) }}
+              className="text-left text-sm font-medium text-text-primary leading-snug truncate hover:text-text-secondary"
+            >
               {project.name}
-            </h3>
+            </button>
           </div>
           <Badge label={statusLabel(project.status)} variant={statusVariant(project.status)} />
         </div>
@@ -134,7 +138,7 @@ export function ProjectsPage() {
             type="button"
             onClick={e => { e.stopPropagation(); deleteProject.mutate(project.id) }}
             onPointerDown={e => e.stopPropagation()}
-            className="text-text-muted hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 ml-auto"
+            className="text-text-muted hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 focus-visible:opacity-100 ml-auto"
             aria-label="Delete project"
           >
             <Trash2 size={14} />
@@ -200,7 +204,7 @@ export function ProjectsPage() {
           <button
             type="button"
             onClick={() => deleteProject.mutate(project.id)}
-            className="text-text-muted hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
+            className="text-text-muted hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
             aria-label="Delete project"
           >
             <Trash2 size={14} />

@@ -15,12 +15,12 @@ export function statusLabel(status: ProjectStatus): string {
   return labels[status]
 }
 
-export function statusVariant(status: ProjectStatus): 'default' | 'success' | 'warning' | 'danger' {
+export function statusVariant(status: ProjectStatus): 'default' | 'accent' | 'success' | 'warning' | 'danger' {
   switch (status) {
     case 'completed':
       return 'success'
     case 'active':
-      return 'warning'
+      return 'accent'
     case 'on_hold':
       return 'warning'
     case 'planning':

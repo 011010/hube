@@ -1,10 +1,11 @@
 interface BadgeProps {
   label: string
-  variant?: 'default' | 'success' | 'warning' | 'danger'
+  variant?: 'default' | 'accent' | 'success' | 'warning' | 'danger'
 }
 
 const variants = {
   default: 'bg-(--color-surface-card) text-(--color-text-muted)',
+  accent: 'bg-(--color-accent)/10 text-(--color-accent)',
   success: 'bg-emerald-900 text-emerald-300',
   warning: 'bg-amber-900 text-amber-300',
   danger: 'bg-red-900 text-red-300',
