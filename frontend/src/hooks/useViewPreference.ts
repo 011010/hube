@@ -5,6 +5,7 @@ export type PageViewKey = 'tasks_view' | 'projects_view' | 'notes_view'
 export type ViewMode = 'kanban' | 'table'
 
 export const DEFAULT_VIEW: ViewMode = 'kanban'
+const VIEW_MODES: ViewMode[] = ['kanban', 'table']
 
 function parsePrefs(raw?: string): Partial<Record<PageViewKey, unknown>> {
   try {
@@ -18,7 +19,7 @@ function parsePrefs(raw?: string): Partial<Record<PageViewKey, unknown>> {
 }
 
 function normalizeView(value: unknown): ViewMode {
-  return value === 'table' ? 'table' : DEFAULT_VIEW
+  return VIEW_MODES.includes(value as ViewMode) ? (value as ViewMode) : DEFAULT_VIEW
 }
 
 export function useViewPreference(key: PageViewKey) {
@@ -29,6 +30,10 @@ export function useViewPreference(key: PageViewKey) {
   const prefs = parsePrefs(data?.general.view_preferences)
   const value = normalizeView(prefs[key])
 
+  // Read the latest cached settings to avoid stale closures within a single
+  // component instance. Note: rapid toggles across different preference keys
+  // can still race because both reads may happen before either PUT completes,
+  // overwriting one update. This is acceptable for view preferences.
   function setValue(v: ViewMode) {
     const latest = queryClient.getQueryData<Settings>(['settings'])
     if (!latest) return
