@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { Plus, Trash2, ListChecks, Circle, CheckCircle2 } from 'lucide-react'
 import { useTasks, useCreateTask, useUpdateTask, useDeleteTask } from '../../hooks/useTasks'
 import { useViewPreference } from '../../hooks/useViewPreference'
@@ -14,6 +14,15 @@ import { DataTable } from '../../components/organisms/DataTable'
 import type { Task, Priority, TaskStatus } from '../../types'
 
 const VALID_STATUSES: TaskStatus[] = ['todo', 'in_progress', 'done']
+
+const priorityVariant = (p: Priority) =>
+  p === 'high' ? 'danger' : p === 'medium' ? 'warning' : 'default'
+
+const statusVariant = (s: TaskStatus) =>
+  s === 'done' ? 'success' : s === 'in_progress' ? 'warning' : 'default'
+
+const statusLabel = (s: TaskStatus) =>
+  s === 'in_progress' ? 'In Progress' : s.charAt(0).toUpperCase() + s.slice(1)
 
 export function TasksPage() {
   const { data: tasks = [], isLoading } = useTasks()
@@ -37,34 +46,28 @@ export function TasksPage() {
     )
   }
 
-  const toggleStatus = (task: Task) => {
+  const toggleStatus = useCallback((task: Task) => {
     const next: TaskStatus = task.status === 'done' ? 'todo' : 'done'
     updateTask.mutate({ id: task.id, data: { status: next } })
-  }
+  }, [updateTask])
 
-  const priorityVariant = (p: Priority) =>
-    p === 'high' ? 'danger' : p === 'medium' ? 'warning' : 'default'
-
-  const statusVariant = (s: TaskStatus) =>
-    s === 'done' ? 'success' : s === 'in_progress' ? 'warning' : 'default'
-
-  const statusLabel = (s: TaskStatus) =>
-    s === 'in_progress' ? 'In Progress' : s.charAt(0).toUpperCase() + s.slice(1)
-
-  const columns = [
-    { id: 'todo', title: 'To Do', items: tasks.filter(t => t.status === 'todo') },
-    { id: 'in_progress', title: 'In Progress', items: tasks.filter(t => t.status === 'in_progress') },
-    { id: 'done', title: 'Done', items: tasks.filter(t => t.status === 'done') },
-  ]
-
-  const handleMove = (itemId: string, _sourceColumnId: string, targetColumnId: string) => {
+  const handleMove = useCallback((itemId: string, _sourceColumnId: string, targetColumnId: string) => {
     if (!VALID_STATUSES.includes(targetColumnId as TaskStatus)) return
     const task = tasks.find(t => t.id === itemId)
     if (!task || task.status === targetColumnId) return
     updateTask.mutate({ id: task.id, data: { status: targetColumnId as TaskStatus } })
-  }
+  }, [tasks, updateTask])
 
-  const renderCard = (task: Task) => {
+  const columns = useMemo(
+    () => [
+      { id: 'todo', title: 'To Do', items: tasks.filter(t => t.status === 'todo') },
+      { id: 'in_progress', title: 'In Progress', items: tasks.filter(t => t.status === 'in_progress') },
+      { id: 'done', title: 'Done', items: tasks.filter(t => t.status === 'done') },
+    ],
+    [tasks],
+  )
+
+  const renderCard = useCallback((task: Task) => {
     const dueDate = formatDate(task.due_date)
     return (
       <div className="space-y-2">
@@ -109,79 +112,82 @@ export function TasksPage() {
         <Badge label={task.priority} variant={priorityVariant(task.priority)} />
       </div>
     )
-  }
+  }, [deleteTask, toggleStatus])
 
-  const tableColumns = [
-    {
-      key: 'title',
-      header: 'Title',
-      render: (task: Task) => (
-        <div>
+  const tableColumns = useMemo(
+    () => [
+      {
+        key: 'title',
+        header: 'Title',
+        render: (task: Task) => (
+          <div>
+            <button
+              type="button"
+              onClick={() => setEditTask(task)}
+              className={`text-left text-sm font-medium ${
+                task.status === 'done'
+                  ? 'line-through text-text-muted'
+                  : 'text-text-secondary hover:text-text-primary'
+              }`}
+            >
+              {task.title}
+            </button>
+            {task.description && (
+              <p className="text-xs text-text-muted truncate max-w-md">{task.description}</p>
+            )}
+          </div>
+        ),
+      },
+      {
+        key: 'status',
+        header: 'Status',
+        sortable: true,
+        sortValue: (task: Task) => task.status,
+        render: (task: Task) => (
           <button
             type="button"
-            onClick={() => setEditTask(task)}
-            className={`text-left text-sm font-medium ${
-              task.status === 'done'
-                ? 'line-through text-text-muted'
-                : 'text-text-secondary hover:text-text-primary'
-            }`}
+            onClick={() => toggleStatus(task)}
+            className="cursor-pointer"
+            aria-label={task.status === 'done' ? 'Mark as todo' : 'Mark as done'}
           >
-            {task.title}
+            <Badge label={statusLabel(task.status)} variant={statusVariant(task.status)} />
           </button>
-          {task.description && (
-            <p className="text-xs text-text-muted truncate max-w-md">{task.description}</p>
-          )}
-        </div>
-      ),
-    },
-    {
-      key: 'status',
-      header: 'Status',
-      sortable: true,
-      sortValue: (task: Task) => task.status,
-      render: (task: Task) => (
-        <button
-          type="button"
-          onClick={() => toggleStatus(task)}
-          className="cursor-pointer"
-          aria-label={task.status === 'done' ? 'Mark as todo' : 'Mark as done'}
-        >
-          <Badge label={statusLabel(task.status)} variant={statusVariant(task.status)} />
-        </button>
-      ),
-    },
-    {
-      key: 'priority',
-      header: 'Priority',
-      sortable: true,
-      sortValue: (task: Task) => task.priority,
-      render: (task: Task) => <Badge label={task.priority} variant={priorityVariant(task.priority)} />,
-    },
-    {
-      key: 'due_date',
-      header: 'Due date',
-      sortable: true,
-      sortValue: (task: Task) => task.due_date ?? '',
-      render: (task: Task) => {
-        const dueDate = formatDate(task.due_date)
-        return <span className="text-text-secondary">{dueDate ?? '-'}</span>
+        ),
       },
-    },
-    {
-      key: 'actions',
-      header: '',
-      render: (task: Task) => (
-        <button
-          type="button"
-          onClick={() => deleteTask.mutate(task.id)}
-          className="text-text-muted hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
-          aria-label="Delete task"
-        >
-          <Trash2 size={14} />
-        </button>
-      ),
-    },
-  ]
+      {
+        key: 'priority',
+        header: 'Priority',
+        sortable: true,
+        sortValue: (task: Task) => task.priority,
+        render: (task: Task) => <Badge label={task.priority} variant={priorityVariant(task.priority)} />,
+      },
+      {
+        key: 'due_date',
+        header: 'Due date',
+        sortable: true,
+        sortValue: (task: Task) => formatDate(task.due_date) ?? '',
+        render: (task: Task) => {
+          const dueDate = formatDate(task.due_date)
+          return <span className="text-text-secondary">{dueDate ?? '-'}</span>
+        },
+      },
+      {
+        key: 'actions',
+        header: '',
+        render: (task: Task) => (
+          <button
+            type="button"
+            onClick={() => deleteTask.mutate(task.id)}
+            className="text-text-muted hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
+            aria-label="Delete task"
+          >
+            <Trash2 size={14} />
+          </button>
+        ),
+      },
+    ],
+    [deleteTask, toggleStatus],
+  )
 
   return (
     <div className="p-8 space-y-6">
@@ -190,7 +196,7 @@ export function TasksPage() {
         actions={
           <div className="flex items-center gap-2">
             <ViewToggle value={view} onChange={setView} />
-            <Button onClick={() => setCreateOpen(true)} icon={<Plus size={16} />}>New task</Button>
+            <Button type="button" onClick={() => setCreateOpen(true)} icon={<Plus size={16} />}>New task</Button>
           </div>
         }
       />
@@ -203,7 +209,7 @@ export function TasksPage() {
           title="No tasks yet"
           description="Create one to get started."
           action={
-            <Button onClick={() => setCreateOpen(true)} icon={<Plus size={16} />}>New task</Button>
+            <Button type="button" onClick={() => setCreateOpen(true)} icon={<Plus size={16} />}>New task</Button>
           }
         />
       )}
