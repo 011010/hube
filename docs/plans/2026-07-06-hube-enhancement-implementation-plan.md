@@ -320,6 +320,7 @@ git commit -m "feat(projects): add kanban and table views"
 
 **Files:**
 - Create: `backend/internal/infrastructure/sqlite/migrations/010_note_properties.sql`
+- Create: `backend/internal/infrastructure/sqlite/migrations_test.go`
 
 **Step 1: Write migration**
 
@@ -330,19 +331,23 @@ ALTER TABLE notes ADD COLUMN due_date TEXT;
 ALTER TABLE notes ADD COLUMN blocks TEXT NOT NULL DEFAULT '';
 ```
 
-**Step 2: Update FTS triggers**
+**Step 2: Leave FTS triggers unchanged**
 
-Modify `backend/internal/infrastructure/sqlite/migrations/002_notes.sql` triggers or create new ones to index plain text extracted from `blocks` JSON instead of `content`.
+Keep `002_notes.sql` triggers indexing `title` and `content`. The existing `content` column remains the searchable plain-text extraction from `blocks`; JSON-to-text extraction will be handled by the repository in Task 10.
 
-**Step 3: Verify migration**
+**Step 3: Add migration verification test**
+
+Create `backend/internal/infrastructure/sqlite/migrations_test.go` that opens a temp database and asserts the four new columns exist on `notes`.
+
+**Step 4: Verify migration**
 
 Run: `cd backend && go test ./internal/infrastructure/sqlite/... -run TestMigrations -v`
 Expected: PASS
 
-**Step 4: Commit**
+**Step 5: Commit**
 
 ```bash
-git add backend/internal/infrastructure/sqlite/migrations/010_note_properties.sql
+git add backend/internal/infrastructure/sqlite/migrations/010_note_properties.sql backend/internal/infrastructure/sqlite/migrations_test.go
 git commit -m "feat(notes): add status priority due_date blocks columns"
 ```
 
@@ -395,7 +400,7 @@ Include `status`, `priority`, `due_date`, `blocks` in SELECT, INSERT, UPDATE.
 func blocksToText(blocks string) string { /* parse TipTap JSON, return plain text */ }
 ```
 
-Use it for FTS indexing if triggers cannot parse JSON.
+Use it to populate the `content` column on write/update. The FTS triggers in `002_notes.sql` continue to index `title` and `content`, so no trigger changes are needed.
 
 **Step 3: Update tests**
 
