@@ -112,7 +112,7 @@ function SortableCard<T>({
       <div
         {...attributes}
         {...listeners}
-        className="cursor-grab active:cursor-grabbing py-1 flex justify-center text-text-muted hover:text-text-primary touch-none"
+        className="cursor-grab active:cursor-grabbing py-1 flex justify-center text-text-muted hover:text-text-primary touch-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--color-accent) focus-visible:rounded"
       >
         <GripVertical size={16} />
       </div>

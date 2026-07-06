@@ -100,10 +100,7 @@ export function ProjectsPage() {
     const pct = progress(project)
     const dueDate = formatDate(project.due_date)
     return (
-      <div
-        onClick={() => navigate(`/projects/${project.id}`)}
-        className="space-y-2"
-      >
+      <div className="space-y-2">
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-2 flex-1 min-w-0">
             <span
@@ -112,8 +109,8 @@ export function ProjectsPage() {
             />
             <button
               type="button"
-              onClick={e => { e.stopPropagation(); navigate(`/projects/${project.id}`) }}
-              className="text-left text-sm font-medium text-text-primary leading-snug truncate hover:text-text-secondary"
+              onClick={() => navigate(`/projects/${project.id}`)}
+              className="text-left text-sm font-medium text-text-primary leading-snug truncate hover:text-text-secondary flex-1 min-w-0"
             >
               {project.name}
             </button>
