@@ -253,8 +253,10 @@ export function KanbanBoard<T>({
 
       <DragOverlay>
         {activeMeta ? (
-          <div className={`${cardSurfaceClass} p-3 rotate-2 opacity-90`}>
-            {renderCard(activeMeta.item)}
+          <div className={`${cardSurfaceClass} rotate-2 opacity-90`}>
+            <div className="px-3 pb-3">
+              {renderCard(activeMeta.item)}
+            </div>
           </div>
         ) : null}
       </DragOverlay>

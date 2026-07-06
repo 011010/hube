@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { Plus, Trash2, FolderKanban } from 'lucide-react'
 import { useProjects, useCreateProject, useDeleteProject, useUpdateProject } from '../../hooks/useProjects'
 import { useViewPreference } from '../../hooks/useViewPreference'
@@ -75,7 +75,6 @@ export function ProjectsPage() {
   const { data: projects = [], isLoading } = useProjects()
   const updateProject = useUpdateProject()
   const deleteProject = useDeleteProject()
-  const navigate = useNavigate()
 
   const [view, setView] = useViewPreference('projects_view')
   const [showNew, setShowNew] = useState(false)
@@ -107,13 +106,12 @@ export function ProjectsPage() {
               className="w-3 h-3 rounded-full shrink-0"
               style={{ backgroundColor: project.color }}
             />
-            <button
-              type="button"
-              onClick={() => navigate(`/projects/${project.id}`)}
-              className="text-left text-sm font-medium text-text-primary leading-snug truncate hover:text-text-secondary flex-1 min-w-0"
+            <Link
+              to={`/projects/${project.id}`}
+              className="text-left text-sm font-medium text-text-primary leading-snug truncate hover:text-text-secondary flex-1 min-w-0 no-underline"
             >
               {project.name}
-            </button>
+            </Link>
           </div>
           <Badge label={statusLabel(project.status)} variant={statusVariant(project.status)} />
         </div>
@@ -134,7 +132,6 @@ export function ProjectsPage() {
           <button
             type="button"
             onClick={e => { e.stopPropagation(); deleteProject.mutate(project.id) }}
-            onPointerDown={e => e.stopPropagation()}
             className="text-text-muted hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 focus-visible:opacity-100 ml-auto"
             aria-label="Delete project"
           >
@@ -143,7 +140,7 @@ export function ProjectsPage() {
         </div>
       </div>
     )
-  }, [deleteProject, navigate])
+  }, [deleteProject])
 
   const tableColumns = useMemo(
     () => [
@@ -152,13 +149,12 @@ export function ProjectsPage() {
         header: 'Name',
         render: (project: Project) => (
           <div>
-            <button
-              type="button"
-              onClick={() => navigate(`/projects/${project.id}`)}
-              className="text-left text-sm font-medium text-text-secondary hover:text-text-primary"
+            <Link
+              to={`/projects/${project.id}`}
+              className="text-left text-sm font-medium text-text-secondary hover:text-text-primary no-underline"
             >
               {project.name}
-            </button>
+            </Link>
             {project.description && (
               <p className="text-xs text-text-muted truncate max-w-md">{project.description}</p>
             )}
@@ -188,7 +184,7 @@ export function ProjectsPage() {
         key: 'due_date',
         header: 'Due date',
         sortable: true,
-        sortValue: (project: Project) => formatDate(project.due_date) ?? '',
+        sortValue: (project: Project) => project.due_date ?? '',
         render: (project: Project) => {
           const dueDate = formatDate(project.due_date)
           return <span className="text-text-secondary">{dueDate ?? '-'}</span>
@@ -209,7 +205,7 @@ export function ProjectsPage() {
         ),
       },
     ],
-    [deleteProject, navigate],
+    [deleteProject],
   )
 
   return (
