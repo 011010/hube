@@ -152,7 +152,7 @@ export function DataTable<T>({
             sortedData.map((item) => (
               <tr
                 key={getRowKey(item)}
-                className="border-b border-border/50 transition-colors last:border-b-0 hover:bg-surface-card"
+                className="group border-b border-border/50 transition-colors last:border-b-0 hover:bg-surface-card"
               >
                 {columns.map((column) => (
                   <td

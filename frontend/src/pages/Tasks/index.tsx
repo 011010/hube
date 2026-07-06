@@ -133,6 +133,7 @@ export function TasksPage() {
       sortValue: (task: Task) => task.status,
       render: (task: Task) => (
         <button
+          type="button"
           onClick={() => toggleStatus(task)}
           className="cursor-pointer"
           aria-label={task.status === 'done' ? 'Mark as todo' : 'Mark as done'}
@@ -155,6 +156,20 @@ export function TasksPage() {
       sortValue: (task: Task) => task.due_date ?? '',
       render: (task: Task) => (
         <span className="text-text-secondary">{task.due_date ? task.due_date.slice(0, 10) : '-'}</span>
+      ),
+    },
+    {
+      key: 'actions',
+      header: '',
+      render: (task: Task) => (
+        <button
+          type="button"
+          onClick={() => deleteTask.mutate(task.id)}
+          className="text-text-muted hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
+          aria-label="Delete task"
+        >
+          <Trash2 size={14} />
+        </button>
       ),
     },
   ]
@@ -197,7 +212,6 @@ export function TasksPage() {
             columns={tableColumns}
             data={tasks}
             getRowKey={task => task.id}
-            emptyMessage="No tasks"
           />
         )
       )}
