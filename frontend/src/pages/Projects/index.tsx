@@ -81,7 +81,7 @@ export function ProjectsPage() {
 
   const handleMove = useCallback((itemId: string, _sourceColumnId: string, targetColumnId: string) => {
     const project = projects.find(p => p.id === itemId)
-    if (!project || !VALID_STATUSES.includes(targetColumnId as ProjectStatus)) return
+    if (!project || !VALID_STATUSES.includes(targetColumnId as ProjectStatus) || project.status === targetColumnId) return
     updateProject.mutate({ id: project.id, data: { status: targetColumnId as ProjectStatus } })
   }, [projects, updateProject])
 

@@ -100,7 +100,6 @@ export function TasksPage() {
           <button
             type="button"
             onClick={() => deleteTask.mutate(task.id)}
-            onPointerDown={e => e.stopPropagation()}
             className="text-text-muted hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
             aria-label="Delete task"
           >
@@ -166,7 +165,7 @@ export function TasksPage() {
         key: 'due_date',
         header: 'Due date',
         sortable: true,
-        sortValue: (task: Task) => formatDate(task.due_date) ?? '',
+        sortValue: (task: Task) => task.due_date ?? '',
         render: (task: Task) => {
           const dueDate = formatDate(task.due_date)
           return <span className="text-text-secondary">{dueDate ?? '-'}</span>
