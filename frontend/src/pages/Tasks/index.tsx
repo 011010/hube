@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, Trash2, ListChecks } from 'lucide-react'
+import { Plus, Trash2, ListChecks, Circle, CheckCircle2 } from 'lucide-react'
 import { useTasks, useCreateTask, useUpdateTask, useDeleteTask } from '../../hooks/useTasks'
 import { useViewPreference } from '../../hooks/useViewPreference'
 import { Badge } from '../../components/atoms/Badge'
@@ -11,6 +11,8 @@ import { ViewToggle } from '../../components/molecules/ViewToggle'
 import { KanbanBoard } from '../../components/organisms/KanbanBoard'
 import { DataTable } from '../../components/organisms/DataTable'
 import type { Task, Priority, TaskStatus } from '../../types'
+
+const VALID_STATUSES: TaskStatus[] = ['todo', 'in_progress', 'done']
 
 export function TasksPage() {
   const { data: tasks = [], isLoading } = useTasks()
@@ -34,6 +36,11 @@ export function TasksPage() {
     )
   }
 
+  const toggleStatus = (task: Task) => {
+    const next: TaskStatus = task.status === 'done' ? 'todo' : 'done'
+    updateTask.mutate({ id: task.id, data: { ...task, status: next } })
+  }
+
   const priorityVariant = (p: Priority) =>
     p === 'high' ? 'danger' : p === 'medium' ? 'warning' : 'default'
 
@@ -50,23 +57,41 @@ export function TasksPage() {
   ]
 
   const handleMove = (itemId: string, _sourceColumnId: string, targetColumnId: string) => {
+    if (!VALID_STATUSES.includes(targetColumnId as TaskStatus)) return
     const task = tasks.find(t => t.id === itemId)
     if (!task || task.status === targetColumnId) return
     updateTask.mutate({ id: task.id, data: { ...task, status: targetColumnId as TaskStatus } })
   }
 
   const renderCard = (task: Task) => (
-    <div className="space-y-2">
+    <div className="space-y-2 group">
       <div className="flex items-start justify-between gap-2">
-        <button
-          onClick={() => setEditTask(task)}
-          className="text-left text-sm font-medium text-text-secondary hover:text-text-primary"
-        >
-          {task.title}
-        </button>
+        <div className="flex items-start gap-2 flex-1 min-w-0">
+          <button
+            onClick={() => toggleStatus(task)}
+            className="shrink-0 text-text-muted hover:text-(--color-accent) transition-colors mt-0.5"
+            aria-label={task.status === 'done' ? 'Mark as todo' : 'Mark as done'}
+          >
+            {task.status === 'done' ? (
+              <CheckCircle2 size={18} className="text-emerald-400" />
+            ) : (
+              <Circle size={18} />
+            )}
+          </button>
+          <button
+            onClick={() => setEditTask(task)}
+            className={`text-left text-sm font-medium min-w-0 ${
+              task.status === 'done'
+                ? 'line-through text-text-muted'
+                : 'text-text-secondary hover:text-text-primary'
+            }`}
+          >
+            {task.title}
+          </button>
+        </div>
         <button
           onClick={() => deleteTask.mutate(task.id)}
-          className="text-text-muted hover:text-red-400 transition-colors"
+          className="text-text-muted hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
           aria-label="Delete task"
         >
           <Trash2 size={14} />
@@ -87,7 +112,11 @@ export function TasksPage() {
         <div>
           <button
             onClick={() => setEditTask(task)}
-            className="text-left text-sm font-medium text-text-secondary hover:text-text-primary"
+            className={`text-left text-sm font-medium ${
+              task.status === 'done'
+                ? 'line-through text-text-muted'
+                : 'text-text-secondary hover:text-text-primary'
+            }`}
           >
             {task.title}
           </button>
@@ -102,7 +131,15 @@ export function TasksPage() {
       header: 'Status',
       sortable: true,
       sortValue: (task: Task) => task.status,
-      render: (task: Task) => <Badge label={statusLabel(task.status)} variant={statusVariant(task.status)} />,
+      render: (task: Task) => (
+        <button
+          onClick={() => toggleStatus(task)}
+          className="cursor-pointer"
+          aria-label={task.status === 'done' ? 'Mark as todo' : 'Mark as done'}
+        >
+          <Badge label={statusLabel(task.status)} variant={statusVariant(task.status)} />
+        </button>
+      ),
     },
     {
       key: 'priority',
