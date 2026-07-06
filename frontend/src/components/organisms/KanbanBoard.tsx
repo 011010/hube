@@ -179,6 +179,8 @@ export function KanbanBoard<T>({
   getItemId,
   onMove,
 }: KanbanBoardProps<T>) {
+  // Keyboard navigation can reorder cards within a column only.
+  // Cross-column keyboard moves are not supported yet.
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: { distance: 5 },
@@ -213,10 +215,14 @@ export function KanbanBoard<T>({
       columns.find((column) => column.id === overId)?.id ??
       columnByUniqueId.get(overId)
 
-    // Same-column drops only update visual order during drag; they do not emit onMove.
+    // Same-column drops are ignored; intra-column reordering is not supported.
     if (targetColumnId && targetColumnId !== source.columnId) {
       onMove(source.itemId, source.columnId, targetColumnId)
     }
+  }
+
+  const handleDragCancel = () => {
+    setActiveUniqueId(null)
   }
 
   return (
@@ -225,6 +231,7 @@ export function KanbanBoard<T>({
       collisionDetection={rectIntersection}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
+      onDragCancel={handleDragCancel}
     >
       <div className="flex gap-4 overflow-x-auto pb-2">
         {columns.map((column) => (
