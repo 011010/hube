@@ -2,11 +2,15 @@ import { useSettings, useUpdateSettings } from './useSettings'
 
 export type PageViewKey = 'tasks_view' | 'projects_view' | 'notes_view'
 
-function parsePrefs(raw?: string): Record<PageViewKey, 'kanban' | 'table'> {
+function normalizeView(value: unknown): 'kanban' | 'table' {
+  return value === 'table' ? 'table' : 'kanban'
+}
+
+function parsePrefs(raw?: string): Record<PageViewKey, unknown> {
   try {
     return JSON.parse(raw ?? '{}')
   } catch {
-    return {} as Record<PageViewKey, 'kanban' | 'table'>
+    return {} as Record<PageViewKey, unknown>
   }
 }
 
@@ -15,7 +19,7 @@ export function useViewPreference(key: PageViewKey) {
   const update = useUpdateSettings()
 
   const prefs = parsePrefs(data?.general.view_preferences)
-  const value = prefs[key] ?? 'kanban'
+  const value = normalizeView(prefs[key])
 
   function setValue(v: 'kanban' | 'table') {
     if (!data) return
