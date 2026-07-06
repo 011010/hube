@@ -15,7 +15,7 @@
 ### Task 1: Add view_preferences column to settings backend
 
 **Files:**
-- Modify: `backend/internal/infrastructure/sqlite/migrations/009_settings_view_preferences.sql`
+- Modify: `backend/internal/infrastructure/sqlite/migrations/010_settings_view_preferences.sql`
 - Modify: `backend/internal/infrastructure/sqlite/setting_repo.go`
 - Modify: `backend/internal/application/setting/service.go`
 - Modify: `backend/internal/infrastructure/http/handler/setting.go` (if needed)
@@ -23,7 +23,7 @@
 
 **Step 1: Write migration**
 
-Create `backend/internal/infrastructure/sqlite/migrations/009_settings_view_preferences.sql`:
+Create `backend/internal/infrastructure/sqlite/migrations/010_settings_view_preferences.sql`:
 
 ```sql
 ALTER TABLE settings ADD COLUMN view_preferences TEXT NOT NULL DEFAULT '{}';
@@ -45,7 +45,7 @@ Expected: PASS
 **Step 5: Commit**
 
 ```bash
-git add backend/internal/infrastructure/sqlite/migrations/009_settings_view_preferences.sql backend/internal/infrastructure/sqlite/setting_repo.go backend/internal/application/setting/service.go
+git add backend/internal/infrastructure/sqlite/migrations/010_settings_view_preferences.sql backend/internal/infrastructure/sqlite/setting_repo.go backend/internal/application/setting/service.go
 git commit -m "feat(settings): add view_preferences column"
 ```
 
@@ -319,7 +319,7 @@ git commit -m "feat(projects): add kanban and table views"
 ### Task 8: Add notes migration for status/priority/due_date/blocks
 
 **Files:**
-- Create: `backend/internal/infrastructure/sqlite/migrations/010_note_properties.sql`
+- Create: `backend/internal/infrastructure/sqlite/migrations/009_note_properties.sql`
 - Create: `backend/internal/infrastructure/sqlite/migrations_test.go`
 
 **Step 1: Write migration**
@@ -347,7 +347,7 @@ Expected: PASS
 **Step 5: Commit**
 
 ```bash
-git add backend/internal/infrastructure/sqlite/migrations/010_note_properties.sql backend/internal/infrastructure/sqlite/migrations_test.go
+git add backend/internal/infrastructure/sqlite/migrations/009_note_properties.sql backend/internal/infrastructure/sqlite/migrations_test.go
 git commit -m "feat(notes): add status priority due_date blocks columns"
 ```
 
