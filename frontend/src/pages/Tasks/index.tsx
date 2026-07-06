@@ -64,7 +64,7 @@ export function TasksPage() {
   }
 
   const renderCard = (task: Task) => (
-    <div className="space-y-2 group">
+    <div className="space-y-2">
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-start gap-2 flex-1 min-w-0">
           <button

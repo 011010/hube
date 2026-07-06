@@ -106,7 +106,7 @@ function SortableCard<T>({
       {...listeners}
       className={[
         cardSurfaceClass,
-        'cursor-grab active:cursor-grabbing select-none touch-none',
+        'group cursor-grab active:cursor-grabbing select-none touch-none',
         'transition-opacity',
         isDragging ? 'opacity-40' : 'opacity-100',
       ].join(' ')}
