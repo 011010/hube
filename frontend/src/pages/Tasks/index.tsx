@@ -100,6 +100,7 @@ export function TasksPage() {
           <button
             type="button"
             onClick={() => deleteTask.mutate(task.id)}
+            onPointerDown={e => e.stopPropagation()}
             className="text-text-muted hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
             aria-label="Delete task"
           >

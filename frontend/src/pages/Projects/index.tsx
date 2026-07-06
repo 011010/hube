@@ -133,6 +133,7 @@ export function ProjectsPage() {
           <button
             type="button"
             onClick={e => { e.stopPropagation(); deleteProject.mutate(project.id) }}
+            onPointerDown={e => e.stopPropagation()}
             className="text-text-muted hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 ml-auto"
             aria-label="Delete project"
           >

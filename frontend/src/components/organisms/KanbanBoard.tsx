@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
+import { GripVertical } from 'lucide-react'
 import {
   DndContext,
   DragOverlay,
@@ -37,7 +38,7 @@ function uniqueCardId(columnId: string, itemId: string): string {
 }
 
 const cardSurfaceClass =
-  'rounded-lg border border-border-subtle bg-surface-card p-3'
+  'rounded-lg border border-border-subtle bg-surface-card'
 
 interface CardMeta<T> {
   columnId: string
@@ -102,16 +103,22 @@ function SortableCard<T>({
     <div
       ref={setNodeRef}
       style={style}
-      {...attributes}
-      {...listeners}
       className={[
         cardSurfaceClass,
-        'group cursor-grab active:cursor-grabbing select-none touch-none',
-        'transition-opacity',
+        'group select-none transition-opacity',
         isDragging ? 'opacity-40' : 'opacity-100',
       ].join(' ')}
     >
-      {renderCard(item)}
+      <div
+        {...attributes}
+        {...listeners}
+        className="cursor-grab active:cursor-grabbing py-1 flex justify-center text-text-muted hover:text-text-primary touch-none"
+      >
+        <GripVertical size={16} />
+      </div>
+      <div className="px-3 pb-3">
+        {renderCard(item)}
+      </div>
     </div>
   )
 }
@@ -246,7 +253,7 @@ export function KanbanBoard<T>({
 
       <DragOverlay>
         {activeMeta ? (
-          <div className={`${cardSurfaceClass} rotate-2 opacity-90`}>
+          <div className={`${cardSurfaceClass} p-3 rotate-2 opacity-90`}>
             {renderCard(activeMeta.item)}
           </div>
         ) : null}
