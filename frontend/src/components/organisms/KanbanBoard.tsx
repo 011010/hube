@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import {
   DndContext,
   DragOverlay,
+  KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
@@ -12,6 +13,7 @@ import {
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core'
 import {
   SortableContext,
+  sortableKeyboardCoordinates,
   useSortable,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
@@ -27,7 +29,7 @@ export interface KanbanBoardProps<T> {
   columns: KanbanColumn<T>[]
   renderCard: (item: T) => ReactNode
   getItemId: (item: T) => string
-  onMove: (itemId: string, targetColumnId: string) => void
+  onMove: (itemId: string, sourceColumnId: string, targetColumnId: string) => void
 }
 
 function uniqueCardId(columnId: string, itemId: string): string {
@@ -104,7 +106,7 @@ function SortableCard<T>({
       {...listeners}
       className={[
         cardSurfaceClass,
-        'cursor-grab active:cursor-grabbing select-none touch-manipulation',
+        'cursor-grab active:cursor-grabbing select-none touch-none',
         'transition-opacity',
         isDragging ? 'opacity-40' : 'opacity-100',
       ].join(' ')}
@@ -181,6 +183,9 @@ export function KanbanBoard<T>({
     useSensor(PointerSensor, {
       activationConstraint: { distance: 5 },
     }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
   )
 
   const [activeUniqueId, setActiveUniqueId] = useState<string | null>(null)
@@ -208,8 +213,9 @@ export function KanbanBoard<T>({
       columns.find((column) => column.id === overId)?.id ??
       columnByUniqueId.get(overId)
 
+    // Same-column drops only update visual order during drag; they do not emit onMove.
     if (targetColumnId && targetColumnId !== source.columnId) {
-      onMove(source.itemId, targetColumnId)
+      onMove(source.itemId, source.columnId, targetColumnId)
     }
   }
 
