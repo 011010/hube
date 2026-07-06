@@ -1,7 +1,6 @@
 import { LayoutGrid, Table2 } from 'lucide-react'
 import { IconButton } from '../atoms/IconButton'
-
-export type ViewMode = 'kanban' | 'table'
+import { type ViewMode } from '../../hooks/useViewPreference'
 
 export function ViewToggle({ value, onChange }: { value: ViewMode; onChange: (v: ViewMode) => void }) {
   return (

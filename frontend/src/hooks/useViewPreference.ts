@@ -4,7 +4,7 @@ import { useSettings, useUpdateSettings, type Settings } from './useSettings'
 export type PageViewKey = 'tasks_view' | 'projects_view' | 'notes_view'
 export type ViewMode = 'kanban' | 'table'
 
-const DEFAULT_VIEW: ViewMode = 'kanban'
+export const DEFAULT_VIEW: ViewMode = 'kanban'
 
 function parsePrefs(raw?: string): Partial<Record<PageViewKey, unknown>> {
   try {
