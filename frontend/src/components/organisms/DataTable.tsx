@@ -1,19 +1,28 @@
 import { useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import { ArrowDown, ArrowUp } from 'lucide-react'
+import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react'
 
-export interface DataTableColumn<T> {
-  key: string
-  header: string
-  render: (item: T) => ReactNode
-  sortable?: boolean
-  sortValue?: (item: T) => string | number
-}
+export type DataTableColumn<T> =
+  | {
+      key: string
+      header: string
+      render: (item: T) => ReactNode
+      sortable?: false
+      sortValue?: never
+    }
+  | {
+      key: string
+      header: string
+      render: (item: T) => ReactNode
+      sortable: true
+      sortValue: (item: T) => string | number
+    }
 
 export interface DataTableProps<T> {
   columns: DataTableColumn<T>[]
   data: T[]
   getRowKey: (item: T) => string | number
+  emptyMessage?: ReactNode
 }
 
 type SortDirection = 'asc' | 'desc'
@@ -21,16 +30,6 @@ type SortDirection = 'asc' | 'desc'
 interface SortState {
   key: string
   direction: SortDirection
-}
-
-function getSortValue<T>(
-  column: DataTableColumn<T>,
-  item: T,
-): string | number {
-  if (column.sortValue) {
-    return column.sortValue(item)
-  }
-  return String(column.render(item))
 }
 
 function compareValues(
@@ -53,6 +52,7 @@ export function DataTable<T>({
   columns,
   data,
   getRowKey,
+  emptyMessage = 'No rows',
 }: DataTableProps<T>) {
   const [sort, setSort] = useState<SortState | null>(null)
 
@@ -60,12 +60,12 @@ export function DataTable<T>({
     if (!sort) return data
 
     const column = columns.find((c) => c.key === sort.key)
-    if (!column) return data
+    if (!column || !column.sortable) return data
 
     return [...data].sort((a, b) =>
       compareValues(
-        getSortValue(column, a),
-        getSortValue(column, b),
+        column.sortValue(a),
+        column.sortValue(b),
         sort.direction,
       ),
     )
@@ -118,15 +118,17 @@ export function DataTable<T>({
                       ].join(' ')}
                     >
                       {column.header}
-                      {isActive && (
-                        <span className="text-text-muted">
-                          {sort.direction === 'asc' ? (
+                      <span className="text-text-muted">
+                        {isActive ? (
+                          sort.direction === 'asc' ? (
                             <ArrowUp size={14} />
                           ) : (
                             <ArrowDown size={14} />
-                          )}
-                        </span>
-                      )}
+                          )
+                        ) : (
+                          <ArrowUpDown size={14} />
+                        )}
+                      </span>
                     </button>
                   ) : (
                     <span className="text-text-muted">{column.header}</span>
@@ -143,7 +145,7 @@ export function DataTable<T>({
                 colSpan={columns.length}
                 className="px-4 py-8 text-center text-text-muted"
               >
-                No rows
+                {emptyMessage}
               </td>
             </tr>
           ) : (
