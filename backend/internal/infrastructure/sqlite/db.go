@@ -32,6 +32,9 @@ var diagramsSQL string
 //go:embed migrations/008_note_embeddings.sql
 var noteEmbeddingsSQL string
 
+//go:embed migrations/010_note_properties.sql
+var notePropertiesSQL string
+
 type migration struct {
 	name string
 	sql  string
@@ -46,6 +49,7 @@ var migrations = []migration{
 	{"006_task_recurrence", taskRecurrenceSQL},
 	{"007_diagrams", diagramsSQL},
 	{"008_note_embeddings", noteEmbeddingsSQL},
+	{"010_note_properties", notePropertiesSQL},
 }
 
 func Open(path string) (*sqlx.DB, error) {
