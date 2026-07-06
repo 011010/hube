@@ -114,6 +114,8 @@ export function TasksPage() {
     {
       key: 'due_date',
       header: 'Due date',
+      sortable: true,
+      sortValue: (task: Task) => task.due_date ?? '',
       render: (task: Task) => (
         <span className="text-text-secondary">{task.due_date ? task.due_date.slice(0, 10) : '-'}</span>
       ),
