@@ -1,3 +1,4 @@
+import { useCallback } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useSettings, useUpdateSettings, type Settings } from './useSettings'
 
@@ -34,7 +35,7 @@ export function useViewPreference(key: PageViewKey) {
   // component instance. Note: rapid toggles across different preference keys
   // can still race because both reads may happen before either PUT completes,
   // overwriting one update. This is acceptable for view preferences.
-  function setValue(v: ViewMode) {
+  const setValue = useCallback((v: ViewMode) => {
     const latest = queryClient.getQueryData<Settings>(['settings'])
     if (!latest) return
     const latestPrefs = parsePrefs(latest.general.view_preferences)
@@ -43,7 +44,7 @@ export function useViewPreference(key: PageViewKey) {
       ...latest,
       general: { ...latest.general, view_preferences: JSON.stringify(next) },
     })
-  }
+  }, [key, update, queryClient])
 
   return [value, setValue] as const
 }
