@@ -8,7 +8,10 @@ function normalizeView(value: unknown): 'kanban' | 'table' {
 
 function parsePrefs(raw?: string): Record<PageViewKey, unknown> {
   try {
-    return JSON.parse(raw ?? '{}')
+    const parsed = JSON.parse(raw ?? '{}')
+    return parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? (parsed as Record<PageViewKey, unknown>)
+      : ({} as Record<PageViewKey, unknown>)
   } catch {
     return {} as Record<PageViewKey, unknown>
   }
