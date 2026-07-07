@@ -30,29 +30,30 @@ type noteRow struct {
 	UpdatedAt time.Time    `db:"updated_at"`
 }
 
-func blocksToText(blocks string) string {
-	if blocks == "" {
-		return ""
+func walkNode(node map[string]any, out *[]string) {
+	if text, ok := node["text"].(string); ok {
+		*out = append(*out, text)
 	}
-	var doc struct {
-		Content []struct {
-			Content []struct {
-				Text string `json:"text"`
-			} `json:"content"`
-		} `json:"content"`
-	}
-	if err := json.Unmarshal([]byte(blocks), &doc); err != nil {
-		return ""
-	}
-	var parts []string
-	for _, node := range doc.Content {
-		for _, child := range node.Content {
-			if child.Text != "" {
-				parts = append(parts, child.Text)
+	if children, ok := node["content"].([]any); ok {
+		for _, child := range children {
+			if childMap, ok := child.(map[string]any); ok {
+				walkNode(childMap, out)
 			}
 		}
 	}
-	return strings.Join(parts, " ")
+}
+
+func blocksToText(blocks string) (string, error) {
+	if blocks == "" {
+		return "", nil
+	}
+	var doc map[string]any
+	if err := json.Unmarshal([]byte(blocks), &doc); err != nil {
+		return "", err
+	}
+	var parts []string
+	walkNode(doc, &parts)
+	return strings.Join(parts, " "), nil
 }
 
 func (r *NoteRepo) loadTags(ctx context.Context, noteID string) ([]string, error) {
@@ -147,7 +148,13 @@ func (r *NoteRepo) Search(ctx context.Context, query string) ([]note.Note, error
 
 func (r *NoteRepo) Create(ctx context.Context, n *note.Note) error {
 	n.ID = uuid.NewString()
-	n.Content = blocksToText(n.Blocks)
+	if n.Blocks != "" {
+		content, err := blocksToText(n.Blocks)
+		if err != nil {
+			return fmt.Errorf("blocksToText: %w", err)
+		}
+		n.Content = content
+	}
 	now := time.Now()
 	n.CreatedAt = now
 	n.UpdatedAt = now
@@ -162,7 +169,13 @@ func (r *NoteRepo) Create(ctx context.Context, n *note.Note) error {
 }
 
 func (r *NoteRepo) Update(ctx context.Context, n *note.Note) error {
-	n.Content = blocksToText(n.Blocks)
+	if n.Blocks != "" {
+		content, err := blocksToText(n.Blocks)
+		if err != nil {
+			return fmt.Errorf("blocksToText: %w", err)
+		}
+		n.Content = content
+	}
 	n.UpdatedAt = time.Now()
 	_, err := r.db.ExecContext(ctx,
 		`UPDATE notes SET title=?,content=?,blocks=?,status=?,priority=?,due_date=?,folder_id=?,updated_at=? WHERE id=?`,
