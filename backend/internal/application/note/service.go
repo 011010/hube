@@ -23,6 +23,10 @@ func (s *Service) Search(ctx context.Context, query string) ([]note.Note, error)
 }
 
 func (s *Service) Create(ctx context.Context, n *note.Note) error {
+	n.Normalize()
+	if err := n.Validate(); err != nil {
+		return err
+	}
 	if n.Tags == nil {
 		n.Tags = []string{}
 	}
@@ -30,6 +34,10 @@ func (s *Service) Create(ctx context.Context, n *note.Note) error {
 }
 
 func (s *Service) Update(ctx context.Context, n *note.Note) error {
+	n.Normalize()
+	if err := n.Validate(); err != nil {
+		return err
+	}
 	if n.Tags == nil {
 		n.Tags = []string{}
 	}

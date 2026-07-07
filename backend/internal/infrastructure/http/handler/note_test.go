@@ -8,6 +8,79 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestNote_Create_Validation(t *testing.T) {
+	srv := newTestServer(t)
+	base := srv.URL + "/api/v1/notes"
+
+	tests := []struct {
+		name       string
+		body       string
+		wantStatus int
+	}{
+		{
+			name:       "empty title rejected",
+			body:       `{"status":"draft","priority":"medium"}`,
+			wantStatus: http.StatusInternalServerError,
+		},
+		{
+			name:       "invalid status rejected",
+			body:       `{"title":"Test","status":"invalid","priority":"medium"}`,
+			wantStatus: http.StatusInternalServerError,
+		},
+		{
+			name:       "invalid priority rejected",
+			body:       `{"title":"Test","status":"draft","priority":"invalid"}`,
+			wantStatus: http.StatusInternalServerError,
+		},
+		{
+			name:       "invalid due_date rejected",
+			body:       `{"title":"Test","status":"draft","priority":"medium","due_date":"not-a-date"}`,
+			wantStatus: http.StatusInternalServerError,
+		},
+		{
+			name:       "empty status and priority get defaults",
+			body:       `{"title":"Test"}`,
+			wantStatus: http.StatusCreated,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resp := mustPost(t, base, tt.body)
+			defer resp.Body.Close()
+			assert.Equal(t, tt.wantStatus, resp.StatusCode)
+		})
+	}
+}
+
+func TestNote_Create_Validation_DefaultsApplied(t *testing.T) {
+	srv := newTestServer(t)
+	base := srv.URL + "/api/v1/notes"
+
+	resp := mustPost(t, base, `{"title":"Test"}`)
+	assert.Equal(t, http.StatusCreated, resp.StatusCode)
+	var created map[string]any
+	mustDecode(t, resp, &created)
+	assert.Equal(t, "draft", created["status"])
+	assert.Equal(t, "medium", created["priority"])
+}
+
+func TestNote_Update_Validation(t *testing.T) {
+	srv := newTestServer(t)
+	base := srv.URL + "/api/v1/notes"
+
+	resp := mustPost(t, base, `{"title":"My note","status":"draft","priority":"medium"}`)
+	assert.Equal(t, http.StatusCreated, resp.StatusCode)
+	var created map[string]any
+	mustDecode(t, resp, &created)
+	id, _ := created["id"].(string)
+
+	// Update with empty title should be rejected by validation.
+	resp = mustPut(t, resourceURL(srv.URL, "notes", id), `{"title":""}`)
+	defer resp.Body.Close()
+	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+}
+
 func TestNote_CRUD(t *testing.T) {
 	srv := newTestServer(t)
 	base := srv.URL + "/api/v1/notes"
