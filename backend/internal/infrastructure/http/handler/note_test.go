@@ -13,7 +13,7 @@ func TestNote_CRUD(t *testing.T) {
 	base := srv.URL + "/api/v1/notes"
 
 	// Create
-	resp := mustPost(t, base, `{"title":"My note","content":"Hello world","tags":["go","test"]}`)
+	resp := mustPost(t, base, `{"title":"My note","blocks":"{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"text\":\"Hello world\"}]}]}","status":"draft","priority":"medium","tags":["go","test"]}`)
 	assert.Equal(t, http.StatusCreated, resp.StatusCode)
 	var created map[string]any
 	mustDecode(t, resp, &created)
@@ -21,6 +21,9 @@ func TestNote_CRUD(t *testing.T) {
 	assert.True(t, ok)
 	assert.NotEmpty(t, id)
 	assert.Equal(t, "My note", created["title"])
+	assert.Equal(t, "draft", created["status"])
+	assert.Equal(t, "medium", created["priority"])
+	assert.Equal(t, "Hello world", created["content"])
 
 	// List
 	resp = mustGet(t, base)
@@ -35,13 +38,18 @@ func TestNote_CRUD(t *testing.T) {
 	var fetched map[string]any
 	mustDecode(t, resp, &fetched)
 	assert.Equal(t, "My note", fetched["title"])
+	assert.Equal(t, "draft", fetched["status"])
+	assert.Equal(t, "medium", fetched["priority"])
+	assert.Equal(t, "Hello world", fetched["content"])
 
-	// Partial PUT — update only tags, title must survive
+	// Partial PUT — update only tags, title/status/priority must survive
 	resp = mustPut(t, resourceURL(srv.URL, "notes", id), `{"tags":["updated"]}`)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	var updated map[string]any
 	mustDecode(t, resp, &updated)
 	assert.Equal(t, "My note", updated["title"])
+	assert.Equal(t, "draft", updated["status"])
+	assert.Equal(t, "medium", updated["priority"])
 
 	// Delete
 	resp = mustDelete(t, resourceURL(srv.URL, "notes", id))
@@ -59,7 +67,7 @@ func TestNote_FTSSearch(t *testing.T) {
 	base := srv.URL + "/api/v1/notes"
 
 	// Create a note with known content
-	resp := mustPost(t, base, `{"title":"Gopher guide","content":"The Go programming language is efficient"}`)
+	resp := mustPost(t, base, `{"title":"Gopher guide","blocks":"{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"text\":\"The Go programming language is efficient\"}]}]}"}`)
 	assert.Equal(t, http.StatusCreated, resp.StatusCode)
 	resp.Body.Close()
 

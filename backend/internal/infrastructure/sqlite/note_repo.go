@@ -3,7 +3,9 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -19,9 +21,38 @@ type noteRow struct {
 	ID        string       `db:"id"`
 	Title     string       `db:"title"`
 	Content   string       `db:"content"`
+	Blocks    string       `db:"blocks"`
+	Status    string       `db:"status"`
+	Priority  string       `db:"priority"`
+	DueDate   *string      `db:"due_date"`
 	FolderID  *string      `db:"folder_id"`
 	CreatedAt time.Time    `db:"created_at"`
 	UpdatedAt time.Time    `db:"updated_at"`
+}
+
+func blocksToText(blocks string) string {
+	if blocks == "" {
+		return ""
+	}
+	var doc struct {
+		Content []struct {
+			Content []struct {
+				Text string `json:"text"`
+			} `json:"content"`
+		} `json:"content"`
+	}
+	if err := json.Unmarshal([]byte(blocks), &doc); err != nil {
+		return ""
+	}
+	var parts []string
+	for _, node := range doc.Content {
+		for _, child := range node.Content {
+			if child.Text != "" {
+				parts = append(parts, child.Text)
+			}
+		}
+	}
+	return strings.Join(parts, " ")
 }
 
 func (r *NoteRepo) loadTags(ctx context.Context, noteID string) ([]string, error) {
@@ -38,6 +69,10 @@ func (r *NoteRepo) toNote(ctx context.Context, row noteRow) (note.Note, error) {
 		ID:        row.ID,
 		Title:     row.Title,
 		Content:   row.Content,
+		Blocks:    row.Blocks,
+		Status:    row.Status,
+		Priority:  row.Priority,
+		DueDate:   row.DueDate,
 		FolderID:  row.FolderID,
 		Tags:      tags,
 		CreatedAt: row.CreatedAt,
@@ -49,9 +84,9 @@ func (r *NoteRepo) FindAll(ctx context.Context, folderID *string) ([]note.Note, 
 	rows := make([]noteRow, 0)
 	var err error
 	if folderID == nil {
-		err = r.db.SelectContext(ctx, &rows, `SELECT id,title,content,folder_id,created_at,updated_at FROM notes ORDER BY updated_at DESC`)
+		err = r.db.SelectContext(ctx, &rows, `SELECT id,title,content,blocks,status,priority,due_date,folder_id,created_at,updated_at FROM notes ORDER BY updated_at DESC`)
 	} else {
-		err = r.db.SelectContext(ctx, &rows, `SELECT id,title,content,folder_id,created_at,updated_at FROM notes WHERE folder_id = ? ORDER BY updated_at DESC`, *folderID)
+		err = r.db.SelectContext(ctx, &rows, `SELECT id,title,content,blocks,status,priority,due_date,folder_id,created_at,updated_at FROM notes WHERE folder_id = ? ORDER BY updated_at DESC`, *folderID)
 	}
 	if err != nil {
 		return nil, err
@@ -69,7 +104,7 @@ func (r *NoteRepo) FindAll(ctx context.Context, folderID *string) ([]note.Note, 
 
 func (r *NoteRepo) FindByID(ctx context.Context, id string) (*note.Note, error) {
 	var row noteRow
-	err := r.db.GetContext(ctx, &row, `SELECT id,title,content,folder_id,created_at,updated_at FROM notes WHERE id = ?`, id)
+	err := r.db.GetContext(ctx, &row, `SELECT id,title,content,blocks,status,priority,due_date,folder_id,created_at,updated_at FROM notes WHERE id = ?`, id)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -89,7 +124,7 @@ func (r *NoteRepo) Search(ctx context.Context, query string) ([]note.Note, error
 	}
 	rows := make([]noteRow, 0)
 	err := r.db.SelectContext(ctx, &rows, `
-		SELECT n.id, n.title, n.content, n.folder_id, n.created_at, n.updated_at
+		SELECT n.id, n.title, n.content, n.blocks, n.status, n.priority, n.due_date, n.folder_id, n.created_at, n.updated_at
 		FROM notes n
 		JOIN notes_fts ON notes_fts.rowid = n.rowid
 		WHERE notes_fts MATCH ?
@@ -112,12 +147,13 @@ func (r *NoteRepo) Search(ctx context.Context, query string) ([]note.Note, error
 
 func (r *NoteRepo) Create(ctx context.Context, n *note.Note) error {
 	n.ID = uuid.NewString()
+	n.Content = blocksToText(n.Blocks)
 	now := time.Now()
 	n.CreatedAt = now
 	n.UpdatedAt = now
 	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO notes (id,title,content,folder_id,created_at,updated_at) VALUES (?,?,?,?,?,?)`,
-		n.ID, n.Title, n.Content, n.FolderID, n.CreatedAt, n.UpdatedAt,
+		`INSERT INTO notes (id,title,content,blocks,status,priority,due_date,folder_id,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)`,
+		n.ID, n.Title, n.Content, n.Blocks, n.Status, n.Priority, n.DueDate, n.FolderID, n.CreatedAt, n.UpdatedAt,
 	)
 	if err != nil {
 		return err
@@ -126,10 +162,11 @@ func (r *NoteRepo) Create(ctx context.Context, n *note.Note) error {
 }
 
 func (r *NoteRepo) Update(ctx context.Context, n *note.Note) error {
+	n.Content = blocksToText(n.Blocks)
 	n.UpdatedAt = time.Now()
 	_, err := r.db.ExecContext(ctx,
-		`UPDATE notes SET title=?,content=?,folder_id=?,updated_at=? WHERE id=?`,
-		n.Title, n.Content, n.FolderID, n.UpdatedAt, n.ID,
+		`UPDATE notes SET title=?,content=?,blocks=?,status=?,priority=?,due_date=?,folder_id=?,updated_at=? WHERE id=?`,
+		n.Title, n.Content, n.Blocks, n.Status, n.Priority, n.DueDate, n.FolderID, n.UpdatedAt, n.ID,
 	)
 	if err != nil {
 		return err
