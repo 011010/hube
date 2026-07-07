@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -103,6 +104,11 @@ func (h *NoteHandler) create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.svc.Create(r.Context(), &n); err != nil {
+		var valErr *note.ValidationError
+		if errors.As(err, &valErr) {
+			writeError(w, http.StatusBadRequest, valErr)
+			return
+		}
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
@@ -126,6 +132,11 @@ func (h *NoteHandler) update(w http.ResponseWriter, r *http.Request) {
 	}
 	existing.ID = id
 	if err := h.svc.Update(r.Context(), existing); err != nil {
+		var valErr *note.ValidationError
+		if errors.As(err, &valErr) {
+			writeError(w, http.StatusBadRequest, valErr)
+			return
+		}
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}

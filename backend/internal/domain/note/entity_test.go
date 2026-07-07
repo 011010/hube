@@ -1,11 +1,12 @@
 package note
 
 import (
-	"strings"
+	"errors"
 	"testing"
 )
 
 func TestNote_Normalize(t *testing.T) {
+	emptyDate := ""
 	tests := []struct {
 		name     string
 		input    Note
@@ -31,16 +32,35 @@ func TestNote_Normalize(t *testing.T) {
 			input:    Note{Title: "Test", Status: StatusInProgress},
 			expected: Note{Title: "Test", Status: StatusInProgress, Priority: PriorityMedium},
 		},
+		{
+			name:     "trims whitespace from title",
+			input:    Note{Title: "  Test Note  ", Status: StatusDraft, Priority: PriorityMedium},
+			expected: Note{Title: "Test Note", Status: StatusDraft, Priority: PriorityMedium},
+		},
+		{
+			name:     "normalizes empty due_date to nil",
+			input:    Note{Title: "Test", Status: StatusDraft, Priority: PriorityMedium, DueDate: &emptyDate},
+			expected: Note{Title: "Test", Status: StatusDraft, Priority: PriorityMedium, DueDate: nil},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.input.Normalize()
+			if tt.input.Title != tt.expected.Title {
+				t.Errorf("Title = %q, want %q", tt.input.Title, tt.expected.Title)
+			}
 			if tt.input.Status != tt.expected.Status {
 				t.Errorf("Status = %q, want %q", tt.input.Status, tt.expected.Status)
 			}
 			if tt.input.Priority != tt.expected.Priority {
 				t.Errorf("Priority = %q, want %q", tt.input.Priority, tt.expected.Priority)
+			}
+			if (tt.input.DueDate == nil) != (tt.expected.DueDate == nil) {
+				t.Errorf("DueDate nil mismatch")
+			}
+			if tt.input.DueDate != nil && tt.expected.DueDate != nil && *tt.input.DueDate != *tt.expected.DueDate {
+				t.Errorf("DueDate = %q, want %q", *tt.input.DueDate, *tt.expected.DueDate)
 			}
 		})
 	}
@@ -52,26 +72,31 @@ func TestNote_Validate(t *testing.T) {
 		name    string
 		note    Note
 		wantErr string
+		wantField string
 	}{
 		{
 			name:    "empty title rejected",
 			note:    Note{Status: StatusDraft, Priority: PriorityMedium},
 			wantErr: "title is required",
+			wantField: "title",
 		},
 		{
 			name:    "invalid status rejected",
 			note:    Note{Title: "Test", Status: "invalid", Priority: PriorityMedium},
-			wantErr: "invalid status: invalid",
+			wantErr: "invalid status",
+			wantField: "status",
 		},
 		{
 			name:    "invalid priority rejected",
 			note:    Note{Title: "Test", Status: StatusDraft, Priority: "invalid"},
-			wantErr: "invalid priority: invalid",
+			wantErr: "invalid priority",
+			wantField: "priority",
 		},
 		{
 			name:    "invalid due_date rejected",
 			note:    Note{Title: "Test", Status: StatusDraft, Priority: PriorityMedium, DueDate: strPtr("not-a-date")},
 			wantErr: "invalid due_date",
+			wantField: "due_date",
 		},
 		{
 			name: "valid note accepted",
@@ -100,8 +125,16 @@ func TestNote_Validate(t *testing.T) {
 				t.Errorf("Validate() error = nil, want %q", tt.wantErr)
 				return
 			}
-			if !strings.Contains(err.Error(), tt.wantErr) {
-				t.Errorf("Validate() error = %q, want containing %q", err.Error(), tt.wantErr)
+			var valErr *ValidationError
+			if !errors.As(err, &valErr) {
+				t.Errorf("Validate() error type = %T, want *ValidationError", err)
+				return
+			}
+			if valErr.Field != tt.wantField {
+				t.Errorf("ValidationError.Field = %q, want %q", valErr.Field, tt.wantField)
+			}
+			if valErr.Message == "" {
+				t.Errorf("ValidationError.Message should not be empty")
 			}
 		})
 	}

@@ -1,8 +1,8 @@
 package note
 
 import (
-	"errors"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -15,6 +15,15 @@ const (
 	PriorityMedium = "medium"
 	PriorityHigh   = "high"
 )
+
+type ValidationError struct {
+	Field   string
+	Message string
+}
+
+func (e *ValidationError) Error() string {
+	return fmt.Sprintf("%s: %s", e.Field, e.Message)
+}
 
 type Note struct {
 	ID        string    `json:"id" db:"id"`
@@ -31,31 +40,35 @@ type Note struct {
 }
 
 func (n *Note) Normalize() {
+	n.Title = strings.TrimSpace(n.Title)
 	if n.Status == "" {
 		n.Status = StatusDraft
 	}
 	if n.Priority == "" {
 		n.Priority = PriorityMedium
 	}
+	if n.DueDate != nil && *n.DueDate == "" {
+		n.DueDate = nil
+	}
 }
 
 func (n *Note) Validate() error {
 	if n.Title == "" {
-		return errors.New("title is required")
+		return &ValidationError{Field: "title", Message: "title is required"}
 	}
 	switch n.Status {
 	case StatusDraft, StatusInProgress, StatusPublished:
 	default:
-		return fmt.Errorf("invalid status: %s", n.Status)
+		return &ValidationError{Field: "status", Message: fmt.Sprintf("invalid status: %s", n.Status)}
 	}
 	switch n.Priority {
 	case PriorityLow, PriorityMedium, PriorityHigh:
 	default:
-		return fmt.Errorf("invalid priority: %s", n.Priority)
+		return &ValidationError{Field: "priority", Message: fmt.Sprintf("invalid priority: %s", n.Priority)}
 	}
 	if n.DueDate != nil {
 		if _, err := time.Parse("2006-01-02", *n.DueDate); err != nil {
-			return fmt.Errorf("invalid due_date: %w", err)
+			return &ValidationError{Field: "due_date", Message: fmt.Sprintf("invalid due_date: %v", err)}
 		}
 	}
 	return nil

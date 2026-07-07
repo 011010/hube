@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/url"
 	"testing"
@@ -16,26 +17,31 @@ func TestNote_Create_Validation(t *testing.T) {
 		name       string
 		body       string
 		wantStatus int
+		wantErr    string
 	}{
 		{
 			name:       "empty title rejected",
 			body:       `{"status":"draft","priority":"medium"}`,
-			wantStatus: http.StatusInternalServerError,
+			wantStatus: http.StatusBadRequest,
+			wantErr:    "title is required",
 		},
 		{
 			name:       "invalid status rejected",
 			body:       `{"title":"Test","status":"invalid","priority":"medium"}`,
-			wantStatus: http.StatusInternalServerError,
+			wantStatus: http.StatusBadRequest,
+			wantErr:    "invalid status",
 		},
 		{
 			name:       "invalid priority rejected",
 			body:       `{"title":"Test","status":"draft","priority":"invalid"}`,
-			wantStatus: http.StatusInternalServerError,
+			wantStatus: http.StatusBadRequest,
+			wantErr:    "invalid priority",
 		},
 		{
 			name:       "invalid due_date rejected",
 			body:       `{"title":"Test","status":"draft","priority":"medium","due_date":"not-a-date"}`,
-			wantStatus: http.StatusInternalServerError,
+			wantStatus: http.StatusBadRequest,
+			wantErr:    "invalid due_date",
 		},
 		{
 			name:       "empty status and priority get defaults",
@@ -49,6 +55,14 @@ func TestNote_Create_Validation(t *testing.T) {
 			resp := mustPost(t, base, tt.body)
 			defer resp.Body.Close()
 			assert.Equal(t, tt.wantStatus, resp.StatusCode)
+			if tt.wantErr != "" {
+				var body map[string]any
+				if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+					t.Fatalf("decode error body: %v", err)
+				}
+				errMsg, _ := body["error"].(string)
+				assert.Contains(t, errMsg, tt.wantErr)
+			}
 		})
 	}
 }
@@ -78,7 +92,14 @@ func TestNote_Update_Validation(t *testing.T) {
 	// Update with empty title should be rejected by validation.
 	resp = mustPut(t, resourceURL(srv.URL, "notes", id), `{"title":""}`)
 	defer resp.Body.Close()
-	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+
+	var body map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		t.Fatalf("decode error body: %v", err)
+	}
+	errMsg, _ := body["error"].(string)
+	assert.Contains(t, errMsg, "title is required")
 }
 
 func TestNote_CRUD(t *testing.T) {
