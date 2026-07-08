@@ -2,21 +2,13 @@ import { useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react'
 
-export type DataTableColumn<T> =
-  | {
-      key: string
-      header: string
-      render: (item: T) => ReactNode
-      sortable?: false
-      sortValue?: never
-    }
-  | {
-      key: string
-      header: string
-      render: (item: T) => ReactNode
-      sortable: true
-      sortValue: (item: T) => string | number
-    }
+export type DataTableColumn<T> = {
+  key: string
+  header: string
+  render: (item: T) => ReactNode
+  sortable?: boolean
+  sortValue?: (item: T) => string | number
+}
 
 export interface DataTableProps<T> {
   columns: DataTableColumn<T>[]
@@ -60,19 +52,20 @@ export function DataTable<T>({
     if (!sort) return data
 
     const column = columns.find((c) => c.key === sort.key)
-    if (!column || !column.sortable) return data
+    if (!column || !column.sortable || !column.sortValue) return data
 
+    const sortValue = column.sortValue
     return [...data].sort((a, b) =>
       compareValues(
-        column.sortValue(a),
-        column.sortValue(b),
+        sortValue(a),
+        sortValue(b),
         sort.direction,
       ),
     )
   }, [data, columns, sort])
 
   const handleSort = (column: DataTableColumn<T>) => {
-    if (!column.sortable) return
+    if (!column.sortable || !column.sortValue) return
 
     setSort((current) => {
       if (current?.key === column.key) {
