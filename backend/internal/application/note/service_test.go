@@ -47,6 +47,10 @@ func (m *mockRepo) FindAllLinks(ctx context.Context) ([]note.Link, error) {
 	return nil, nil
 }
 
+func (m *mockRepo) Graph(ctx context.Context) (*note.Graph, error) {
+	return &note.Graph{}, nil
+}
+
 func TestService_Create_NormalizesAndValidates(t *testing.T) {
 	repo := &mockRepo{}
 	svc := NewService(repo)

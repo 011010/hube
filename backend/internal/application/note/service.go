@@ -47,3 +47,7 @@ func (s *Service) Update(ctx context.Context, n *note.Note) error {
 func (s *Service) Delete(ctx context.Context, id string) error {
 	return s.repo.Delete(ctx, id)
 }
+
+func (s *Service) Graph(ctx context.Context) (*note.Graph, error) {
+	return s.repo.Graph(ctx)
+}

@@ -258,6 +258,89 @@ func (r *NoteRepo) FindAllLinks(ctx context.Context) ([]note.Link, error) {
 	return links, err
 }
 
+type graphEntityRow struct {
+	ID     string `db:"id"`
+	Label  string `db:"label"`
+	NoteID string `db:"note_id"`
+}
+
+// Graph builds the full notes graph: every note as a node, plus tasks and
+// projects that are linked to a note, with edges for [[Title]] note links
+// and note_id foreign keys.
+func (r *NoteRepo) Graph(ctx context.Context) (*note.Graph, error) {
+	graph := &note.Graph{
+		Nodes: make([]note.GraphNode, 0),
+		Edges: make([]note.GraphEdge, 0),
+	}
+
+	noteRows := make([]struct {
+		ID    string `db:"id"`
+		Title string `db:"title"`
+	}, 0)
+	if err := r.db.SelectContext(ctx, &noteRows, `SELECT id, title FROM notes`); err != nil {
+		return nil, fmt.Errorf("load notes for graph: %w", err)
+	}
+	for _, row := range noteRows {
+		graph.Nodes = append(graph.Nodes, note.GraphNode{
+			ID:    "note:" + row.ID,
+			Label: row.Title,
+			Type:  "note",
+		})
+	}
+
+	links, err := r.FindAllLinks(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("load links for graph: %w", err)
+	}
+	for _, l := range links {
+		graph.Edges = append(graph.Edges, note.GraphEdge{
+			Source: "note:" + l.NoteID,
+			Target: "note:" + l.TargetNoteID,
+			Type:   "link",
+		})
+	}
+
+	taskRows := make([]graphEntityRow, 0)
+	if err := r.db.SelectContext(ctx, &taskRows,
+		`SELECT id, title AS label, note_id FROM tasks WHERE note_id IS NOT NULL`,
+	); err != nil {
+		return nil, fmt.Errorf("load tasks for graph: %w", err)
+	}
+	for _, row := range taskRows {
+		graph.Nodes = append(graph.Nodes, note.GraphNode{
+			ID:    "task:" + row.ID,
+			Label: row.Label,
+			Type:  "task",
+		})
+		graph.Edges = append(graph.Edges, note.GraphEdge{
+			Source: "task:" + row.ID,
+			Target: "note:" + row.NoteID,
+			Type:   "task",
+		})
+	}
+
+	projectRows := make([]graphEntityRow, 0)
+	if err := r.db.SelectContext(ctx, &projectRows,
+		`SELECT id, name AS label, note_id FROM projects WHERE note_id IS NOT NULL`,
+	); err != nil {
+		return nil, fmt.Errorf("load projects for graph: %w", err)
+	}
+	for _, row := range projectRows {
+		graph.Nodes = append(graph.Nodes, note.GraphNode{
+			ID:    "project:" + row.ID,
+			Label: row.Label,
+			Type:  "project",
+		})
+		graph.Edges = append(graph.Edges, note.GraphEdge{
+			Source: "project:" + row.ID,
+			Target: "note:" + row.NoteID,
+			Type:   "project",
+		})
+	}
+
+	return graph, nil
+}
+
 func (r *NoteRepo) Delete(ctx context.Context, id string) error {
 	_, err := r.db.ExecContext(ctx, `DELETE FROM notes WHERE id = ?`, id)
 	return err

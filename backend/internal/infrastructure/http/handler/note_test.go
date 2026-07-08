@@ -175,6 +175,77 @@ func TestNote_FTSSearch(t *testing.T) {
 	assert.Equal(t, "Gopher guide", results[0]["title"])
 }
 
+func TestNoteGraph(t *testing.T) {
+	srv := newTestServer(t)
+
+	// Note A — will be linked to by Note B and referenced by a project.
+	resp := mustPost(t, srv.URL+"/api/v1/notes", `{"title":"Note A"}`)
+	assert.Equal(t, http.StatusCreated, resp.StatusCode)
+	var noteA map[string]any
+	mustDecode(t, resp, &noteA)
+	noteAID := noteA["id"].(string)
+
+	// Note B — links to Note A via [[Note A]].
+	resp = mustPost(t, srv.URL+"/api/v1/notes", `{"title":"Note B","blocks":"{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"See [[Note A]]\"}]}]}"}`)
+	assert.Equal(t, http.StatusCreated, resp.StatusCode)
+	var noteB map[string]any
+	mustDecode(t, resp, &noteB)
+	noteBID := noteB["id"].(string)
+
+	// Task linked to Note B.
+	resp = mustPost(t, srv.URL+"/api/v1/tasks", `{"title":"Linked task","note_id":"`+noteBID+`"}`)
+	assert.Equal(t, http.StatusCreated, resp.StatusCode)
+	resp.Body.Close()
+
+	// Project linked to Note A.
+	resp = mustPost(t, srv.URL+"/api/v1/projects", `{"name":"Linked project","note_id":"`+noteAID+`"}`)
+	assert.Equal(t, http.StatusCreated, resp.StatusCode)
+	resp.Body.Close()
+
+	resp = mustGet(t, srv.URL+"/api/v1/notes/graph")
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	var graph struct {
+		Nodes []map[string]any `json:"nodes"`
+		Edges []map[string]any `json:"edges"`
+	}
+	mustDecode(t, resp, &graph)
+
+	assert.Len(t, graph.Nodes, 4, "expected 2 notes + 1 task + 1 project as nodes")
+	assert.Len(t, graph.Edges, 3, "expected 1 link edge + 1 task edge + 1 project edge")
+
+	nodeByID := make(map[string]map[string]any, len(graph.Nodes))
+	for _, n := range graph.Nodes {
+		nodeByID[n["id"].(string)] = n
+	}
+
+	noteANode, ok := nodeByID["note:"+noteAID]
+	assert.True(t, ok, "expected note:%s node", noteAID)
+	assert.Equal(t, "note", noteANode["type"])
+	assert.Equal(t, "Note A", noteANode["label"])
+
+	noteBNode, ok := nodeByID["note:"+noteBID]
+	assert.True(t, ok, "expected note:%s node", noteBID)
+	assert.Equal(t, "note", noteBNode["type"])
+
+	var hasLinkEdge, hasTaskEdge, hasProjectEdge bool
+	for _, e := range graph.Edges {
+		src, _ := e["source"].(string)
+		tgt, _ := e["target"].(string)
+		typ, _ := e["type"].(string)
+		switch {
+		case typ == "link" && src == "note:"+noteBID && tgt == "note:"+noteAID:
+			hasLinkEdge = true
+		case typ == "task" && tgt == "note:"+noteBID:
+			hasTaskEdge = true
+		case typ == "project" && tgt == "note:"+noteAID:
+			hasProjectEdge = true
+		}
+	}
+	assert.True(t, hasLinkEdge, "expected link edge from Note B to Note A, got %+v", graph.Edges)
+	assert.True(t, hasTaskEdge, "expected task edge to Note B, got %+v", graph.Edges)
+	assert.True(t, hasProjectEdge, "expected project edge to Note A, got %+v", graph.Edges)
+}
+
 func TestNote_FTSInjection(t *testing.T) {
 	srv := newTestServer(t)
 

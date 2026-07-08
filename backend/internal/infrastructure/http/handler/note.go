@@ -25,6 +25,7 @@ func (h *NoteHandler) Routes() func(chi.Router) {
 	return func(r chi.Router) {
 		r.Get("/", h.list)
 		r.Get("/search", h.search)
+		r.Get("/graph", h.graph)
 		r.Post("/semantic-search", h.semanticSearch)
 		r.Post("/", h.create)
 		r.Get("/{id}", h.get)
@@ -58,6 +59,15 @@ func (h *NoteHandler) search(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, notes)
+}
+
+func (h *NoteHandler) graph(w http.ResponseWriter, r *http.Request) {
+	g, err := h.svc.Graph(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, g)
 }
 
 func (h *NoteHandler) get(w http.ResponseWriter, r *http.Request) {
