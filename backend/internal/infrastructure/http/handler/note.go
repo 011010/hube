@@ -29,6 +29,7 @@ func (h *NoteHandler) Routes() func(chi.Router) {
 		r.Post("/semantic-search", h.semanticSearch)
 		r.Post("/", h.create)
 		r.Get("/{id}", h.get)
+		r.Get("/{id}/export", h.exportAgent)
 		r.Put("/{id}", h.update)
 		r.Delete("/{id}", h.delete)
 	}
@@ -81,6 +82,26 @@ func (h *NoteHandler) get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, n)
+}
+
+func (h *NoteHandler) exportAgent(w http.ResponseWriter, r *http.Request) {
+	n, err := h.svc.Get(r.Context(), chi.URLParam(r, "id"))
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	if n == nil {
+		writeError(w, http.StatusNotFound, nil)
+		return
+	}
+	md, err := h.svc.ExportAgentMarkdown(r.Context(), n)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte(md))
 }
 
 func (h *NoteHandler) semanticSearch(w http.ResponseWriter, r *http.Request) {

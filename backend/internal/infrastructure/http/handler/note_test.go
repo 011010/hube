@@ -2,8 +2,10 @@ package handler
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -244,6 +246,47 @@ func TestNoteGraph(t *testing.T) {
 	assert.True(t, hasLinkEdge, "expected link edge from Note B to Note A, got %+v", graph.Edges)
 	assert.True(t, hasTaskEdge, "expected task edge to Note B, got %+v", graph.Edges)
 	assert.True(t, hasProjectEdge, "expected project edge to Note A, got %+v", graph.Edges)
+}
+
+func TestNoteExport(t *testing.T) {
+	srv := newTestServer(t)
+	base := srv.URL + "/api/v1/notes"
+
+	resp := mustPost(t, base, `{"title":"Export Me","blocks":"{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"text\":\"Hello world\"}]}]}","status":"draft","priority":"high","tags":["go","test"]}`)
+	assert.Equal(t, http.StatusCreated, resp.StatusCode)
+	var created map[string]any
+	mustDecode(t, resp, &created)
+	id, _ := created["id"].(string)
+
+	resp = mustGet(t, resourceURL(srv.URL, "notes", id)+"/export")
+	defer resp.Body.Close()
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	contentType := resp.Header.Get("Content-Type")
+	assert.True(t, strings.HasPrefix(contentType, "text/markdown") || strings.HasPrefix(contentType, "text/plain"),
+		"expected markdown/plain content type, got %q", contentType)
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("read body: %v", err)
+	}
+	md := string(body)
+
+	assert.True(t, strings.HasPrefix(md, "---\n"), "expected YAML frontmatter delimiter, got: %s", md)
+	assert.Contains(t, md, `title: "Export Me"`)
+	assert.Contains(t, md, "status: draft")
+	assert.Contains(t, md, "priority: high")
+	assert.Contains(t, md, "  - go")
+	assert.Contains(t, md, "  - test")
+	assert.Contains(t, md, "Hello world")
+}
+
+func TestNoteExport_NotFound(t *testing.T) {
+	srv := newTestServer(t)
+
+	resp := mustGet(t, resourceURL(srv.URL, "notes", "does-not-exist")+"/export")
+	defer resp.Body.Close()
+	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
 }
 
 func TestNote_FTSInjection(t *testing.T) {

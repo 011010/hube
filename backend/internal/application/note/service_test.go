@@ -3,7 +3,9 @@ package note
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/husari/hube/internal/domain/note"
 )
@@ -152,5 +154,85 @@ func TestService_Update_InvalidDueDate(t *testing.T) {
 	}
 	if repo.updated != nil {
 		t.Error("Update should not persist an invalid note")
+	}
+}
+
+func TestService_ExportAgentMarkdown(t *testing.T) {
+	repo := &mockRepo{}
+	svc := NewService(repo)
+
+	due := "2026-08-01"
+	created := time.Date(2026, 7, 1, 12, 0, 0, 0, time.UTC)
+	updated := time.Date(2026, 7, 2, 9, 30, 0, 0, time.UTC)
+	n := &note.Note{
+		ID:        "1",
+		Title:     "My Note",
+		Content:   "Hello world",
+		Status:    note.StatusDraft,
+		Priority:  note.PriorityHigh,
+		DueDate:   &due,
+		Tags:      []string{"go", "test"},
+		CreatedAt: created,
+		UpdatedAt: updated,
+	}
+
+	md, err := svc.ExportAgentMarkdown(context.Background(), n)
+	if err != nil {
+		t.Fatalf("ExportAgentMarkdown returned unexpected error: %v", err)
+	}
+
+	if !strings.HasPrefix(md, "---\n") {
+		t.Fatalf("expected markdown to start with YAML frontmatter delimiter, got: %q", md)
+	}
+	wantFields := []string{
+		`title: "My Note"`,
+		"status: draft",
+		"priority: high",
+		"due_date: 2026-08-01",
+		"tags:",
+		"  - go",
+		"  - test",
+		"created_at: 2026-07-01T12:00:00Z",
+		"updated_at: 2026-07-02T09:30:00Z",
+	}
+	for _, want := range wantFields {
+		if !strings.Contains(md, want) {
+			t.Errorf("expected markdown to contain %q, got:\n%s", want, md)
+		}
+	}
+	if !strings.HasSuffix(strings.TrimRight(md, "\n"), "Hello world") {
+		t.Errorf("expected markdown body to end with note content, got:\n%s", md)
+	}
+	// Frontmatter must be closed before the body.
+	parts := strings.SplitN(md, "---\n", 3)
+	if len(parts) != 3 {
+		t.Fatalf("expected exactly two --- delimiters, got markdown:\n%s", md)
+	}
+	if !strings.Contains(parts[2], "Hello world") {
+		t.Errorf("expected body section to contain note content, got: %q", parts[2])
+	}
+}
+
+func TestService_ExportAgentMarkdown_NoDueDateOrTags(t *testing.T) {
+	repo := &mockRepo{}
+	svc := NewService(repo)
+
+	n := &note.Note{
+		ID:       "1",
+		Title:    "Bare Note",
+		Content:  "",
+		Status:   note.StatusDraft,
+		Priority: note.PriorityMedium,
+	}
+
+	md, err := svc.ExportAgentMarkdown(context.Background(), n)
+	if err != nil {
+		t.Fatalf("ExportAgentMarkdown returned unexpected error: %v", err)
+	}
+	if !strings.Contains(md, "due_date: null") {
+		t.Errorf("expected due_date: null for nil DueDate, got:\n%s", md)
+	}
+	if !strings.Contains(md, "tags: []") {
+		t.Errorf("expected tags: [] for empty tags, got:\n%s", md)
 	}
 }
