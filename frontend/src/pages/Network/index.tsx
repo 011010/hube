@@ -1,5 +1,6 @@
-import { useState, useCallback } from 'react'
-import { Plus, Trash2, Download, Save, ArrowLeft } from 'lucide-react'
+import { useState, useCallback, useRef } from 'react'
+import { Plus, Trash2, Download, Save, ArrowLeft, Image, FileCode2 } from 'lucide-react'
+import { toPng, toSvg } from 'html-to-image'
 import {
   ReactFlow,
   Background,
@@ -162,6 +163,7 @@ function DiagramEditor({
   const [label, setLabel] = useState('Node')
   const [nodeType, setNodeType] = useState<NodeType>('process')
   const [edgeLabel, setEdgeLabel] = useState('')
+  const flowRef = useRef<HTMLDivElement>(null)
 
   const onConnect = useCallback(
     (params: Connection) =>
@@ -193,6 +195,23 @@ function DiagramEditor({
     URL.revokeObjectURL(url)
   }
 
+  const downloadDataUrl = (dataUrl: string, extension: string) => {
+    const a = document.createElement('a')
+    a.href = dataUrl
+    a.download = `${diagram.name}.${extension}`
+    a.click()
+  }
+
+  const exportPng = () => {
+    if (!flowRef.current) return
+    toPng(flowRef.current, { backgroundColor: '#0f0f13' }).then(dataUrl => downloadDataUrl(dataUrl, 'png'))
+  }
+
+  const exportSvg = () => {
+    if (!flowRef.current) return
+    toSvg(flowRef.current, { backgroundColor: '#0f0f13' }).then(dataUrl => downloadDataUrl(dataUrl, 'svg'))
+  }
+
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center gap-2 px-4 py-3 border-b border-border bg-surface-elevated shrink-0">
@@ -218,12 +237,14 @@ function DiagramEditor({
         />
         <div className="flex-1" />
         <Button size="sm" variant="ghost" icon={<Download size={14} />} onClick={exportJSON}>Export JSON</Button>
+        <Button size="sm" variant="ghost" icon={<Image size={14} />} onClick={exportPng}>PNG</Button>
+        <Button size="sm" variant="ghost" icon={<FileCode2 size={14} />} onClick={exportSvg}>SVG</Button>
         <Button size="sm" icon={<Save size={14} />} onClick={() => onSave(nodes, edges)} disabled={isPending}>
           {isPending ? 'Saving…' : 'Save'}
         </Button>
       </div>
 
-      <div className="flex-1">
+      <div className="flex-1" ref={flowRef}>
         <ReactFlow
           nodes={nodes}
           edges={edges}
