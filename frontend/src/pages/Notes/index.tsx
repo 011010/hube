@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
-import { Plus, Trash2, Folder, Sparkles, Search, X, FileText, LayoutGrid } from 'lucide-react'
+import { useState, useMemo, useCallback } from 'react'
+import { Plus, Trash2, Folder, Sparkles, Search, X, FileText } from 'lucide-react'
 import {
   useNotes, useCreateNote, useUpdateNote, useDeleteNote,
   useFolders, useCreateFolder, useDeleteFolder, useSearchNotes, useSemanticSearch,
@@ -19,6 +19,7 @@ import { Button } from '../../components/atoms/Button'
 import { Badge } from '../../components/atoms/Badge'
 import { BlockEditor } from '../../components/organisms/BlockEditor'
 import type { Note, NoteStatus, Priority } from '../../types'
+import type { NoteInput } from '../../hooks/useNotes'
 
 const VALID_STATUSES: NoteStatus[] = ['draft', 'in_progress', 'published']
 
@@ -44,6 +45,18 @@ function emptyForm(folderId?: string): NoteForm {
   }
 }
 
+function noteToForm(note: Note): NoteForm {
+  return {
+    title: note.title,
+    blocks: note.blocks,
+    status: note.status,
+    priority: note.priority,
+    due_date: note.due_date?.slice(0, 10) ?? '',
+    tags: note.tags,
+    folder_id: note.folder_id,
+  }
+}
+
 const statusLabel = (s: NoteStatus) =>
   s === 'in_progress' ? 'In Progress' : s.charAt(0).toUpperCase() + s.slice(1)
 
@@ -52,6 +65,83 @@ const priorityVariant = (p: Priority) =>
 
 const statusVariant = (s: NoteStatus) =>
   s === 'published' ? 'success' : s === 'in_progress' ? 'warning' : 'default'
+
+interface NoteModalProps {
+  open: boolean
+  onClose: () => void
+  onSave: (data: NoteInput) => void
+  note?: Note | null
+  folderId?: string
+  isPending: boolean
+}
+
+function NoteModal({ open, onClose, onSave, note, folderId, isPending }: NoteModalProps) {
+  const isEdit = Boolean(note)
+  const [form, setForm] = useState<NoteForm>(() =>
+    note ? noteToForm(note) : emptyForm(folderId),
+  )
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    onSave({
+      title: form.title.trim() || 'Untitled',
+      blocks: form.blocks,
+      status: form.status,
+      priority: form.priority,
+      due_date: form.due_date || null,
+      tags: form.tags,
+      folder_id: form.folder_id || null,
+    })
+  }
+
+  return (
+    <Modal open={open} onClose={onClose} title={isEdit ? 'Edit note' : 'New note'}>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <Input
+          autoFocus
+          value={form.title}
+          onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+          placeholder="Note title"
+        />
+
+        <PropertiesPanel
+          status={form.status}
+          priority={form.priority}
+          dueDate={form.due_date}
+          tags={form.tags}
+          folderId={form.folder_id}
+          onChange={(patch) =>
+            setForm((f) => ({
+              ...f,
+              ...(patch.status !== undefined && { status: patch.status }),
+              ...(patch.priority !== undefined && { priority: patch.priority }),
+              ...(patch.dueDate !== undefined && { due_date: patch.dueDate ?? '' }),
+              ...(patch.tags !== undefined && { tags: patch.tags }),
+              ...(patch.folderId !== undefined && { folder_id: patch.folderId }),
+            }))
+          }
+        />
+
+        <div className="h-64">
+          <BlockEditor
+            value={form.blocks}
+            onChange={(json) => setForm((f) => ({ ...f, blocks: json }))}
+            placeholder="Start writing…"
+          />
+        </div>
+
+        <div className="flex justify-end gap-2 pt-1">
+          <Button type="button" variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={isPending}>
+            {isEdit ? 'Save changes' : 'Create note'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
 
 export function NotesPage() {
   const [selectedFolder, setSelectedFolder] = useState<string | undefined>(undefined)
@@ -62,7 +152,6 @@ export function NotesPage() {
   const [view, setView] = useViewPreference('notes_view')
   const [createOpen, setCreateOpen] = useState(false)
   const [editNote, setEditNote] = useState<Note | null>(null)
-  const [form, setForm] = useState<NoteForm>(() => emptyForm())
 
   const { data: folders = [] } = useFolders()
   const { data: notes = [], isLoading } = useNotes(selectedFolder)
@@ -74,108 +163,90 @@ export function NotesPage() {
   const createFolder = useCreateFolder()
   const deleteFolder = useDeleteFolder()
 
-  useEffect(() => {
-    if (editNote) {
-      setForm({
-        title: editNote.title,
-        blocks: editNote.blocks,
-        status: editNote.status,
-        priority: editNote.priority,
-        due_date: editNote.due_date?.slice(0, 10) ?? '',
-        tags: editNote.tags,
-        folder_id: editNote.folder_id,
-      })
-    } else if (createOpen) {
-      setForm(emptyForm(selectedFolder))
+  const displayNotes = useMemo(() => {
+    if (search.length > 1) {
+      return semanticMode
+        ? (semanticResults ?? []).map((r) => r.note)
+        : (searchResults ?? [])
     }
-  }, [editNote, createOpen, selectedFolder])
+    return notes
+  }, [search, semanticMode, semanticResults, searchResults, notes])
 
   const handleNewFolder = (e: React.FormEvent) => {
     e.preventDefault()
     if (!newFolderName.trim()) return
-    createFolder.mutate({ name: newFolderName.trim() }, {
-      onSuccess: () => { setNewFolderName(''); setShowNewFolder(false) },
-    })
+    createFolder.mutate(
+      { name: newFolderName.trim() },
+      {
+        onSuccess: () => {
+          setNewFolderName('')
+          setShowNewFolder(false)
+        },
+      },
+    )
   }
 
-  const displayNotes = search.length > 1
-    ? semanticMode
-      ? (semanticResults ?? []).map(r => r.note)
-      : (searchResults ?? [])
-    : notes
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    const payload = {
-      title: form.title.trim() || 'Untitled',
-      blocks: form.blocks,
-      status: form.status,
-      priority: form.priority,
-      due_date: form.due_date || null,
-      tags: form.tags,
-      folder_id: form.folder_id || null,
-    }
-    if (editNote) {
-      updateNote.mutate(
-        { id: editNote.id, data: payload },
-        { onSuccess: () => setEditNote(null) },
-      )
-    } else {
-      createNote.mutate(
-        payload,
-        { onSuccess: () => setCreateOpen(false) },
-      )
-    }
+  const handleCreate = (data: NoteInput) => {
+    createNote.mutate(data, { onSuccess: () => setCreateOpen(false) })
   }
 
-  const handleMove = useCallback((itemId: string, _sourceColumnId: string, targetColumnId: string) => {
-    if (!VALID_STATUSES.includes(targetColumnId as NoteStatus)) return
-    const note = displayNotes.find(n => n.id === itemId)
-    if (!note || note.status === targetColumnId) return
-    updateNote.mutate({ id: note.id, data: { status: targetColumnId as NoteStatus } })
-  }, [displayNotes, updateNote])
+  const handleUpdate = (data: NoteInput) => {
+    if (!editNote) return
+    updateNote.mutate({ id: editNote.id, data }, { onSuccess: () => setEditNote(null) })
+  }
+
+  const handleMove = useCallback(
+    (itemId: string, _sourceColumnId: string, targetColumnId: string) => {
+      if (!VALID_STATUSES.includes(targetColumnId as NoteStatus)) return
+      const note = displayNotes.find((n) => n.id === itemId)
+      if (!note || note.status === targetColumnId) return
+      updateNote.mutate({ id: note.id, data: { status: targetColumnId as NoteStatus } })
+    },
+    [displayNotes, updateNote],
+  )
 
   const columns = useMemo(
     () => [
-      { id: 'draft', title: 'Draft', items: displayNotes.filter(n => n.status === 'draft') },
-      { id: 'in_progress', title: 'In Progress', items: displayNotes.filter(n => n.status === 'in_progress') },
-      { id: 'published', title: 'Published', items: displayNotes.filter(n => n.status === 'published') },
+      { id: 'draft', title: 'Draft', items: displayNotes.filter((n) => n.status === 'draft') },
+      { id: 'in_progress', title: 'In Progress', items: displayNotes.filter((n) => n.status === 'in_progress') },
+      { id: 'published', title: 'Published', items: displayNotes.filter((n) => n.status === 'published') },
     ],
     [displayNotes],
   )
 
-  const renderCard = useCallback((note: Note) => {
-    const preview = blocksToText(note.blocks)
-    const dueDate = formatDate(note.due_date)
-    return (
-      <div className="space-y-2">
-        <div className="flex items-start justify-between gap-2">
-          <button
-            type="button"
-            onClick={() => setEditNote(note)}
-            className="text-left text-sm font-medium text-text-secondary hover:text-text-primary line-clamp-2"
-          >
-            {note.title || 'Untitled'}
-          </button>
-          <button
-            type="button"
-            onClick={() => deleteNote.mutate(note.id)}
-            className="text-text-muted hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 focus-visible:opacity-100 shrink-0"
-            aria-label="Delete note"
-          >
-            <Trash2 size={14} />
-          </button>
+  const renderCard = useCallback(
+    (note: Note) => {
+      const preview = blocksToText(note.blocks)
+      const dueDate = formatDate(note.due_date)
+      return (
+        <div className="space-y-2">
+          <div className="flex items-start justify-between gap-2">
+            <button
+              type="button"
+              onClick={() => setEditNote(note)}
+              className="text-left text-sm font-medium text-text-secondary hover:text-text-primary line-clamp-2"
+            >
+              {note.title || 'Untitled'}
+            </button>
+            <button
+              type="button"
+              onClick={() => deleteNote.mutate(note.id)}
+              className="text-text-muted hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 focus-visible:opacity-100 shrink-0"
+              aria-label="Delete note"
+            >
+              <Trash2 size={14} />
+            </button>
+          </div>
+          {preview && <p className="text-xs text-text-muted line-clamp-2">{preview}</p>}
+          <div className="flex items-center gap-2 flex-wrap">
+            <Badge label={note.priority} variant={priorityVariant(note.priority)} />
+            {dueDate && <span className="text-xs text-text-muted">{dueDate}</span>}
+          </div>
         </div>
-        {preview && (
-          <p className="text-xs text-text-muted line-clamp-2">{preview}</p>
-        )}
-        <div className="flex items-center gap-2 flex-wrap">
-          <Badge label={note.priority} variant={priorityVariant(note.priority)} />
-          {dueDate && <span className="text-xs text-text-muted">{dueDate}</span>}
-        </div>
-      </div>
-    )
-  }, [deleteNote])
+      )
+    },
+    [deleteNote],
+  )
 
   const tableColumns = useMemo(
     () => [
@@ -197,7 +268,9 @@ export function NotesPage() {
         header: 'Status',
         sortable: true,
         sortValue: (note: Note) => note.status,
-        render: (note: Note) => <Badge label={statusLabel(note.status)} variant={statusVariant(note.status)} />,
+        render: (note: Note) => (
+          <Badge label={statusLabel(note.status)} variant={statusVariant(note.status)} />
+        ),
       },
       {
         key: 'priority',
@@ -211,14 +284,18 @@ export function NotesPage() {
         header: 'Due date',
         sortable: true,
         sortValue: (note: Note) => note.due_date ?? '',
-        render: (note: Note) => <span className="text-text-secondary">{formatDate(note.due_date) ?? '-'}</span>,
+        render: (note: Note) => (
+          <span className="text-text-secondary">{formatDate(note.due_date) ?? '-'}</span>
+        ),
       },
       {
         key: 'updated_at',
         header: 'Updated',
         sortable: true,
         sortValue: (note: Note) => note.updated_at,
-        render: (note: Note) => <span className="text-text-secondary">{note.updated_at.slice(0, 10)}</span>,
+        render: (note: Note) => (
+          <span className="text-text-secondary">{note.updated_at.slice(0, 10)}</span>
+        ),
       },
       {
         key: 'actions',
@@ -239,8 +316,7 @@ export function NotesPage() {
   )
 
   const isModalOpen = createOpen || editNote !== null
-  const modalTitle = editNote ? 'Edit note' : 'New note'
-  const folderLabel = selectedFolder ? folders.find(f => f.id === selectedFolder)?.name : 'All notes'
+  const folderLabel = selectedFolder ? folders.find((f) => f.id === selectedFolder)?.name : 'All notes'
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -263,13 +339,13 @@ export function NotesPage() {
             <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
             <input
               value={search}
-              onChange={e => setSearch(e.target.value)}
+              onChange={(e) => setSearch(e.target.value)}
               placeholder={semanticMode ? 'Semantic search…' : 'Search…'}
               className="w-full bg-surface-elevated border border-border rounded-md pl-8 pr-2 py-1.5 text-xs text-text-primary placeholder-text-muted focus:outline-none focus:border-accent transition-colors"
             />
           </div>
           <button
-            onClick={() => setSemanticMode(m => !m)}
+            onClick={() => setSemanticMode((m) => !m)}
             className={`flex items-center gap-1.5 text-xs px-2 py-1 rounded transition-colors ${
               semanticMode
                 ? 'bg-accent/10 text-accent'
@@ -283,7 +359,10 @@ export function NotesPage() {
 
         {/* All notes */}
         <button
-          onClick={() => { setSelectedFolder(undefined); setSearch('') }}
+          onClick={() => {
+            setSelectedFolder(undefined)
+            setSearch('')
+          }}
           className={`text-left px-3 py-2 text-sm transition-colors ${
             selectedFolder === undefined && !search
               ? 'text-text-primary bg-surface-elevated'
@@ -298,7 +377,7 @@ export function NotesPage() {
           <div className="px-3 py-1 flex items-center justify-between">
             <span className="text-xs text-text-muted uppercase tracking-wider">Folders</span>
             <button
-              onClick={() => setShowNewFolder(v => !v)}
+              onClick={() => setShowNewFolder((v) => !v)}
               className="text-text-muted hover:text-text-secondary transition-colors"
             >
               <Plus size={14} />
@@ -310,17 +389,20 @@ export function NotesPage() {
               <input
                 autoFocus
                 value={newFolderName}
-                onChange={e => setNewFolderName(e.target.value)}
+                onChange={(e) => setNewFolderName(e.target.value)}
                 placeholder="Folder name"
                 className="w-full bg-surface-elevated border border-border rounded px-2 py-1.5 text-xs text-text-primary placeholder-text-muted focus:outline-none focus:border-accent transition-colors"
               />
             </form>
           )}
 
-          {folders.map(f => (
+          {folders.map((f) => (
             <div key={f.id} className="group flex items-center">
               <button
-                onClick={() => { setSelectedFolder(f.id); setSearch('') }}
+                onClick={() => {
+                  setSelectedFolder(f.id)
+                  setSearch('')
+                }}
                 className={`flex-1 text-left px-3 py-1.5 text-sm transition-colors flex items-center gap-2 ${
                   selectedFolder === f.id
                     ? 'text-text-primary bg-surface-elevated'
@@ -350,7 +432,9 @@ export function NotesPage() {
           actions={
             <div className="flex items-center gap-2">
               <ViewToggle value={view} onChange={setView} />
-              <Button type="button" onClick={() => setCreateOpen(true)} icon={<Plus size={16} />}>New note</Button>
+              <Button type="button" onClick={() => setCreateOpen(true)} icon={<Plus size={16} />}>
+                New note
+              </Button>
             </div>
           }
         />
@@ -365,17 +449,19 @@ export function NotesPage() {
               description={search ? 'Try a different search term.' : 'Create a note to get started.'}
               action={
                 !search ? (
-                  <Button type="button" onClick={() => setCreateOpen(true)} icon={<Plus size={16} />}>New note</Button>
+                  <Button type="button" onClick={() => setCreateOpen(true)} icon={<Plus size={16} />}>
+                    New note
+                  </Button>
                 ) : undefined
               }
             />
           )}
 
-          {!isLoading && displayNotes.length > 0 && (
-            view === 'kanban' ? (
+          {!isLoading && displayNotes.length > 0 &&
+            (view === 'kanban' ? (
               <KanbanBoard
                 columns={columns}
-                getItemId={note => note.id}
+                getItemId={(note) => note.id}
                 renderCard={renderCard}
                 onMove={handleMove}
               />
@@ -383,68 +469,25 @@ export function NotesPage() {
               <DataTable
                 columns={tableColumns}
                 data={displayNotes}
-                getRowKey={note => note.id}
+                getRowKey={(note) => note.id}
               />
-            )
-          )}
+            ))}
         </div>
       </main>
 
       {/* Create / Edit modal */}
-      <Modal
+      <NoteModal
+        key={editNote?.id ?? 'new'}
         open={isModalOpen}
-        onClose={() => { setCreateOpen(false); setEditNote(null) }}
-        title={modalTitle}
-      >
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <Input
-            autoFocus
-            value={form.title}
-            onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-            placeholder="Note title"
-          />
-
-          <PropertiesPanel
-            status={form.status}
-            priority={form.priority}
-            dueDate={form.due_date}
-            tags={form.tags}
-            folderId={form.folder_id}
-            onChange={patch => setForm(f => ({
-              ...f,
-              ...(patch.status !== undefined && { status: patch.status }),
-              ...(patch.priority !== undefined && { priority: patch.priority }),
-              ...(patch.dueDate !== undefined && { due_date: patch.dueDate ?? '' }),
-              ...(patch.tags !== undefined && { tags: patch.tags }),
-              ...(patch.folderId !== undefined && { folder_id: patch.folderId }),
-            }))}
-          />
-
-          <div className="h-64">
-            <BlockEditor
-              value={form.blocks}
-              onChange={(json) => setForm(f => ({ ...f, blocks: json }))}
-              placeholder="Start writing…"
-            />
-          </div>
-
-          <div className="flex justify-end gap-2 pt-1">
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => { setCreateOpen(false); setEditNote(null) }}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              disabled={createNote.isPending || updateNote.isPending}
-            >
-              {editNote ? 'Save changes' : 'Create note'}
-            </Button>
-          </div>
-        </form>
-      </Modal>
+        onClose={() => {
+          setCreateOpen(false)
+          setEditNote(null)
+        }}
+        onSave={editNote ? handleUpdate : handleCreate}
+        note={editNote}
+        folderId={selectedFolder}
+        isPending={createNote.isPending || updateNote.isPending}
+      />
     </div>
   )
 }

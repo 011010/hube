@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, type ReactNode } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
@@ -45,6 +45,32 @@ const TASK_LIST_CSS = `
   }
 `
 
+interface ToolbarButtonProps {
+  onClick: () => void
+  active: boolean
+  icon: ReactNode
+  label: string
+}
+
+function ToolbarButton({ onClick, active, icon, label }: ToolbarButtonProps) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      aria-pressed={active}
+      className={`p-1.5 rounded-md transition-colors ${
+        active
+          ? 'bg-accent text-white'
+          : 'text-text-muted hover:text-text-secondary hover:bg-surface-card'
+      }`}
+    >
+      {icon}
+    </button>
+  )
+}
+
 export function BlockEditor({ value, onChange, placeholder = 'Start writing…' }: BlockEditorProps) {
   const editor = useEditor({
     extensions: [
@@ -70,33 +96,6 @@ export function BlockEditor({ value, onChange, placeholder = 'Start writing…' 
   }, [editor, value])
 
   if (!editor) return null
-
-  const ToolbarButton = ({
-    onClick,
-    active,
-    icon,
-    label,
-  }: {
-    onClick: () => void
-    active: boolean
-    icon: React.ReactNode
-    label: string
-  }) => (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={label}
-      title={label}
-      aria-pressed={active}
-      className={`p-1.5 rounded-md transition-colors ${
-        active
-          ? 'bg-accent text-white'
-          : 'text-text-muted hover:text-text-secondary hover:bg-surface-card'
-      }`}
-    >
-      {icon}
-    </button>
-  )
 
   return (
     <div className="flex flex-col h-full border border-border rounded-xl overflow-hidden bg-surface-elevated">
