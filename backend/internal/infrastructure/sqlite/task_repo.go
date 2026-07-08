@@ -32,18 +32,18 @@ func (r *TaskRepo) FindByID(ctx context.Context, id string) (*task.Task, error) 
 
 func (r *TaskRepo) Create(ctx context.Context, t *task.Task) error {
 	_, err := r.db.ExecContext(ctx, `
-		INSERT INTO tasks (id, title, description, priority, status, due_date, project_id, recurrence, last_recurred_at, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		t.ID, t.Title, t.Description, t.Priority, t.Status, t.DueDate, t.ProjectID, t.Recurrence, t.LastRecurredAt, t.CreatedAt, t.UpdatedAt,
+		INSERT INTO tasks (id, title, description, priority, status, due_date, project_id, note_id, recurrence, last_recurred_at, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		t.ID, t.Title, t.Description, t.Priority, t.Status, t.DueDate, t.ProjectID, t.NoteID, t.Recurrence, t.LastRecurredAt, t.CreatedAt, t.UpdatedAt,
 	)
 	return err
 }
 
 func (r *TaskRepo) Update(ctx context.Context, t *task.Task) error {
 	_, err := r.db.ExecContext(ctx, `
-		UPDATE tasks SET title=?, description=?, priority=?, status=?, due_date=?, project_id=?, recurrence=?, last_recurred_at=?, updated_at=?
+		UPDATE tasks SET title=?, description=?, priority=?, status=?, due_date=?, project_id=?, note_id=?, recurrence=?, last_recurred_at=?, updated_at=?
 		WHERE id=?`,
-		t.Title, t.Description, t.Priority, t.Status, t.DueDate, t.ProjectID, t.Recurrence, t.LastRecurredAt, time.Now(), t.ID,
+		t.Title, t.Description, t.Priority, t.Status, t.DueDate, t.ProjectID, t.NoteID, t.Recurrence, t.LastRecurredAt, time.Now(), t.ID,
 	)
 	return err
 }

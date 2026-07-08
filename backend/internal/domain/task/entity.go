@@ -24,6 +24,7 @@ type Task struct {
 	Status         Status     `db:"status"           json:"status"`
 	DueDate        *time.Time `db:"due_date"         json:"due_date"`
 	ProjectID      *string    `db:"project_id"       json:"project_id"`
+	NoteID         *string    `db:"note_id"          json:"note_id"`
 	Recurrence     string     `db:"recurrence"       json:"recurrence"`
 	LastRecurredAt *time.Time `db:"last_recurred_at" json:"last_recurred_at,omitempty"`
 	CreatedAt      time.Time  `db:"created_at"       json:"created_at"`

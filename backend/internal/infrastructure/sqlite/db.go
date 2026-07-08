@@ -38,6 +38,9 @@ var notePropertiesSQL string
 //go:embed migrations/010_note_links.sql
 var noteLinksSQL string
 
+//go:embed migrations/011_task_project_note_id.sql
+var taskProjectNoteIDSQL string
+
 type migration struct {
 	name string
 	sql  string
@@ -54,6 +57,7 @@ var migrations = []migration{
 	{"008_note_embeddings", noteEmbeddingsSQL},
 	{"009_note_properties", notePropertiesSQL},
 	{"010_note_links", noteLinksSQL},
+	{"011_task_project_note_id", taskProjectNoteIDSQL},
 }
 
 // RunMigrations applies all pending migrations to the provided database.
