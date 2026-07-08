@@ -73,6 +73,33 @@ export function useDeleteNote() {
   })
 }
 
+export type GraphNodeType = 'note' | 'task' | 'project'
+export type GraphEdgeType = 'link' | 'task' | 'project'
+
+export interface NoteGraphNode {
+  id: string
+  label: string
+  type: GraphNodeType
+}
+
+export interface NoteGraphEdge {
+  source: string
+  target: string
+  type: GraphEdgeType
+}
+
+export interface NoteGraph {
+  nodes: NoteGraphNode[]
+  edges: NoteGraphEdge[]
+}
+
+export function useNoteGraph() {
+  return useQuery<NoteGraph>({
+    queryKey: ['notes', 'graph'],
+    queryFn: () => api.get('/notes/graph').then(r => r.data),
+  })
+}
+
 export function useFolders() {
   return useQuery<Folder[]>({
     queryKey: ['folders'],

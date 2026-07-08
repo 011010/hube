@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from 'react'
-import { Plus, Trash2, Folder, Sparkles, Search, X, FileText } from 'lucide-react'
+import { Plus, Trash2, Folder, Sparkles, Search, X, FileText, Network } from 'lucide-react'
 import {
   useNotes, useCreateNote, useUpdateNote, useDeleteNote,
   useFolders, useCreateFolder, useDeleteFolder, useSearchNotes, useSemanticSearch,
@@ -13,13 +13,17 @@ import { ViewToggle } from '../../components/molecules/ViewToggle'
 import { PropertiesPanel } from '../../components/molecules/PropertiesPanel'
 import { KanbanBoard } from '../../components/organisms/KanbanBoard'
 import { DataTable } from '../../components/organisms/DataTable'
+import { GraphView } from '../../components/organisms/GraphView'
 import { Modal } from '../../components/atoms/Modal'
 import { Input } from '../../components/atoms/Input'
 import { Button } from '../../components/atoms/Button'
 import { Badge } from '../../components/atoms/Badge'
+import { IconButton } from '../../components/atoms/IconButton'
 import { BlockEditor } from '../../components/organisms/BlockEditor'
 import type { Note, NoteStatus, Priority } from '../../types'
 import type { NoteInput } from '../../hooks/useNotes'
+
+type MainTab = 'editor' | 'graph'
 
 const VALID_STATUSES: NoteStatus[] = ['draft', 'in_progress', 'published']
 
@@ -152,6 +156,7 @@ export function NotesPage() {
   const [view, setView] = useViewPreference('notes_view')
   const [createOpen, setCreateOpen] = useState(false)
   const [editNote, setEditNote] = useState<Note | null>(null)
+  const [mainTab, setMainTab] = useState<MainTab>('editor')
 
   const { data: folders = [] } = useFolders()
   const { data: notes = [], isLoading } = useNotes(selectedFolder)
@@ -431,47 +436,71 @@ export function NotesPage() {
           description={`${displayNotes.length} note${displayNotes.length === 1 ? '' : 's'}`}
           actions={
             <div className="flex items-center gap-2">
-              <ViewToggle value={view} onChange={setView} />
-              <Button type="button" onClick={() => setCreateOpen(true)} icon={<Plus size={16} />}>
-                New note
-              </Button>
+              <div role="group" aria-label="Notes main view" className="flex items-center bg-surface-elevated border border-border rounded-lg p-0.5">
+                <IconButton
+                  icon={<FileText size={16} />}
+                  aria-label="Editor"
+                  aria-pressed={mainTab === 'editor'}
+                  variant={mainTab === 'editor' ? 'primary' : 'ghost'}
+                  onClick={() => setMainTab('editor')}
+                />
+                <IconButton
+                  icon={<Network size={16} />}
+                  aria-label="Graph"
+                  aria-pressed={mainTab === 'graph'}
+                  variant={mainTab === 'graph' ? 'primary' : 'ghost'}
+                  onClick={() => setMainTab('graph')}
+                />
+              </div>
+              {mainTab === 'editor' && <ViewToggle value={view} onChange={setView} />}
+              {mainTab === 'editor' && (
+                <Button type="button" onClick={() => setCreateOpen(true)} icon={<Plus size={16} />}>
+                  New note
+                </Button>
+              )}
             </div>
           }
         />
 
         <div className="flex-1 overflow-y-auto min-h-0">
-          {isLoading && <p className="text-text-muted text-sm">Loading notes…</p>}
+          {mainTab === 'graph' ? (
+            <GraphView />
+          ) : (
+            <>
+              {isLoading && <p className="text-text-muted text-sm">Loading notes…</p>}
 
-          {!isLoading && displayNotes.length === 0 && (
-            <EmptyState
-              icon={<FileText size={44} />}
-              title={search ? 'No results' : 'No notes yet'}
-              description={search ? 'Try a different search term.' : 'Create a note to get started.'}
-              action={
-                !search ? (
-                  <Button type="button" onClick={() => setCreateOpen(true)} icon={<Plus size={16} />}>
-                    New note
-                  </Button>
-                ) : undefined
-              }
-            />
+              {!isLoading && displayNotes.length === 0 && (
+                <EmptyState
+                  icon={<FileText size={44} />}
+                  title={search ? 'No results' : 'No notes yet'}
+                  description={search ? 'Try a different search term.' : 'Create a note to get started.'}
+                  action={
+                    !search ? (
+                      <Button type="button" onClick={() => setCreateOpen(true)} icon={<Plus size={16} />}>
+                        New note
+                      </Button>
+                    ) : undefined
+                  }
+                />
+              )}
+
+              {!isLoading && displayNotes.length > 0 &&
+                (view === 'kanban' ? (
+                  <KanbanBoard
+                    columns={columns}
+                    getItemId={(note) => note.id}
+                    renderCard={renderCard}
+                    onMove={handleMove}
+                  />
+                ) : (
+                  <DataTable
+                    columns={tableColumns}
+                    data={displayNotes}
+                    getRowKey={(note) => note.id}
+                  />
+                ))}
+            </>
           )}
-
-          {!isLoading && displayNotes.length > 0 &&
-            (view === 'kanban' ? (
-              <KanbanBoard
-                columns={columns}
-                getItemId={(note) => note.id}
-                renderCard={renderCard}
-                onMove={handleMove}
-              />
-            ) : (
-              <DataTable
-                columns={tableColumns}
-                data={displayNotes}
-                getRowKey={(note) => note.id}
-              />
-            ))}
         </div>
       </main>
 
