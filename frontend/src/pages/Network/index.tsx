@@ -23,6 +23,89 @@ function nextId() { return `n${nodeId++}` }
 
 const NODE_TYPES = ['Server', 'Router', 'Switch', 'Firewall', 'Client', 'Database', 'Cloud'] as const
 
+function templateNode(id: string, type: typeof NODE_TYPES[number], label: string, x: number, y: number): Node {
+  return {
+    id,
+    position: { x, y },
+    data: { label: `${type}: ${label}` },
+    style: {
+      background: 'var(--color-surface-elevated)',
+      border: '1px solid var(--color-border)',
+      color: 'var(--color-text-primary)',
+      borderRadius: 8,
+      padding: '8px 14px',
+      fontSize: 13,
+    },
+  }
+}
+
+const TEMPLATES: Record<'blank' | 'flowchart' | 'mindmap' | 'architecture' | 'er', { nodes: Node[]; edges: Edge[] }> = {
+  blank: { nodes: [], edges: [] },
+  flowchart: {
+    nodes: [
+      templateNode('t1', 'Server', 'Start', 100, 40),
+      templateNode('t2', 'Server', 'Do work', 100, 160),
+      templateNode('t3', 'Server', 'OK?', 100, 280),
+      templateNode('t4', 'Server', 'End', 100, 400),
+    ],
+    edges: [
+      { id: 'te1', source: 't1', target: 't2' },
+      { id: 'te2', source: 't2', target: 't3' },
+      { id: 'te3', source: 't3', target: 't4', label: 'Yes' },
+      { id: 'te4', source: 't3', target: 't2', label: 'No' },
+    ],
+  },
+  mindmap: {
+    nodes: [
+      templateNode('t1', 'Server', 'Main idea', 250, 200),
+      templateNode('t2', 'Server', 'Branch 1', 50, 60),
+      templateNode('t3', 'Server', 'Branch 2', 450, 60),
+      templateNode('t4', 'Server', 'Branch 3', 250, 380),
+    ],
+    edges: [
+      { id: 'te1', source: 't1', target: 't2' },
+      { id: 'te2', source: 't1', target: 't3' },
+      { id: 'te3', source: 't1', target: 't4' },
+    ],
+  },
+  architecture: {
+    nodes: [
+      templateNode('t1', 'Client', 'Client', 50, 200),
+      templateNode('t2', 'Firewall', 'Firewall', 220, 200),
+      templateNode('t3', 'Server', 'API Server', 390, 200),
+      templateNode('t4', 'Database', 'Database', 560, 100),
+      templateNode('t5', 'Cloud', 'Cloud Storage', 560, 300),
+    ],
+    edges: [
+      { id: 'te1', source: 't1', target: 't2' },
+      { id: 'te2', source: 't2', target: 't3' },
+      { id: 'te3', source: 't3', target: 't4' },
+      { id: 'te4', source: 't3', target: 't5' },
+    ],
+  },
+  er: {
+    nodes: [
+      templateNode('t1', 'Database', 'User', 80, 200),
+      templateNode('t2', 'Database', 'Order', 300, 200),
+      templateNode('t3', 'Database', 'Product', 520, 200),
+    ],
+    edges: [
+      { id: 'te1', source: 't1', target: 't2', label: 'has many' },
+      { id: 'te2', source: 't2', target: 't3', label: 'contains' },
+    ],
+  },
+}
+
+type TemplateKey = keyof typeof TEMPLATES
+
+const TEMPLATE_LABELS: Record<TemplateKey, string> = {
+  blank: 'Blank',
+  flowchart: 'Flowchart',
+  mindmap: 'Mind map',
+  architecture: 'Architecture',
+  er: 'Entity-relationship',
+}
+
 function DiagramEditor({
   diagram,
   onSave,
@@ -128,13 +211,22 @@ export function NetworkPage() {
 
   const [selected, setSelected] = useState<Diagram | null>(null)
   const [newName, setNewName] = useState('')
+  const [template, setTemplate] = useState<TemplateKey>('blank')
 
   const handleCreate = () => {
     const name = newName.trim() || 'Untitled diagram'
     create.mutate({ name }, {
       onSuccess: d => {
         setNewName('')
-        setSelected(d)
+        const { nodes, edges } = TEMPLATES[template]
+        if (nodes.length === 0) {
+          setSelected(d)
+          return
+        }
+        update.mutate(
+          { id: d.id, data: { nodes: JSON.stringify(nodes), edges: JSON.stringify(edges) } },
+          { onSuccess: setSelected },
+        )
       },
     })
   }
@@ -171,7 +263,7 @@ export function NetworkPage() {
 
   return (
     <div className="p-8 space-y-6">
-      <PageHeader title="Network Diagrams" />
+      <PageHeader title="Diagrams" />
 
       <div className="flex gap-2">
         <input
@@ -181,6 +273,15 @@ export function NetworkPage() {
           placeholder="New diagram name…"
           className="bg-surface-elevated border border-border rounded-lg px-3 py-2 text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-(--color-accent) transition-colors w-64"
         />
+        <select
+          value={template}
+          onChange={e => setTemplate(e.target.value as TemplateKey)}
+          className="bg-surface-elevated border border-border rounded-lg px-3 py-2 text-sm text-text-primary"
+        >
+          {(Object.keys(TEMPLATE_LABELS) as TemplateKey[]).map(key => (
+            <option key={key} value={key}>{TEMPLATE_LABELS[key]}</option>
+          ))}
+        </select>
         <Button icon={<Plus size={16} />} onClick={handleCreate} disabled={create.isPending}>Create</Button>
       </div>
 
