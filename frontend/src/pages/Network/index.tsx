@@ -82,10 +82,10 @@ const TEMPLATES: Record<'blank' | 'flowchart' | 'mindmap' | 'architecture' | 'er
   blank: { nodes: [], edges: [] },
   flowchart: {
     nodes: [
-      templateNode('t1', 'server', 'Start', 100, 40),
-      templateNode('t2', 'server', 'Do work', 100, 160),
-      templateNode('t3', 'server', 'OK?', 100, 280),
-      templateNode('t4', 'server', 'End', 100, 400),
+      templateNode('t1', 'process', 'Start', 100, 40),
+      templateNode('t2', 'process', 'Do work', 100, 160),
+      templateNode('t3', 'decision', 'OK?', 100, 280),
+      templateNode('t4', 'process', 'End', 100, 400),
     ],
     edges: [
       { id: 'te1', source: 't1', target: 't2' },
@@ -96,10 +96,10 @@ const TEMPLATES: Record<'blank' | 'flowchart' | 'mindmap' | 'architecture' | 'er
   },
   mindmap: {
     nodes: [
-      templateNode('t1', 'server', 'Main idea', 250, 200),
-      templateNode('t2', 'server', 'Branch 1', 50, 60),
-      templateNode('t3', 'server', 'Branch 2', 450, 60),
-      templateNode('t4', 'server', 'Branch 3', 250, 380),
+      templateNode('t1', 'idea', 'Main idea', 250, 200),
+      templateNode('t2', 'idea', 'Branch 1', 50, 60),
+      templateNode('t3', 'idea', 'Branch 2', 450, 60),
+      templateNode('t4', 'idea', 'Branch 3', 250, 380),
     ],
     edges: [
       { id: 'te1', source: 't1', target: 't2' },
