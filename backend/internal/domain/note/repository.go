@@ -10,6 +10,14 @@ type Repository interface {
 	Update(ctx context.Context, n *Note) error
 	Delete(ctx context.Context, id string) error
 	SetTags(ctx context.Context, noteID string, tags []string) error
+	FindAllLinks(ctx context.Context) ([]Link, error)
+}
+
+// Link represents a `[[Title]]` reference from one note's blocks to another
+// note, resolved to note IDs.
+type Link struct {
+	NoteID       string `json:"note_id" db:"note_id"`
+	TargetNoteID string `json:"target_note_id" db:"target_note_id"`
 }
 
 type EmbeddingRecord struct {

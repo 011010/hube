@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -18,16 +19,16 @@ type NoteRepo struct{ db *sqlx.DB }
 func NewNoteRepo(db *sqlx.DB) *NoteRepo { return &NoteRepo{db: db} }
 
 type noteRow struct {
-	ID        string       `db:"id"`
-	Title     string       `db:"title"`
-	Content   string       `db:"content"`
-	Blocks    string       `db:"blocks"`
-	Status    string       `db:"status"`
-	Priority  string       `db:"priority"`
-	DueDate   *string      `db:"due_date"`
-	FolderID  *string      `db:"folder_id"`
-	CreatedAt time.Time    `db:"created_at"`
-	UpdatedAt time.Time    `db:"updated_at"`
+	ID        string    `db:"id"`
+	Title     string    `db:"title"`
+	Content   string    `db:"content"`
+	Blocks    string    `db:"blocks"`
+	Status    string    `db:"status"`
+	Priority  string    `db:"priority"`
+	DueDate   *string   `db:"due_date"`
+	FolderID  *string   `db:"folder_id"`
+	CreatedAt time.Time `db:"created_at"`
+	UpdatedAt time.Time `db:"updated_at"`
 }
 
 func walkNode(node map[string]any, out *[]string) {
@@ -41,6 +42,35 @@ func walkNode(node map[string]any, out *[]string) {
 			}
 		}
 	}
+}
+
+var linkPattern = regexp.MustCompile(`\[\[(.+?)\]\]`)
+
+// extractLinks parses `[[Title]]` references out of a note's raw blocks
+// string, returning the referenced titles in first-seen order with
+// duplicates removed.
+func extractLinks(blocks string) []string {
+	if blocks == "" {
+		return nil
+	}
+	matches := linkPattern.FindAllStringSubmatch(blocks, -1)
+	if len(matches) == 0 {
+		return nil
+	}
+	seen := make(map[string]struct{}, len(matches))
+	titles := make([]string, 0, len(matches))
+	for _, m := range matches {
+		title := strings.TrimSpace(m[1])
+		if title == "" {
+			continue
+		}
+		if _, ok := seen[title]; ok {
+			continue
+		}
+		seen[title] = struct{}{}
+		titles = append(titles, title)
+	}
+	return titles
 }
 
 func blocksToText(blocks string) (string, error) {
@@ -165,6 +195,9 @@ func (r *NoteRepo) Create(ctx context.Context, n *note.Note) error {
 	if err != nil {
 		return err
 	}
+	if err := r.storeLinks(ctx, n.ID, n.Blocks); err != nil {
+		return fmt.Errorf("store links: %w", err)
+	}
 	return r.SetTags(ctx, n.ID, n.Tags)
 }
 
@@ -184,7 +217,45 @@ func (r *NoteRepo) Update(ctx context.Context, n *note.Note) error {
 	if err != nil {
 		return err
 	}
+	if err := r.storeLinks(ctx, n.ID, n.Blocks); err != nil {
+		return fmt.Errorf("store links: %w", err)
+	}
 	return r.SetTags(ctx, n.ID, n.Tags)
+}
+
+// storeLinks replaces the stored `[[Title]]` links for a note based on its
+// current blocks content. Titles that do not resolve to an existing note, or
+// that resolve back to the note itself, are silently skipped.
+func (r *NoteRepo) storeLinks(ctx context.Context, noteID string, blocks string) error {
+	if _, err := r.db.ExecContext(ctx, `DELETE FROM note_links WHERE note_id = ?`, noteID); err != nil {
+		return fmt.Errorf("clear links: %w", err)
+	}
+	titles := extractLinks(blocks)
+	for _, title := range titles {
+		var targetID string
+		err := r.db.GetContext(ctx, &targetID, `SELECT id FROM notes WHERE title = ? LIMIT 1`, title)
+		if err == sql.ErrNoRows {
+			continue
+		}
+		if err != nil {
+			return fmt.Errorf("resolve link title %q: %w", title, err)
+		}
+		if targetID == noteID {
+			continue
+		}
+		if _, err := r.db.ExecContext(ctx, `INSERT OR IGNORE INTO note_links(note_id,target_note_id) VALUES(?,?)`, noteID, targetID); err != nil {
+			return fmt.Errorf("insert link: %w", err)
+		}
+	}
+	return nil
+}
+
+// FindAllLinks returns every stored note-to-note link, used to build the
+// notes graph.
+func (r *NoteRepo) FindAllLinks(ctx context.Context) ([]note.Link, error) {
+	links := make([]note.Link, 0)
+	err := r.db.SelectContext(ctx, &links, `SELECT note_id, target_note_id FROM note_links`)
+	return links, err
 }
 
 func (r *NoteRepo) Delete(ctx context.Context, id string) error {

@@ -43,6 +43,10 @@ func (m *mockRepo) SetTags(ctx context.Context, noteID string, tags []string) er
 	return nil
 }
 
+func (m *mockRepo) FindAllLinks(ctx context.Context) ([]note.Link, error) {
+	return nil, nil
+}
+
 func TestService_Create_NormalizesAndValidates(t *testing.T) {
 	repo := &mockRepo{}
 	svc := NewService(repo)
