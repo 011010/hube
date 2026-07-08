@@ -4,6 +4,9 @@ import type { Note, Folder } from '../types'
 
 const api = axios.create({ baseURL: '/api/v1' })
 
+export type NoteInput = Partial<Omit<Note, 'id' | 'created_at' | 'updated_at'>>
+export type NoteUpdate = Partial<Note>
+
 export function useNotes(folderID?: string) {
   return useQuery<Note[]>({
     queryKey: ['notes', folderID ?? 'all'],
@@ -45,7 +48,7 @@ export function useSemanticSearch(query: string) {
 export function useCreateNote() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (data: Partial<Note>) => api.post<Note>('/notes', data).then(r => r.data),
+    mutationFn: (data: NoteInput) => api.post<Note>('/notes', data).then(r => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['notes'] }),
   })
 }
@@ -53,7 +56,7 @@ export function useCreateNote() {
 export function useUpdateNote() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<Note> }) =>
+    mutationFn: ({ id, data }: { id: string; data: NoteUpdate }) =>
       api.put<Note>(`/notes/${id}`, data).then(r => r.data),
     onSuccess: (_, { id }) => {
       qc.invalidateQueries({ queryKey: ['notes'] })
