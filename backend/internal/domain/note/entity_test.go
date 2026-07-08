@@ -69,33 +69,33 @@ func TestNote_Normalize(t *testing.T) {
 func TestNote_Validate(t *testing.T) {
 	validDate := "2026-07-07"
 	tests := []struct {
-		name    string
-		note    Note
-		wantErr string
+		name      string
+		note      Note
+		wantErr   string
 		wantField string
 	}{
 		{
-			name:    "empty title rejected",
-			note:    Note{Status: StatusDraft, Priority: PriorityMedium},
-			wantErr: "title is required",
+			name:      "empty title rejected",
+			note:      Note{Status: StatusDraft, Priority: PriorityMedium},
+			wantErr:   "title is required",
 			wantField: "title",
 		},
 		{
-			name:    "invalid status rejected",
-			note:    Note{Title: "Test", Status: "invalid", Priority: PriorityMedium},
-			wantErr: "invalid status",
+			name:      "invalid status rejected",
+			note:      Note{Title: "Test", Status: "invalid", Priority: PriorityMedium},
+			wantErr:   "invalid status",
 			wantField: "status",
 		},
 		{
-			name:    "invalid priority rejected",
-			note:    Note{Title: "Test", Status: StatusDraft, Priority: "invalid"},
-			wantErr: "invalid priority",
+			name:      "invalid priority rejected",
+			note:      Note{Title: "Test", Status: StatusDraft, Priority: "invalid"},
+			wantErr:   "invalid priority",
 			wantField: "priority",
 		},
 		{
-			name:    "invalid due_date rejected",
-			note:    Note{Title: "Test", Status: StatusDraft, Priority: PriorityMedium, DueDate: strPtr("not-a-date")},
-			wantErr: "invalid due_date",
+			name:      "invalid due_date rejected",
+			note:      Note{Title: "Test", Status: StatusDraft, Priority: PriorityMedium, DueDate: strPtr("not-a-date")},
+			wantErr:   "invalid due_date",
 			wantField: "due_date",
 		},
 		{
