@@ -1,0 +1,31 @@
+interface TipTapNode {
+  type?: string
+  text?: string
+  content?: TipTapNode[]
+  [key: string]: unknown
+}
+
+function walkNode(node: TipTapNode, parts: string[]) {
+  if (typeof node.text === 'string') {
+    parts.push(node.text)
+  }
+  if (Array.isArray(node.content)) {
+    for (const child of node.content) {
+      if (child && typeof child === 'object') {
+        walkNode(child, parts)
+      }
+    }
+  }
+}
+
+export function blocksToText(json: string): string {
+  if (!json.trim()) return ''
+  try {
+    const doc: TipTapNode = JSON.parse(json)
+    const parts: string[] = []
+    walkNode(doc, parts)
+    return parts.join(' ')
+  } catch {
+    return ''
+  }
+}
