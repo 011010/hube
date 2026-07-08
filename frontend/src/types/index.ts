@@ -77,10 +77,16 @@ export interface FinanceSummary {
   recent_transactions: RecentTransaction[]
 }
 
+export type NoteStatus = 'draft' | 'in_progress' | 'published'
+
 export interface Note {
   id: string
   title: string
   content: string
+  blocks: string
+  status: NoteStatus
+  priority: Priority
+  due_date: string | null
   folder_id: string | null
   tags: string[]
   created_at: string
