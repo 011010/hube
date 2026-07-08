@@ -4,7 +4,6 @@ import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
-import Underline from '@tiptap/extension-underline'
 import { Bold, Italic, Underline as UnderlineIcon, List, ListOrdered, CheckSquare } from 'lucide-react'
 import { blocksToText } from '../../utils/blocks'
 
@@ -78,7 +77,6 @@ export function BlockEditor({ value, onChange, placeholder = 'Start writing…' 
       Placeholder.configure({ placeholder }),
       TaskList,
       TaskItem.configure({ nested: false }),
-      Underline,
     ],
     content: parseContent(value),
     onUpdate: ({ editor }) => {
