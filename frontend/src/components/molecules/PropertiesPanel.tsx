@@ -1,4 +1,4 @@
-import type { NoteStatus, Priority } from '../../types'
+import type { Folder, NoteStatus, Priority } from '../../types'
 
 interface PropertiesPanelProps {
   status: NoteStatus
@@ -6,6 +6,7 @@ interface PropertiesPanelProps {
   dueDate: string | null
   tags: string[]
   folderId: string | null
+  folders: Folder[]
   onChange: (patch: {
     status?: NoteStatus
     priority?: Priority
@@ -33,6 +34,7 @@ export function PropertiesPanel({
   dueDate,
   tags,
   folderId,
+  folders,
   onChange,
 }: PropertiesPanelProps) {
   return (
@@ -88,16 +90,21 @@ export function PropertiesPanel({
 
       <div className="flex flex-col gap-1.5">
         <label htmlFor="note-folder" className="text-xs text-text-secondary">
-          Folder ID
+          Folder
         </label>
-        <input
+        <select
           id="note-folder"
-          type="text"
           value={folderId ?? ''}
           onChange={(e) => onChange({ folderId: e.target.value || null })}
-          placeholder="Optional folder ID"
-          className="w-full px-3 py-2 rounded-lg bg-surface-card border border-border text-text-primary text-sm placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-accent/40 transition-all"
-        />
+          className="w-full px-3 py-2 rounded-lg bg-surface-card border border-border text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-accent/40 transition-all"
+        >
+          <option value="">No folder</option>
+          {folders.map((folder) => (
+            <option key={folder.id} value={folder.id}>
+              {folder.name}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div className="col-span-2 flex flex-col gap-1.5">
