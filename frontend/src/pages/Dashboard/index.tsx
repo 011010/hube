@@ -20,7 +20,7 @@ export function DashboardPage() {
     <div className="p-8 space-y-8">
       <PageHeader title="Dashboard" />
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <StatCard label="Pending tasks" value={pending.length} />
         <StatCard label="Completed" value={done.length} />
         <StatCard label="Apps" value={apps.length} />

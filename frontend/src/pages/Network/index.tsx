@@ -214,7 +214,7 @@ function DiagramEditor({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center gap-2 px-4 py-3 border-b border-border bg-surface-elevated shrink-0">
+      <div className="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-border bg-surface-elevated shrink-0">
         <select
           value={nodeType}
           onChange={e => setNodeType(e.target.value as NodeType)}
@@ -325,13 +325,13 @@ export function NetworkPage() {
     <div className="p-8 space-y-6">
       <PageHeader title="Diagrams" />
 
-      <div className="flex gap-2">
+      <div className="flex flex-col sm:flex-row gap-2">
         <input
           value={newName}
           onChange={e => setNewName(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && handleCreate()}
           placeholder="New diagram name…"
-          className="bg-surface-elevated border border-border rounded-lg px-3 py-2 text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-(--color-accent) transition-colors w-64"
+          className="bg-surface-elevated border border-border rounded-lg px-3 py-2 text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-(--color-accent) transition-colors w-full sm:w-64"
         />
         <select
           value={template}

@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
+import { PanelLeft } from 'lucide-react'
+import { IconButton } from '../../components/atoms/IconButton'
 
 
 interface NavSection {
@@ -837,6 +839,7 @@ function SecuritySection() {
 
 export function DocsPage() {
   const [activeId, setActiveId] = useState<string>(SECTIONS[0].id)
+  const [panelOpen, setPanelOpen] = useState(false)
   const contentRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -864,11 +867,25 @@ export function DocsPage() {
     if (!container) return
     container.scrollTo({ top: el.offsetTop - 24, behavior: 'smooth' })
     setActiveId(id)
+    setPanelOpen(false)
   }
 
   return (
     <div className="flex h-full">
-      <aside className="w-48 shrink-0 border-r border-border bg-surface-base sticky top-0 h-screen overflow-y-auto py-6 px-3">
+      {/* TOC panel backdrop (mobile only) */}
+      {panelOpen && (
+        <div
+          className="fixed inset-0 z-20 bg-black/50 md:hidden"
+          onClick={() => setPanelOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      <aside
+        className={`fixed inset-y-0 left-0 z-30 w-48 shrink-0 border-r border-border bg-surface-base overflow-y-auto py-6 px-3 transition-transform duration-200 ease-out md:static md:z-auto md:translate-x-0 md:sticky md:top-0 md:h-screen ${
+          panelOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
         <p className="text-[10px] font-semibold text-text-muted uppercase tracking-wider px-2 mb-3">
           On this page
         </p>
@@ -891,13 +908,22 @@ export function DocsPage() {
 
       <div ref={contentRef} className="flex-1 overflow-y-auto">
         <div className="max-w-3xl mx-auto px-8 py-8">
-          <div className="mb-8">
-            <h1 className="text-3xl font-semibold text-text-primary mb-2">
-              Documentation
-            </h1>
-            <p className="text-sm text-text-muted">
-              hube — self-hosted personal hub
-            </p>
+          <div className="mb-8 flex items-start justify-between gap-3">
+            <div>
+              <h1 className="text-3xl font-semibold text-text-primary mb-2">
+                Documentation
+              </h1>
+              <p className="text-sm text-text-muted">
+                hube — self-hosted personal hub
+              </p>
+            </div>
+            <IconButton
+              icon={<PanelLeft size={18} />}
+              aria-label="Toggle table of contents"
+              variant="ghost"
+              className="md:hidden shrink-0"
+              onClick={() => setPanelOpen((v) => !v)}
+            />
           </div>
 
           <OverviewSection />

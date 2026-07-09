@@ -25,7 +25,7 @@ export function FinanceWidgets() {
   return (
     <div className="space-y-4">
       {/* Summary cards */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <FinanceCard
           label="Balance"
           value={fmt(data.balance)}
@@ -106,7 +106,7 @@ function FinanceCard({ label, value, sub, accent = 'indigo' }: {
 
 function FinanceSkeleton() {
   return (
-    <div className="grid grid-cols-3 gap-4 animate-pulse">
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 animate-pulse">
       {[0, 1, 2].map(i => (
         <div key={i} className="bg-surface-elevated border border-border rounded-xl px-5 py-4 h-20" />
       ))}

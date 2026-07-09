@@ -108,7 +108,7 @@ export function TaskModal({ open, onClose, onSave, task, isPending }: TaskModalP
           autoResize
         />
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <p className="text-xs text-text-secondary mb-2">Priority</p>
             <div className="flex gap-1.5">

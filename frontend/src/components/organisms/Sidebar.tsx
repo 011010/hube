@@ -45,36 +45,59 @@ const navItemClass = ({ isActive }: { isActive: boolean }) =>
       : 'text-text-secondary hover:bg-surface-elevated hover:text-text-primary'
   }`
 
-export function Sidebar() {
+interface SidebarProps {
+  isOpen?: boolean
+  onClose?: () => void
+}
+
+export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   return (
-    <aside className="w-56 shrink-0 bg-surface-base border-r border-border flex flex-col">
-      {/* Logo header */}
-      <div className="px-5 py-5 border-b border-border">
-        <div className="flex items-center gap-2.5">
-          <HubeLogo size={20} />
-          <span className="text-lg font-semibold tracking-tight text-text-primary">hube</span>
+    <>
+      {/* Mobile backdrop */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 md:hidden"
+          onClick={onClose}
+          aria-hidden="true"
+        />
+      )}
+
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 w-56 shrink-0 bg-surface-base border-r border-border flex flex-col transition-transform duration-200 ease-out md:static md:z-auto md:translate-x-0 ${
+          isOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        {/* Safe-area spacer for mobile drawer (avoids status bar overlap) */}
+        <div className="h-[env(safe-area-inset-top)] md:hidden" />
+
+        {/* Logo header */}
+        <div className="px-5 py-5 border-b border-border">
+          <div className="flex items-center gap-2.5">
+            <HubeLogo size={20} />
+            <span className="text-lg font-semibold tracking-tight text-text-primary">hube</span>
+          </div>
         </div>
-      </div>
 
-      {/* Main navigation */}
-      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-        {mainNav.map(({ to, label, icon: Icon }) => (
-          <NavLink key={to} to={to} end={to === '/'} className={navItemClass}>
-            <Icon size={18} className="shrink-0" />
-            <span className="truncate">{label}</span>
-          </NavLink>
-        ))}
-      </nav>
+        {/* Main navigation */}
+        <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+          {mainNav.map(({ to, label, icon: Icon }) => (
+            <NavLink key={to} to={to} end={to === '/'} className={navItemClass} onClick={onClose}>
+              <Icon size={18} className="shrink-0" />
+              <span className="truncate">{label}</span>
+            </NavLink>
+          ))}
+        </nav>
 
-      {/* Bottom navigation (collapse-ready wrapper) */}
-      <div className="px-3 py-3 border-t border-border space-y-0.5">
-        {bottomNav.map(({ to, label, icon: Icon }) => (
-          <NavLink key={to} to={to} className={navItemClass}>
-            <Icon size={18} className="shrink-0" />
-            <span className="truncate">{label}</span>
-          </NavLink>
-        ))}
-      </div>
-    </aside>
+        {/* Bottom navigation (collapse-ready wrapper) */}
+        <div className="px-3 py-3 border-t border-border space-y-0.5">
+          {bottomNav.map(({ to, label, icon: Icon }) => (
+            <NavLink key={to} to={to} className={navItemClass} onClick={onClose}>
+              <Icon size={18} className="shrink-0" />
+              <span className="truncate">{label}</span>
+            </NavLink>
+          ))}
+        </div>
+      </aside>
+    </>
   )
 }

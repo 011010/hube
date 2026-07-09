@@ -480,6 +480,11 @@ body {
   flex-direction: column;
 }
 
+/* ── Safe-area utilities (notch / status bar clearance) ── */
+.pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+
 /* ── Animation keyframes ── */
 @keyframes fadeIn {
   from { opacity: 0; }

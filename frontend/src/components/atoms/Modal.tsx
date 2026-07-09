@@ -20,7 +20,7 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-start sm:items-center justify-center overflow-y-auto py-8 sm:py-0 bg-black/60 backdrop-blur-sm"
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
       <div className="bg-(--color-surface-elevated) border border-(--color-border) rounded-2xl w-full max-w-md mx-4 shadow-2xl">

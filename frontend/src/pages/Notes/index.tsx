@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from 'react'
-import { Plus, Trash2, Folder, Sparkles, Search, X, FileText, Network } from 'lucide-react'
+import { Plus, Trash2, Folder, Sparkles, Search, X, FileText, Network, PanelLeft } from 'lucide-react'
 import {
   useNotes, useCreateNote, useUpdateNote, useDeleteNote,
   useFolders, useCreateFolder, useDeleteFolder, useSearchNotes, useSemanticSearch,
@@ -159,6 +159,7 @@ export function NotesPage() {
   const [createOpen, setCreateOpen] = useState(false)
   const [editNote, setEditNote] = useState<Note | null>(null)
   const [mainTab, setMainTab] = useState<MainTab>('editor')
+  const [panelOpen, setPanelOpen] = useState(false)
 
   const { data: folders = [] } = useFolders()
   const { data: notes = [], isLoading } = useNotes(selectedFolder)
@@ -327,8 +328,21 @@ export function NotesPage() {
 
   return (
     <div className="flex h-screen overflow-hidden">
-      {/* Sidebar */}
-      <aside className="w-56 shrink-0 bg-surface-base border-r border-border flex flex-col">
+      {/* Notes panel backdrop (mobile only) */}
+      {panelOpen && (
+        <div
+          className="fixed inset-0 z-20 bg-black/50 md:hidden"
+          onClick={() => setPanelOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* Folders/notes-list panel */}
+      <aside
+        className={`fixed inset-y-0 left-0 z-30 w-56 shrink-0 bg-surface-base border-r border-border flex flex-col transition-transform duration-200 ease-out md:static md:z-auto md:translate-x-0 ${
+          panelOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
         <div className="p-3 border-b border-border flex items-center justify-between">
           <span className="text-xs font-semibold text-text-muted uppercase tracking-wider">Notes</span>
           <button
@@ -369,6 +383,7 @@ export function NotesPage() {
           onClick={() => {
             setSelectedFolder(undefined)
             setSearch('')
+            setPanelOpen(false)
           }}
           className={`text-left px-3 py-2 text-sm transition-colors ${
             selectedFolder === undefined && !search
@@ -409,6 +424,7 @@ export function NotesPage() {
                 onClick={() => {
                   setSelectedFolder(f.id)
                   setSearch('')
+                  setPanelOpen(false)
                 }}
                 className={`flex-1 text-left px-3 py-1.5 text-sm transition-colors flex items-center gap-2 ${
                   selectedFolder === f.id
@@ -438,6 +454,13 @@ export function NotesPage() {
           description={`${displayNotes.length} note${displayNotes.length === 1 ? '' : 's'}`}
           actions={
             <div className="flex items-center gap-2">
+              <IconButton
+                icon={<PanelLeft size={16} />}
+                aria-label="Toggle notes panel"
+                variant="ghost"
+                className="md:hidden"
+                onClick={() => setPanelOpen((v) => !v)}
+              />
               <div role="group" aria-label="Notes main view" className="flex items-center bg-surface-elevated border border-border rounded-lg p-0.5">
                 <IconButton
                   icon={<FileText size={16} />}

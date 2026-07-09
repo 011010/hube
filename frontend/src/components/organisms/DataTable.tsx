@@ -79,8 +79,8 @@ export function DataTable<T>({
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-surface-elevated">
-      <table className="w-full border-collapse text-sm">
+    <div className="overflow-x-auto rounded-xl border border-border bg-surface-elevated">
+      <table className="w-full border-collapse text-sm min-w-max">
         <thead>
           <tr className="border-b border-border">
             {columns.map((column) => {
