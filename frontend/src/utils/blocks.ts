@@ -31,16 +31,17 @@ export function blocksToText(json: string): string {
 }
 
 // textToBlocks wraps legacy plain-text content (from notes created/edited before
-// the block editor existed) into a minimal TipTap doc so it stays visible and
-// editable instead of appearing blank.
+// the block editor existed) into a TipTap doc so it stays visible and editable
+// instead of appearing blank. Each line becomes its own paragraph so multi-line
+// legacy content keeps its visual structure instead of collapsing into one run-on line.
 export function textToBlocks(text: string): string {
+  const paragraphs = text.split('\n').map(line =>
+    line === ''
+      ? { type: 'paragraph' }
+      : { type: 'paragraph', content: [{ type: 'text', text: line }] }
+  )
   return JSON.stringify({
     type: 'doc',
-    content: [
-      {
-        type: 'paragraph',
-        content: [{ type: 'text', text }],
-      },
-    ],
+    content: paragraphs.length ? paragraphs : [{ type: 'paragraph' }],
   })
 }
