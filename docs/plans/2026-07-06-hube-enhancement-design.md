@@ -20,7 +20,7 @@ Extend hube with flexible kanban/table views, a Notion-like notes experience wit
 
 ### Settings: View Preferences
 
-Add a JSON `view_preferences` column/field to settings:
+The `settings` table is a key/value store. Store `view_preferences` as a JSON string under the key `general.view_preferences`:
 
 ```json
 {
@@ -32,6 +32,7 @@ Add a JSON `view_preferences` column/field to settings:
 
 - Default: `"kanban"` for all three.
 - Updated via existing `PUT /settings` endpoint.
+- The handler exposes `view_preferences` as a string field inside the `general` settings object.
 - Returned via existing `GET /settings` endpoint.
 
 ### Notes: New Fields
