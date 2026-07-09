@@ -89,7 +89,7 @@ export function BlockEditor({ value, onChange, placeholder = 'Start writing…' 
     if (!editor) return
     const current = JSON.stringify(editor.getJSON())
     if (current !== value) {
-      editor.commands.setContent(parseContent(value), false)
+      editor.commands.setContent(parseContent(value), { emitUpdate: false })
     }
   }, [editor, value])
 

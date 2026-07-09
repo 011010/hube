@@ -85,6 +85,7 @@ export function TaskModal({ open, onClose, onSave, task, isPending }: TaskModalP
       status: form.status,
       due_date: form.due_date || null,
       project_id: task?.project_id ?? null,
+      note_id: task?.note_id ?? null,
       recurrence: form.recurrence,
     })
   }
