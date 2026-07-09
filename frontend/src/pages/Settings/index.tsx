@@ -190,7 +190,13 @@ export function SettingsPage() {
 
   function handleSave() {
     if (!form) return
-    update.mutate(form, {
+    // Re-sync view_preferences from the latest react-query cache before submitting:
+    // useViewPreference performs its own PUT whenever a view is toggled, and `form`
+    // was only seeded once at mount, so it can otherwise revert a fresher preference.
+    const payload: Settings = data
+      ? { ...form, general: { ...form.general, view_preferences: data.general.view_preferences } }
+      : form
+    update.mutate(payload, {
       onSuccess: () => {
         setSaved(true)
         setTimeout(() => setSaved(false), 2000)

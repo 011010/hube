@@ -1,5 +1,6 @@
-import { useState, useCallback } from 'react'
-import { Plus, Trash2, Download, Save, ArrowLeft } from 'lucide-react'
+import { useState, useCallback, useRef } from 'react'
+import { Plus, Trash2, Download, Save, ArrowLeft, Image, FileCode2 } from 'lucide-react'
+import { toPng, toSvg } from 'html-to-image'
 import {
   ReactFlow,
   Background,
@@ -21,7 +22,128 @@ import type { Diagram } from '../../types'
 let nodeId = 1
 function nextId() { return `n${nodeId++}` }
 
-const NODE_TYPES = ['Server', 'Router', 'Switch', 'Firewall', 'Client', 'Database', 'Cloud'] as const
+const NODE_TYPES = [
+  'process', 'decision', 'input_output', 'person', 'document', 'idea', 'image',
+  'server', 'router', 'switch', 'firewall', 'client', 'database', 'cloud',
+] as const
+
+type NodeType = typeof NODE_TYPES[number]
+
+function formatNodeType(type: NodeType) {
+  return type.replace('_', ' ').replace(/^\w/, c => c.toUpperCase())
+}
+
+const BASE_NODE_STYLE = {
+  color: 'var(--color-text-primary)',
+  padding: '8px 14px',
+  fontSize: 13,
+} as const
+
+const NODE_TYPE_STYLES: Record<NodeType, Record<string, string | number>> = {
+  process: { background: '#1e3a5f', border: '1px solid #3b82f6', borderRadius: 6 },
+  decision: {
+    background: '#4a1942',
+    border: '1px solid #ec4899',
+    clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)',
+    padding: '18px 28px',
+  },
+  input_output: {
+    background: '#1f3d2e',
+    border: '1px solid #22c55e',
+    clipPath: 'polygon(12% 0%, 100% 0%, 88% 100%, 0% 100%)',
+  },
+  person: { background: '#3a2e1f', border: '1px solid #f59e0b', borderRadius: '50%' },
+  document: { background: '#2a2a3d', border: '1px solid #8b5cf6', borderRadius: '4px 4px 16px 16px' },
+  idea: { background: '#3d3a1f', border: '1px solid #eab308', borderRadius: '50%' },
+  image: { background: '#1f2937', border: '1px dashed #6b7280', borderRadius: 4 },
+  server: { background: 'var(--color-surface-elevated)', border: '1px solid var(--color-border)', borderRadius: 8 },
+  router: { background: 'var(--color-surface-elevated)', border: '1px solid #38bdf8', borderRadius: 8 },
+  switch: { background: 'var(--color-surface-elevated)', border: '1px solid #a78bfa', borderRadius: 8 },
+  firewall: { background: 'var(--color-surface-elevated)', border: '1px solid #f87171', borderRadius: 8 },
+  client: { background: 'var(--color-surface-elevated)', border: '1px solid #34d399', borderRadius: 8 },
+  database: { background: 'var(--color-surface-elevated)', border: '1px solid #fbbf24', borderRadius: 8 },
+  cloud: { background: 'var(--color-surface-elevated)', border: '1px solid #94a3b8', borderRadius: 8 },
+}
+
+function nodeStyle(type: NodeType) {
+  return { ...BASE_NODE_STYLE, ...NODE_TYPE_STYLES[type] }
+}
+
+function templateNode(id: string, type: NodeType, label: string, x: number, y: number): Node {
+  return {
+    id,
+    position: { x, y },
+    data: { label: `${formatNodeType(type)}: ${label}` },
+    style: nodeStyle(type),
+  }
+}
+
+const TEMPLATES: Record<'blank' | 'flowchart' | 'mindmap' | 'architecture' | 'er', { nodes: Node[]; edges: Edge[] }> = {
+  blank: { nodes: [], edges: [] },
+  flowchart: {
+    nodes: [
+      templateNode('t1', 'process', 'Start', 100, 40),
+      templateNode('t2', 'process', 'Do work', 100, 160),
+      templateNode('t3', 'decision', 'OK?', 100, 280),
+      templateNode('t4', 'process', 'End', 100, 400),
+    ],
+    edges: [
+      { id: 'te1', source: 't1', target: 't2' },
+      { id: 'te2', source: 't2', target: 't3' },
+      { id: 'te3', source: 't3', target: 't4', label: 'Yes' },
+      { id: 'te4', source: 't3', target: 't2', label: 'No' },
+    ],
+  },
+  mindmap: {
+    nodes: [
+      templateNode('t1', 'idea', 'Main idea', 250, 200),
+      templateNode('t2', 'idea', 'Branch 1', 50, 60),
+      templateNode('t3', 'idea', 'Branch 2', 450, 60),
+      templateNode('t4', 'idea', 'Branch 3', 250, 380),
+    ],
+    edges: [
+      { id: 'te1', source: 't1', target: 't2' },
+      { id: 'te2', source: 't1', target: 't3' },
+      { id: 'te3', source: 't1', target: 't4' },
+    ],
+  },
+  architecture: {
+    nodes: [
+      templateNode('t1', 'client', 'Client', 50, 200),
+      templateNode('t2', 'firewall', 'Firewall', 220, 200),
+      templateNode('t3', 'server', 'API Server', 390, 200),
+      templateNode('t4', 'database', 'Database', 560, 100),
+      templateNode('t5', 'cloud', 'Cloud Storage', 560, 300),
+    ],
+    edges: [
+      { id: 'te1', source: 't1', target: 't2' },
+      { id: 'te2', source: 't2', target: 't3' },
+      { id: 'te3', source: 't3', target: 't4' },
+      { id: 'te4', source: 't3', target: 't5' },
+    ],
+  },
+  er: {
+    nodes: [
+      templateNode('t1', 'database', 'User', 80, 200),
+      templateNode('t2', 'database', 'Order', 300, 200),
+      templateNode('t3', 'database', 'Product', 520, 200),
+    ],
+    edges: [
+      { id: 'te1', source: 't1', target: 't2', label: 'has many' },
+      { id: 'te2', source: 't2', target: 't3', label: 'contains' },
+    ],
+  },
+}
+
+type TemplateKey = keyof typeof TEMPLATES
+
+const TEMPLATE_LABELS: Record<TemplateKey, string> = {
+  blank: 'Blank',
+  flowchart: 'Flowchart',
+  mindmap: 'Mind map',
+  architecture: 'Architecture',
+  er: 'Entity-relationship',
+}
 
 function DiagramEditor({
   diagram,
@@ -39,11 +161,14 @@ function DiagramEditor({
     JSON.parse(diagram.edges || '[]'),
   )
   const [label, setLabel] = useState('Node')
-  const [nodeType, setNodeType] = useState<typeof NODE_TYPES[number]>('Server')
+  const [nodeType, setNodeType] = useState<NodeType>('process')
+  const [edgeLabel, setEdgeLabel] = useState('')
+  const flowRef = useRef<HTMLDivElement>(null)
 
   const onConnect = useCallback(
-    (params: Connection) => setEdges(eds => addEdge(params, eds)),
-    [setEdges],
+    (params: Connection) =>
+      setEdges(eds => addEdge(edgeLabel ? { ...params, label: edgeLabel } : params, eds)),
+    [setEdges, edgeLabel],
   )
 
   const addNode = () => {
@@ -53,15 +178,8 @@ function DiagramEditor({
       {
         id,
         position: { x: 100 + Math.random() * 300, y: 100 + Math.random() * 200 },
-        data: { label: `${nodeType}: ${label}` },
-        style: {
-          background: 'var(--color-surface-elevated)',
-          border: '1px solid var(--color-border)',
-          color: 'var(--color-text-primary)',
-          borderRadius: 8,
-          padding: '8px 14px',
-          fontSize: 13,
-        },
+        data: { label: `${formatNodeType(nodeType)}: ${label}` },
+        style: nodeStyle(nodeType),
       },
     ])
   }
@@ -77,15 +195,32 @@ function DiagramEditor({
     URL.revokeObjectURL(url)
   }
 
+  const downloadDataUrl = (dataUrl: string, extension: string) => {
+    const a = document.createElement('a')
+    a.href = dataUrl
+    a.download = `${diagram.name}.${extension}`
+    a.click()
+  }
+
+  const exportPng = () => {
+    if (!flowRef.current) return
+    toPng(flowRef.current, { backgroundColor: '#0f0f13' }).then(dataUrl => downloadDataUrl(dataUrl, 'png'))
+  }
+
+  const exportSvg = () => {
+    if (!flowRef.current) return
+    toSvg(flowRef.current, { backgroundColor: '#0f0f13' }).then(dataUrl => downloadDataUrl(dataUrl, 'svg'))
+  }
+
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center gap-2 px-4 py-3 border-b border-border bg-surface-elevated shrink-0">
         <select
           value={nodeType}
-          onChange={e => setNodeType(e.target.value as typeof NODE_TYPES[number])}
+          onChange={e => setNodeType(e.target.value as NodeType)}
           className="bg-surface-base border border-border rounded px-2 py-1.5 text-sm text-text-primary"
         >
-          {NODE_TYPES.map(t => <option key={t}>{t}</option>)}
+          {NODE_TYPES.map(t => <option key={t} value={t}>{formatNodeType(t)}</option>)}
         </select>
         <input
           value={label}
@@ -94,14 +229,22 @@ function DiagramEditor({
           className="bg-surface-base border border-border rounded px-2 py-1.5 text-sm text-text-primary w-32 placeholder-text-muted focus:outline-none focus:border-(--color-accent) transition-colors"
         />
         <Button size="sm" icon={<Plus size={14} />} onClick={addNode}>Add node</Button>
+        <input
+          value={edgeLabel}
+          onChange={e => setEdgeLabel(e.target.value)}
+          placeholder="Edge label"
+          className="bg-surface-base border border-border rounded px-2 py-1.5 text-sm text-text-primary w-28 placeholder-text-muted focus:outline-none focus:border-(--color-accent) transition-colors"
+        />
         <div className="flex-1" />
         <Button size="sm" variant="ghost" icon={<Download size={14} />} onClick={exportJSON}>Export JSON</Button>
+        <Button size="sm" variant="ghost" icon={<Image size={14} />} onClick={exportPng}>PNG</Button>
+        <Button size="sm" variant="ghost" icon={<FileCode2 size={14} />} onClick={exportSvg}>SVG</Button>
         <Button size="sm" icon={<Save size={14} />} onClick={() => onSave(nodes, edges)} disabled={isPending}>
           {isPending ? 'Saving…' : 'Save'}
         </Button>
       </div>
 
-      <div className="flex-1">
+      <div className="flex-1" ref={flowRef}>
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -128,13 +271,22 @@ export function NetworkPage() {
 
   const [selected, setSelected] = useState<Diagram | null>(null)
   const [newName, setNewName] = useState('')
+  const [template, setTemplate] = useState<TemplateKey>('blank')
 
   const handleCreate = () => {
     const name = newName.trim() || 'Untitled diagram'
     create.mutate({ name }, {
       onSuccess: d => {
         setNewName('')
-        setSelected(d)
+        const { nodes, edges } = TEMPLATES[template]
+        if (nodes.length === 0) {
+          setSelected(d)
+          return
+        }
+        update.mutate(
+          { id: d.id, data: { nodes: JSON.stringify(nodes), edges: JSON.stringify(edges) } },
+          { onSuccess: setSelected },
+        )
       },
     })
   }
@@ -171,7 +323,7 @@ export function NetworkPage() {
 
   return (
     <div className="p-8 space-y-6">
-      <PageHeader title="Network Diagrams" />
+      <PageHeader title="Diagrams" />
 
       <div className="flex gap-2">
         <input
@@ -181,6 +333,15 @@ export function NetworkPage() {
           placeholder="New diagram name…"
           className="bg-surface-elevated border border-border rounded-lg px-3 py-2 text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-(--color-accent) transition-colors w-64"
         />
+        <select
+          value={template}
+          onChange={e => setTemplate(e.target.value as TemplateKey)}
+          className="bg-surface-elevated border border-border rounded-lg px-3 py-2 text-sm text-text-primary"
+        >
+          {(Object.keys(TEMPLATE_LABELS) as TemplateKey[]).map(key => (
+            <option key={key} value={key}>{TEMPLATE_LABELS[key]}</option>
+          ))}
+        </select>
         <Button icon={<Plus size={16} />} onClick={handleCreate} disabled={create.isPending}>Create</Button>
       </div>
 

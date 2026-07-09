@@ -3,7 +3,10 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -16,12 +19,71 @@ type NoteRepo struct{ db *sqlx.DB }
 func NewNoteRepo(db *sqlx.DB) *NoteRepo { return &NoteRepo{db: db} }
 
 type noteRow struct {
-	ID        string       `db:"id"`
-	Title     string       `db:"title"`
-	Content   string       `db:"content"`
-	FolderID  *string      `db:"folder_id"`
-	CreatedAt time.Time    `db:"created_at"`
-	UpdatedAt time.Time    `db:"updated_at"`
+	ID        string    `db:"id"`
+	Title     string    `db:"title"`
+	Content   string    `db:"content"`
+	Blocks    string    `db:"blocks"`
+	Status    string    `db:"status"`
+	Priority  string    `db:"priority"`
+	DueDate   *string   `db:"due_date"`
+	FolderID  *string   `db:"folder_id"`
+	CreatedAt time.Time `db:"created_at"`
+	UpdatedAt time.Time `db:"updated_at"`
+}
+
+func walkNode(node map[string]any, out *[]string) {
+	if text, ok := node["text"].(string); ok {
+		*out = append(*out, text)
+	}
+	if children, ok := node["content"].([]any); ok {
+		for _, child := range children {
+			if childMap, ok := child.(map[string]any); ok {
+				walkNode(childMap, out)
+			}
+		}
+	}
+}
+
+var linkPattern = regexp.MustCompile(`\[\[(.+?)\]\]`)
+
+// extractLinks parses `[[Title]]` references out of a note's raw blocks
+// string, returning the referenced titles in first-seen order with
+// duplicates removed.
+func extractLinks(blocks string) []string {
+	if blocks == "" {
+		return nil
+	}
+	matches := linkPattern.FindAllStringSubmatch(blocks, -1)
+	if len(matches) == 0 {
+		return nil
+	}
+	seen := make(map[string]struct{}, len(matches))
+	titles := make([]string, 0, len(matches))
+	for _, m := range matches {
+		title := strings.TrimSpace(m[1])
+		if title == "" {
+			continue
+		}
+		if _, ok := seen[title]; ok {
+			continue
+		}
+		seen[title] = struct{}{}
+		titles = append(titles, title)
+	}
+	return titles
+}
+
+func blocksToText(blocks string) (string, error) {
+	if blocks == "" {
+		return "", nil
+	}
+	var doc map[string]any
+	if err := json.Unmarshal([]byte(blocks), &doc); err != nil {
+		return "", err
+	}
+	var parts []string
+	walkNode(doc, &parts)
+	return strings.Join(parts, " "), nil
 }
 
 func (r *NoteRepo) loadTags(ctx context.Context, noteID string) ([]string, error) {
@@ -38,6 +100,10 @@ func (r *NoteRepo) toNote(ctx context.Context, row noteRow) (note.Note, error) {
 		ID:        row.ID,
 		Title:     row.Title,
 		Content:   row.Content,
+		Blocks:    row.Blocks,
+		Status:    row.Status,
+		Priority:  row.Priority,
+		DueDate:   row.DueDate,
 		FolderID:  row.FolderID,
 		Tags:      tags,
 		CreatedAt: row.CreatedAt,
@@ -49,9 +115,9 @@ func (r *NoteRepo) FindAll(ctx context.Context, folderID *string) ([]note.Note, 
 	rows := make([]noteRow, 0)
 	var err error
 	if folderID == nil {
-		err = r.db.SelectContext(ctx, &rows, `SELECT id,title,content,folder_id,created_at,updated_at FROM notes ORDER BY updated_at DESC`)
+		err = r.db.SelectContext(ctx, &rows, `SELECT id,title,content,blocks,status,priority,due_date,folder_id,created_at,updated_at FROM notes ORDER BY updated_at DESC`)
 	} else {
-		err = r.db.SelectContext(ctx, &rows, `SELECT id,title,content,folder_id,created_at,updated_at FROM notes WHERE folder_id = ? ORDER BY updated_at DESC`, *folderID)
+		err = r.db.SelectContext(ctx, &rows, `SELECT id,title,content,blocks,status,priority,due_date,folder_id,created_at,updated_at FROM notes WHERE folder_id = ? ORDER BY updated_at DESC`, *folderID)
 	}
 	if err != nil {
 		return nil, err
@@ -69,7 +135,7 @@ func (r *NoteRepo) FindAll(ctx context.Context, folderID *string) ([]note.Note, 
 
 func (r *NoteRepo) FindByID(ctx context.Context, id string) (*note.Note, error) {
 	var row noteRow
-	err := r.db.GetContext(ctx, &row, `SELECT id,title,content,folder_id,created_at,updated_at FROM notes WHERE id = ?`, id)
+	err := r.db.GetContext(ctx, &row, `SELECT id,title,content,blocks,status,priority,due_date,folder_id,created_at,updated_at FROM notes WHERE id = ?`, id)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -89,7 +155,7 @@ func (r *NoteRepo) Search(ctx context.Context, query string) ([]note.Note, error
 	}
 	rows := make([]noteRow, 0)
 	err := r.db.SelectContext(ctx, &rows, `
-		SELECT n.id, n.title, n.content, n.folder_id, n.created_at, n.updated_at
+		SELECT n.id, n.title, n.content, n.blocks, n.status, n.priority, n.due_date, n.folder_id, n.created_at, n.updated_at
 		FROM notes n
 		JOIN notes_fts ON notes_fts.rowid = n.rowid
 		WHERE notes_fts MATCH ?
@@ -112,29 +178,167 @@ func (r *NoteRepo) Search(ctx context.Context, query string) ([]note.Note, error
 
 func (r *NoteRepo) Create(ctx context.Context, n *note.Note) error {
 	n.ID = uuid.NewString()
+	if n.Blocks != "" {
+		content, err := blocksToText(n.Blocks)
+		if err != nil {
+			return &note.ValidationError{Field: "blocks", Message: err.Error()}
+		}
+		n.Content = content
+	}
 	now := time.Now()
 	n.CreatedAt = now
 	n.UpdatedAt = now
 	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO notes (id,title,content,folder_id,created_at,updated_at) VALUES (?,?,?,?,?,?)`,
-		n.ID, n.Title, n.Content, n.FolderID, n.CreatedAt, n.UpdatedAt,
+		`INSERT INTO notes (id,title,content,blocks,status,priority,due_date,folder_id,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)`,
+		n.ID, n.Title, n.Content, n.Blocks, n.Status, n.Priority, n.DueDate, n.FolderID, n.CreatedAt, n.UpdatedAt,
 	)
 	if err != nil {
 		return err
+	}
+	if err := r.storeLinks(ctx, n.ID, n.Blocks); err != nil {
+		return fmt.Errorf("store links: %w", err)
 	}
 	return r.SetTags(ctx, n.ID, n.Tags)
 }
 
 func (r *NoteRepo) Update(ctx context.Context, n *note.Note) error {
+	if n.Blocks != "" {
+		content, err := blocksToText(n.Blocks)
+		if err != nil {
+			return &note.ValidationError{Field: "blocks", Message: err.Error()}
+		}
+		n.Content = content
+	}
 	n.UpdatedAt = time.Now()
 	_, err := r.db.ExecContext(ctx,
-		`UPDATE notes SET title=?,content=?,folder_id=?,updated_at=? WHERE id=?`,
-		n.Title, n.Content, n.FolderID, n.UpdatedAt, n.ID,
+		`UPDATE notes SET title=?,content=?,blocks=?,status=?,priority=?,due_date=?,folder_id=?,updated_at=? WHERE id=?`,
+		n.Title, n.Content, n.Blocks, n.Status, n.Priority, n.DueDate, n.FolderID, n.UpdatedAt, n.ID,
 	)
 	if err != nil {
 		return err
 	}
+	if err := r.storeLinks(ctx, n.ID, n.Blocks); err != nil {
+		return fmt.Errorf("store links: %w", err)
+	}
 	return r.SetTags(ctx, n.ID, n.Tags)
+}
+
+// storeLinks replaces the stored `[[Title]]` links for a note based on its
+// current blocks content. Titles that do not resolve to an existing note, or
+// that resolve back to the note itself, are silently skipped.
+func (r *NoteRepo) storeLinks(ctx context.Context, noteID string, blocks string) error {
+	if _, err := r.db.ExecContext(ctx, `DELETE FROM note_links WHERE note_id = ?`, noteID); err != nil {
+		return fmt.Errorf("clear links: %w", err)
+	}
+	titles := extractLinks(blocks)
+	for _, title := range titles {
+		var targetID string
+		err := r.db.GetContext(ctx, &targetID, `SELECT id FROM notes WHERE title = ? LIMIT 1`, title)
+		if err == sql.ErrNoRows {
+			continue
+		}
+		if err != nil {
+			return fmt.Errorf("resolve link title %q: %w", title, err)
+		}
+		if targetID == noteID {
+			continue
+		}
+		if _, err := r.db.ExecContext(ctx, `INSERT OR IGNORE INTO note_links(note_id,target_note_id) VALUES(?,?)`, noteID, targetID); err != nil {
+			return fmt.Errorf("insert link: %w", err)
+		}
+	}
+	return nil
+}
+
+// FindAllLinks returns every stored note-to-note link, used to build the
+// notes graph.
+func (r *NoteRepo) FindAllLinks(ctx context.Context) ([]note.Link, error) {
+	links := make([]note.Link, 0)
+	err := r.db.SelectContext(ctx, &links, `SELECT note_id, target_note_id FROM note_links`)
+	return links, err
+}
+
+type graphEntityRow struct {
+	ID     string `db:"id"`
+	Label  string `db:"label"`
+	NoteID string `db:"note_id"`
+}
+
+// Graph builds the full notes graph: every note as a node, plus tasks and
+// projects that are linked to a note, with edges for [[Title]] note links
+// and note_id foreign keys.
+func (r *NoteRepo) Graph(ctx context.Context) (*note.Graph, error) {
+	graph := &note.Graph{
+		Nodes: make([]note.GraphNode, 0),
+		Edges: make([]note.GraphEdge, 0),
+	}
+
+	noteRows := make([]struct {
+		ID    string `db:"id"`
+		Title string `db:"title"`
+	}, 0)
+	if err := r.db.SelectContext(ctx, &noteRows, `SELECT id, title FROM notes`); err != nil {
+		return nil, fmt.Errorf("load notes for graph: %w", err)
+	}
+	for _, row := range noteRows {
+		graph.Nodes = append(graph.Nodes, note.GraphNode{
+			ID:    "note:" + row.ID,
+			Label: row.Title,
+			Type:  "note",
+		})
+	}
+
+	links, err := r.FindAllLinks(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("load links for graph: %w", err)
+	}
+	for _, l := range links {
+		graph.Edges = append(graph.Edges, note.GraphEdge{
+			Source: "note:" + l.NoteID,
+			Target: "note:" + l.TargetNoteID,
+			Type:   "link",
+		})
+	}
+
+	taskRows := make([]graphEntityRow, 0)
+	if err := r.db.SelectContext(ctx, &taskRows,
+		`SELECT id, title AS label, note_id FROM tasks WHERE note_id IS NOT NULL`,
+	); err != nil {
+		return nil, fmt.Errorf("load tasks for graph: %w", err)
+	}
+	for _, row := range taskRows {
+		graph.Nodes = append(graph.Nodes, note.GraphNode{
+			ID:    "task:" + row.ID,
+			Label: row.Label,
+			Type:  "task",
+		})
+		graph.Edges = append(graph.Edges, note.GraphEdge{
+			Source: "task:" + row.ID,
+			Target: "note:" + row.NoteID,
+			Type:   "task",
+		})
+	}
+
+	projectRows := make([]graphEntityRow, 0)
+	if err := r.db.SelectContext(ctx, &projectRows,
+		`SELECT id, name AS label, note_id FROM projects WHERE note_id IS NOT NULL`,
+	); err != nil {
+		return nil, fmt.Errorf("load projects for graph: %w", err)
+	}
+	for _, row := range projectRows {
+		graph.Nodes = append(graph.Nodes, note.GraphNode{
+			ID:    "project:" + row.ID,
+			Label: row.Label,
+			Type:  "project",
+		})
+		graph.Edges = append(graph.Edges, note.GraphEdge{
+			Source: "project:" + row.ID,
+			Target: "note:" + row.NoteID,
+			Type:   "project",
+		})
+	}
+
+	return graph, nil
 }
 
 func (r *NoteRepo) Delete(ctx context.Context, id string) error {

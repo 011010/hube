@@ -9,6 +9,7 @@ export interface Task {
   status: TaskStatus
   due_date: string | null
   project_id: string | null
+  note_id: string | null
   recurrence: string
   created_at: string
   updated_at: string
@@ -23,6 +24,7 @@ export interface Project {
   status: ProjectStatus
   color: string
   due_date: string | null
+  note_id: string | null
   task_count: number
   completed_count: number
   created_at: string
@@ -77,10 +79,16 @@ export interface FinanceSummary {
   recent_transactions: RecentTransaction[]
 }
 
+export type NoteStatus = 'draft' | 'in_progress' | 'published'
+
 export interface Note {
   id: string
   title: string
   content: string
+  blocks: string
+  status: NoteStatus
+  priority: Priority
+  due_date: string | null
   folder_id: string | null
   tags: string[]
   created_at: string

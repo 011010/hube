@@ -2,7 +2,7 @@ import type { ButtonHTMLAttributes, ReactNode } from 'react'
 
 interface IconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   icon: ReactNode
-  label: string
+  label?: string
   variant?: 'ghost' | 'primary'
   size?: 'sm' | 'md'
 }
@@ -17,13 +17,14 @@ const sizes = {
   md: 'p-2',
 }
 
-export function IconButton({ icon, label, variant = 'ghost', size = 'md', className = '', ...props }: IconButtonProps) {
+export function IconButton({ icon, label, variant = 'ghost', size = 'md', className = '', 'aria-label': ariaLabel, ...props }: IconButtonProps) {
+  const accessibleLabel = label ?? ariaLabel
   return (
     <button
-      aria-label={label}
-      title={label}
-      className={`inline-flex items-center justify-center rounded-lg transition-colors ${variants[variant]} ${sizes[size]} ${className}`}
       {...props}
+      aria-label={accessibleLabel}
+      title={accessibleLabel}
+      className={`inline-flex items-center justify-center rounded-lg transition-colors ${variants[variant]} ${sizes[size]} ${className}`}
     >
       {icon}
     </button>

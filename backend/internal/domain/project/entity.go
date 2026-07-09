@@ -18,6 +18,7 @@ type Project struct {
 	Status         Status    `json:"status"          db:"status"`
 	Color          string    `json:"color"           db:"color"`
 	DueDate        *string   `json:"due_date"        db:"due_date"`
+	NoteID         *string   `json:"note_id"         db:"note_id"`
 	TaskCount      int       `json:"task_count"      db:"task_count"`
 	CompletedCount int       `json:"completed_count" db:"completed_count"`
 	CreatedAt      time.Time `json:"created_at"      db:"created_at"`

@@ -5,6 +5,7 @@ const api = axios.create({ baseURL: '/api/v1' })
 
 export interface GeneralSettings {
   display_name: string
+  view_preferences?: string
 }
 
 export interface IntegrationSettings {

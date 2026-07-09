@@ -30,7 +30,7 @@ const mainNav: NavItem[] = [
   { to: '/projects', label: 'Projects', icon: FolderKanban },
   { to: '/ai', label: 'IA', icon: Brain },
   { to: '/wishlist', label: 'Wishlist', icon: Heart },
-  { to: '/network', label: 'Network', icon: Network },
+  { to: '/network', label: 'Diagrams', icon: Network },
 ]
 
 const bottomNav: NavItem[] = [
