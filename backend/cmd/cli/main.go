@@ -272,6 +272,7 @@ func exportNotesCmd() *cobra.Command {
 				}
 			}
 
+			usedSlugs := map[string]bool{}
 			for _, n := range notes {
 				md, err := getRaw(apiURL + "/api/v1/notes/" + n.ID + "/export")
 				if err != nil {
@@ -283,7 +284,7 @@ func exportNotesCmd() *cobra.Command {
 					continue
 				}
 
-				path := filepath.Join(out, slugify(n.Title)+".md")
+				path := filepath.Join(out, exportFilename(usedSlugs, n.Title, n.ID))
 				if err := os.WriteFile(path, []byte(md), 0o644); err != nil { //nolint:gosec
 					return fmt.Errorf("write %s: %w", path, err)
 				}
@@ -320,6 +321,20 @@ func slugify(s string) string {
 		slug = "untitled"
 	}
 	return slug
+}
+
+// exportFilename builds a collision-safe ".md" filename for a note export within a
+// single export run. The first note to use a given slug keeps the plain "<slug>.md"
+// name; any subsequent note whose title slugifies to the same value (whether an exact
+// duplicate title or a different title that normalizes the same way) gets the note's
+// ID appended so it never overwrites a previously written file.
+func exportFilename(usedSlugs map[string]bool, title, id string) string {
+	slug := slugify(title)
+	if !usedSlugs[slug] {
+		usedSlugs[slug] = true
+		return slug + ".md"
+	}
+	return slug + "-" + id + ".md"
 }
 
 // ── transactions ────────────────────────────────────────────────────────────

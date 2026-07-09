@@ -25,3 +25,33 @@ func TestSlugify(t *testing.T) {
 		})
 	}
 }
+
+func TestExportFilename(t *testing.T) {
+	usedSlugs := map[string]bool{}
+
+	first := exportFilename(usedSlugs, "My Note", "id-1")
+	if first != "my-note.md" {
+		t.Errorf("first export filename = %q, want %q", first, "my-note.md")
+	}
+
+	// Same title again (slug collision) -> must not overwrite the first file.
+	second := exportFilename(usedSlugs, "My Note", "id-2")
+	if second == first {
+		t.Errorf("second export filename = %q, want it to differ from first %q", second, first)
+	}
+	if second != "my-note-id-2.md" {
+		t.Errorf("second export filename = %q, want %q", second, "my-note-id-2.md")
+	}
+
+	// A normalizing collision (different raw title, same slug) must also be disambiguated.
+	third := exportFilename(usedSlugs, "my note!!", "id-3")
+	if third == first || third == second {
+		t.Errorf("third export filename = %q, want it to differ from %q and %q", third, first, second)
+	}
+
+	// A distinct title should keep using the plain slug.
+	other := exportFilename(usedSlugs, "Other Note", "id-4")
+	if other != "other-note.md" {
+		t.Errorf("other export filename = %q, want %q", other, "other-note.md")
+	}
+}
