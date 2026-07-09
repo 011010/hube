@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { safeHref } from '../../utils/url'
 import { Check, Trash2, Heart, ExternalLink } from 'lucide-react'
 import { useWishlist, useCreateWishlistItem, useUpdateWishlistItem, useDeleteWishlistItem } from '../../hooks/useWishlist'
+import { priorityVariant } from '../../utils/badges'
 import { Badge } from '../../components/atoms/Badge'
 import { Button } from '../../components/atoms/Button'
 import { Input } from '../../components/atoms/Input'
@@ -25,10 +26,6 @@ const emptyForm = (): ItemForm => ({
   status: 'pending',
   notes: '',
 })
-
-function priorityVariant(p: Priority): 'default' | 'warning' | 'danger' {
-  return p === 'high' ? 'danger' : p === 'medium' ? 'warning' : 'default'
-}
 
 interface WishlistModalProps {
   open: boolean

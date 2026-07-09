@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import axios from 'axios'
+import { http, API_BASE } from '../../services/api'
 import { useSettings, useUpdateSettings } from '../../hooks/useSettings'
 import type { Settings } from '../../hooks/useSettings'
 import { useTheme } from '../../contexts/ThemeContext'
@@ -68,8 +69,6 @@ const THEMES: { value: ThemeName; label: string; surface: string; accent: string
   { value: 'space-opera',      label: 'Space Opera',     surface: 'oklch(13% 0.03 260)',   accent: 'oklch(65% 0.2 290)' },
 ]
 
-const api = axios.create({ baseURL: '/api/v1' })
-
 function EmailSection() {
   const toRef = useRef<HTMLInputElement>(null)
   const [status, setStatus] = useState<'idle' | 'sending' | 'ok' | 'err'>('idle')
@@ -80,7 +79,7 @@ function EmailSection() {
     if (!to) return
     setStatus('sending')
     try {
-      await api.post('/email/digest', { to: [to] })
+      await http.post('/email/digest', { to: [to] })
       setStatus('ok')
       setTimeout(() => setStatus('idle'), 3000)
     } catch (e: unknown) {
@@ -127,7 +126,7 @@ function ExportSection() {
   async function handleExport() {
     setStatus('exporting')
     try {
-      const res = await fetch('/api/v1/export')
+      const res = await fetch(`${API_BASE}/export`)
       if (!res.ok) {
         const body = await res.json().catch(() => ({ error: res.statusText }))
         throw new Error(body?.error ?? res.statusText)

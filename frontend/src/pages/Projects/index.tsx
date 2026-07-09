@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Plus, Trash2, FolderKanban } from 'lucide-react'
 import { useProjects, useCreateProject, useDeleteProject, useUpdateProject } from '../../hooks/useProjects'
 import { useViewPreference } from '../../hooks/useViewPreference'
+import { useStatusKanbanMove } from '../../hooks/useStatusKanbanMove'
 import { formatDate } from '../../utils/date'
 import { progress, statusLabel, statusVariant } from '../../utils/project'
 import { Badge } from '../../components/atoms/Badge'
@@ -79,11 +80,7 @@ export function ProjectsPage() {
   const [view, setView] = useViewPreference('projects_view')
   const [showNew, setShowNew] = useState(false)
 
-  const handleMove = useCallback((itemId: string, _sourceColumnId: string, targetColumnId: string) => {
-    const project = projects.find(p => p.id === itemId)
-    if (!project || !VALID_STATUSES.includes(targetColumnId as ProjectStatus) || project.status === targetColumnId) return
-    updateProject.mutate({ id: project.id, data: { status: targetColumnId as ProjectStatus } })
-  }, [projects, updateProject])
+  const handleMove = useStatusKanbanMove(projects, VALID_STATUSES, (id, data) => updateProject.mutate({ id, data }))
 
   const columns = useMemo(
     () => [

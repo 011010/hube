@@ -1,7 +1,8 @@
 import axios from 'axios'
 import type { Task, CalendarEvent, App, WishlistItem, Diagram } from '../types'
 
-const http = axios.create({ baseURL: import.meta.env.VITE_API_URL ?? '/api/v1' })
+export const API_BASE = (import.meta.env.VITE_API_URL ?? '/api/v1').replace(/\/$/, '')
+export const http = axios.create({ baseURL: API_BASE })
 
 export const tasksApi = {
   list: () => http.get<Task[]>('/tasks').then(r => r.data),

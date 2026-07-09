@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { Sparkles, Send, Square } from 'lucide-react'
+import { API_BASE } from '../../services/api'
 import ReactMarkdown from 'react-markdown'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
@@ -89,7 +90,7 @@ export function AIPage() {
     }))
 
     try {
-      const response = await fetch('/api/v1/ai/chat', {
+      const response = await fetch(`${API_BASE}/ai/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: history, provider: provider === 'auto' ? '' : provider }),

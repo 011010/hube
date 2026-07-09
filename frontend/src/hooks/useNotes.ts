@@ -1,23 +1,33 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import axios from 'axios'
+import { http } from '../services/api'
+import { createCrudHooks } from './createCrudHooks'
 import type { Note, Folder } from '../types'
-
-const api = axios.create({ baseURL: '/api/v1' })
 
 export type NoteInput = Partial<Omit<Note, 'id' | 'created_at' | 'updated_at'>>
 export type NoteUpdate = Partial<Note>
 
+const notesCrud = createCrudHooks<Note, NoteInput, NoteUpdate>(
+  'notes',
+  {
+    list: () => http.get<Note[]>('/notes').then(r => r.data),
+    create: (data: NoteInput) => http.post<Note>('/notes', data).then(r => r.data),
+    update: (id: string, data: NoteUpdate) => http.put<Note>(`/notes/${id}`, data).then(r => r.data),
+    delete: (id: string) => http.delete(`/notes/${id}`),
+  },
+  { itemQueryKey: id => ['note', id] },
+)
+
 export function useNotes(folderID?: string) {
   return useQuery<Note[]>({
     queryKey: ['notes', folderID ?? 'all'],
-    queryFn: () => api.get('/notes', { params: folderID ? { folder_id: folderID } : {} }).then(r => r.data),
+    queryFn: () => http.get('/notes', { params: folderID ? { folder_id: folderID } : {} }).then(r => r.data),
   })
 }
 
 export function useNote(id: string | null) {
   return useQuery<Note>({
     queryKey: ['note', id],
-    queryFn: () => api.get(`/notes/${id}`).then(r => r.data),
+    queryFn: () => http.get(`/notes/${id}`).then(r => r.data),
     enabled: Boolean(id),
   })
 }
@@ -25,7 +35,7 @@ export function useNote(id: string | null) {
 export function useSearchNotes(query: string) {
   return useQuery<Note[]>({
     queryKey: ['notes', 'search', query],
-    queryFn: () => api.get('/notes/search', { params: { q: query } }).then(r => r.data),
+    queryFn: () => http.get('/notes/search', { params: { q: query } }).then(r => r.data),
     enabled: query.length > 1,
   })
 }
@@ -39,39 +49,15 @@ export function useSemanticSearch(query: string) {
   return useQuery<SemanticResult[]>({
     queryKey: ['notes', 'semantic', query],
     queryFn: () =>
-      api.post<SemanticResult[]>('/notes/semantic-search', { q: query, top_k: 5 }).then(r => r.data),
+      http.post<SemanticResult[]>('/notes/semantic-search', { q: query, top_k: 5 }).then(r => r.data),
     enabled: query.length > 2,
     retry: false,
   })
 }
 
-export function useCreateNote() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (data: NoteInput) => api.post<Note>('/notes', data).then(r => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['notes'] }),
-  })
-}
-
-export function useUpdateNote() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: NoteUpdate }) =>
-      api.put<Note>(`/notes/${id}`, data).then(r => r.data),
-    onSuccess: (_, { id }) => {
-      qc.invalidateQueries({ queryKey: ['notes'] })
-      qc.invalidateQueries({ queryKey: ['note', id] })
-    },
-  })
-}
-
-export function useDeleteNote() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (id: string) => api.delete(`/notes/${id}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['notes'] }),
-  })
-}
+export const useCreateNote = notesCrud.useCreate
+export const useUpdateNote = notesCrud.useUpdate
+export const useDeleteNote = notesCrud.useDelete
 
 export type GraphNodeType = 'note' | 'task' | 'project'
 export type GraphEdgeType = 'link' | 'task' | 'project'
@@ -96,21 +82,21 @@ export interface NoteGraph {
 export function useNoteGraph() {
   return useQuery<NoteGraph>({
     queryKey: ['notes', 'graph'],
-    queryFn: () => api.get('/notes/graph').then(r => r.data),
+    queryFn: () => http.get('/notes/graph').then(r => r.data),
   })
 }
 
 export function useFolders() {
   return useQuery<Folder[]>({
     queryKey: ['folders'],
-    queryFn: () => api.get('/folders').then(r => r.data),
+    queryFn: () => http.get('/folders').then(r => r.data),
   })
 }
 
 export function useCreateFolder() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (data: { name: string; parent_id?: string }) => api.post<Folder>('/folders', data).then(r => r.data),
+    mutationFn: (data: { name: string; parent_id?: string }) => http.post<Folder>('/folders', data).then(r => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['folders'] }),
   })
 }
@@ -118,7 +104,7 @@ export function useCreateFolder() {
 export function useDeleteFolder() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (id: string) => api.delete(`/folders/${id}`),
+    mutationFn: (id: string) => http.delete(`/folders/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['folders'] }),
   })
 }

@@ -1,32 +1,13 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { createCrudHooks } from './createCrudHooks'
 import { tasksApi } from '../services/api'
 import type { Task } from '../types'
 
-export function useTasks() {
-  return useQuery({ queryKey: ['tasks'], queryFn: tasksApi.list })
-}
+const tasksCrud = createCrudHooks<Task, Omit<Task, 'id' | 'created_at' | 'updated_at'>, Partial<Task>>(
+  'tasks',
+  tasksApi,
+)
 
-export function useCreateTask() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: tasksApi.create,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks'] }),
-  })
-}
-
-export function useUpdateTask() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<Task> }) =>
-      tasksApi.update(id, data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks'] }),
-  })
-}
-
-export function useDeleteTask() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: tasksApi.delete,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks'] }),
-  })
-}
+export const useTasks = tasksCrud.useList
+export const useCreateTask = tasksCrud.useCreate
+export const useUpdateTask = tasksCrud.useUpdate
+export const useDeleteTask = tasksCrud.useDelete

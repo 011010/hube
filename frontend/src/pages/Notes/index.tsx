@@ -5,8 +5,11 @@ import {
   useFolders, useCreateFolder, useDeleteFolder, useSearchNotes, useSemanticSearch,
 } from '../../hooks/useNotes'
 import { useViewPreference } from '../../hooks/useViewPreference'
+import { useStatusKanbanMove } from '../../hooks/useStatusKanbanMove'
 import { formatDate } from '../../utils/date'
 import { blocksToText, textToBlocks } from '../../utils/blocks'
+import { priorityVariant } from '../../utils/badges'
+import { statusLabel, statusVariant } from '../../utils/note'
 import { EmptyState } from '../../components/molecules/EmptyState'
 import { PageHeader } from '../../components/molecules/PageHeader'
 import { ViewToggle } from '../../components/molecules/ViewToggle'
@@ -60,15 +63,6 @@ function noteToForm(note: Note): NoteForm {
     folder_id: note.folder_id,
   }
 }
-
-const statusLabel = (s: NoteStatus) =>
-  s === 'in_progress' ? 'In Progress' : s.charAt(0).toUpperCase() + s.slice(1)
-
-const priorityVariant = (p: Priority) =>
-  p === 'high' ? 'danger' : p === 'medium' ? 'warning' : 'default'
-
-const statusVariant = (s: NoteStatus) =>
-  s === 'published' ? 'success' : s === 'in_progress' ? 'warning' : 'default'
 
 interface NoteModalProps {
   open: boolean
@@ -203,15 +197,7 @@ export function NotesPage() {
     updateNote.mutate({ id: editNote.id, data }, { onSuccess: () => setEditNote(null) })
   }
 
-  const handleMove = useCallback(
-    (itemId: string, _sourceColumnId: string, targetColumnId: string) => {
-      if (!VALID_STATUSES.includes(targetColumnId as NoteStatus)) return
-      const note = displayNotes.find((n) => n.id === itemId)
-      if (!note || note.status === targetColumnId) return
-      updateNote.mutate({ id: note.id, data: { status: targetColumnId as NoteStatus } })
-    },
-    [displayNotes, updateNote],
-  )
+  const handleMove = useStatusKanbanMove(displayNotes, VALID_STATUSES, (id, data) => updateNote.mutate({ id, data }))
 
   const columns = useMemo(
     () => [

@@ -2,7 +2,10 @@ import { useCallback, useMemo, useState } from 'react'
 import { Plus, Trash2, ListChecks, Circle, CheckCircle2 } from 'lucide-react'
 import { useTasks, useCreateTask, useUpdateTask, useDeleteTask } from '../../hooks/useTasks'
 import { useViewPreference } from '../../hooks/useViewPreference'
+import { useStatusKanbanMove } from '../../hooks/useStatusKanbanMove'
 import { formatDate } from '../../utils/date'
+import { priorityVariant } from '../../utils/badges'
+import { statusVariant, statusLabel } from '../../utils/task'
 import { Badge } from '../../components/atoms/Badge'
 import { Button } from '../../components/atoms/Button'
 import { PageHeader } from '../../components/molecules/PageHeader'
@@ -11,18 +14,9 @@ import { TaskModal } from '../../components/molecules/TaskModal'
 import { ViewToggle } from '../../components/molecules/ViewToggle'
 import { KanbanBoard } from '../../components/organisms/KanbanBoard'
 import { DataTable } from '../../components/organisms/DataTable'
-import type { Task, Priority, TaskStatus } from '../../types'
+import type { Task, TaskStatus } from '../../types'
 
 const VALID_STATUSES: TaskStatus[] = ['todo', 'in_progress', 'done']
-
-const priorityVariant = (p: Priority) =>
-  p === 'high' ? 'danger' : p === 'medium' ? 'warning' : 'default'
-
-const statusVariant = (s: TaskStatus) =>
-  s === 'done' ? 'success' : s === 'in_progress' ? 'warning' : 'default'
-
-const statusLabel = (s: TaskStatus) =>
-  s === 'in_progress' ? 'In Progress' : s.charAt(0).toUpperCase() + s.slice(1)
 
 export function TasksPage() {
   const { data: tasks = [], isLoading } = useTasks()
@@ -51,12 +45,7 @@ export function TasksPage() {
     updateTask.mutate({ id: task.id, data: { status: next } })
   }, [updateTask])
 
-  const handleMove = useCallback((itemId: string, _sourceColumnId: string, targetColumnId: string) => {
-    if (!VALID_STATUSES.includes(targetColumnId as TaskStatus)) return
-    const task = tasks.find(t => t.id === itemId)
-    if (!task || task.status === targetColumnId) return
-    updateTask.mutate({ id: task.id, data: { status: targetColumnId as TaskStatus } })
-  }, [tasks, updateTask])
+  const handleMove = useStatusKanbanMove(tasks, VALID_STATUSES, (id, data) => updateTask.mutate({ id, data }))
 
   const columns = useMemo(
     () => [
