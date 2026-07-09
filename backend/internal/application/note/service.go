@@ -74,7 +74,7 @@ func (s *Service) ExportAgentMarkdown(_ context.Context, n *note.Note) (string, 
 	if len(n.Tags) > 0 {
 		sb.WriteString("tags:\n")
 		for _, tag := range n.Tags {
-			fmt.Fprintf(&sb, "  - %s\n", tag)
+			fmt.Fprintf(&sb, "  - %s\n", yamlQuote(tag))
 		}
 	} else {
 		sb.WriteString("tags: []\n")

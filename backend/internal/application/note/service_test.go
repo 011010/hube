@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/husari/hube/internal/domain/note"
+	"gopkg.in/yaml.v3"
 )
 
 type mockRepo struct {
@@ -190,8 +191,8 @@ func TestService_ExportAgentMarkdown(t *testing.T) {
 		"priority: high",
 		"due_date: 2026-08-01",
 		"tags:",
-		"  - go",
-		"  - test",
+		`  - "go"`,
+		`  - "test"`,
 		"created_at: 2026-07-01T12:00:00Z",
 		"updated_at: 2026-07-02T09:30:00Z",
 	}
@@ -234,5 +235,55 @@ func TestService_ExportAgentMarkdown_NoDueDateOrTags(t *testing.T) {
 	}
 	if !strings.Contains(md, "tags: []") {
 		t.Errorf("expected tags: [] for empty tags, got:\n%s", md)
+	}
+}
+
+func TestService_ExportAgentMarkdown_EscapesTagsAgainstYAMLInjection(t *testing.T) {
+	repo := &mockRepo{}
+	svc := NewService(repo)
+
+	n := &note.Note{
+		ID:       "1",
+		Title:    "Injection Note",
+		Content:  "body",
+		Status:   note.StatusDraft,
+		Priority: note.PriorityMedium,
+		// A tag containing a raw newline followed by YAML syntax used to be
+		// written unescaped, letting it break out of the tags list and inject
+		// a sibling "injected" key into the frontmatter.
+		Tags: []string{"safe", "evil\ninjected: true"},
+	}
+
+	md, err := svc.ExportAgentMarkdown(context.Background(), n)
+	if err != nil {
+		t.Fatalf("ExportAgentMarkdown returned unexpected error: %v", err)
+	}
+
+	parts := strings.SplitN(md, "---\n", 3)
+	if len(parts) != 3 {
+		t.Fatalf("expected exactly two --- delimiters, got markdown:\n%s", md)
+	}
+	frontmatter := parts[1]
+
+	var doc map[string]any
+	if err := yaml.Unmarshal([]byte(frontmatter), &doc); err != nil {
+		t.Fatalf("frontmatter is not valid YAML (tag injection broke the document): %v\nfrontmatter:\n%s", err, frontmatter)
+	}
+
+	if _, injected := doc["injected"]; injected {
+		t.Errorf("tag value injected a sibling top-level YAML key, got parsed doc: %#v", doc)
+	}
+
+	tags, ok := doc["tags"].([]any)
+	if !ok || len(tags) != 2 {
+		t.Fatalf("expected tags to parse as a 2-element list, got: %#v", doc["tags"])
+	}
+	// YAML double-quoted scalars fold an embedded raw line break into a single
+	// space (per the YAML spec's line-folding rules), so the round-tripped tag
+	// is not byte-identical to the original — that's expected. What matters is
+	// that it stays a single, safely-parsed scalar with no injected key (checked
+	// above), and no longer breaks into two lines.
+	if tags[0] != "safe" || tags[1] != "evil injected: true" {
+		t.Errorf("expected tags to parse as safe folded scalars, got: %#v", tags)
 	}
 }

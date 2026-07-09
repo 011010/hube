@@ -104,6 +104,30 @@ func TestNote_Update_Validation(t *testing.T) {
 	assert.Contains(t, errMsg, "title is required")
 }
 
+func TestNote_Create_MalformedBlocksRejectedAs400(t *testing.T) {
+	srv := newTestServer(t)
+	base := srv.URL + "/api/v1/notes"
+
+	resp := mustPost(t, base, `{"title":"Test","status":"draft","priority":"medium","blocks":"not json"}`)
+	defer resp.Body.Close()
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+}
+
+func TestNote_Update_MalformedBlocksRejectedAs400(t *testing.T) {
+	srv := newTestServer(t)
+	base := srv.URL + "/api/v1/notes"
+
+	resp := mustPost(t, base, `{"title":"Test","status":"draft","priority":"medium"}`)
+	assert.Equal(t, http.StatusCreated, resp.StatusCode)
+	var created map[string]any
+	mustDecode(t, resp, &created)
+	id, _ := created["id"].(string)
+
+	resp = mustPut(t, resourceURL(srv.URL, "notes", id), `{"blocks":"not json"}`)
+	defer resp.Body.Close()
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+}
+
 func TestNote_CRUD(t *testing.T) {
 	srv := newTestServer(t)
 	base := srv.URL + "/api/v1/notes"
@@ -276,8 +300,8 @@ func TestNoteExport(t *testing.T) {
 	assert.Contains(t, md, `title: "Export Me"`)
 	assert.Contains(t, md, "status: draft")
 	assert.Contains(t, md, "priority: high")
-	assert.Contains(t, md, "  - go")
-	assert.Contains(t, md, "  - test")
+	assert.Contains(t, md, `  - "go"`)
+	assert.Contains(t, md, `  - "test"`)
 	assert.Contains(t, md, "Hello world")
 }
 
