@@ -181,7 +181,7 @@ func (r *NoteRepo) Create(ctx context.Context, n *note.Note) error {
 	if n.Blocks != "" {
 		content, err := blocksToText(n.Blocks)
 		if err != nil {
-			return fmt.Errorf("blocksToText: %w", err)
+			return &note.ValidationError{Field: "blocks", Message: err.Error()}
 		}
 		n.Content = content
 	}
@@ -205,7 +205,7 @@ func (r *NoteRepo) Update(ctx context.Context, n *note.Note) error {
 	if n.Blocks != "" {
 		content, err := blocksToText(n.Blocks)
 		if err != nil {
-			return fmt.Errorf("blocksToText: %w", err)
+			return &note.ValidationError{Field: "blocks", Message: err.Error()}
 		}
 		n.Content = content
 	}

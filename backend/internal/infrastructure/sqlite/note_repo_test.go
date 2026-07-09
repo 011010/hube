@@ -2,6 +2,7 @@ package sqlite
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/husari/hube/internal/domain/note"
@@ -185,5 +186,58 @@ func TestNoteRepo_LinksIgnoreUnknownAndSelfTitles(t *testing.T) {
 	}
 	if len(links) != 0 {
 		t.Fatalf("expected 0 links (self-link and unknown title ignored), got %d: %+v", len(links), links)
+	}
+}
+
+func TestNoteRepo_Create_MalformedBlocksReturnsValidationError(t *testing.T) {
+	db, err := Open(":memory:")
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	defer db.Close()
+
+	repo := NewNoteRepo(db)
+	ctx := context.Background()
+
+	n := &note.Note{
+		Title:    "Bad Blocks",
+		Blocks:   "not json",
+		Status:   note.StatusDraft,
+		Priority: note.PriorityMedium,
+	}
+
+	err = repo.Create(ctx, n)
+	if err == nil {
+		t.Fatal("expected an error for malformed blocks, got nil")
+	}
+	var valErr *note.ValidationError
+	if !errors.As(err, &valErr) {
+		t.Fatalf("expected error to be (or wrap) a *note.ValidationError so the HTTP handler returns 400, got: %T: %v", err, err)
+	}
+}
+
+func TestNoteRepo_Update_MalformedBlocksReturnsValidationError(t *testing.T) {
+	db, err := Open(":memory:")
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	defer db.Close()
+
+	repo := NewNoteRepo(db)
+	ctx := context.Background()
+
+	n := &note.Note{Title: "Ok Note", Status: note.StatusDraft, Priority: note.PriorityMedium}
+	if err := repo.Create(ctx, n); err != nil {
+		t.Fatalf("create note: %v", err)
+	}
+
+	n.Blocks = "not json"
+	err = repo.Update(ctx, n)
+	if err == nil {
+		t.Fatal("expected an error for malformed blocks, got nil")
+	}
+	var valErr *note.ValidationError
+	if !errors.As(err, &valErr) {
+		t.Fatalf("expected error to be (or wrap) a *note.ValidationError so the HTTP handler returns 400, got: %T: %v", err, err)
 	}
 }
