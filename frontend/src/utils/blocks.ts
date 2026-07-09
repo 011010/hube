@@ -35,13 +35,11 @@ export function blocksToText(json: string): string {
 // instead of appearing blank. Each line becomes its own paragraph so multi-line
 // legacy content keeps its visual structure instead of collapsing into one run-on line.
 export function textToBlocks(text: string): string {
-  const paragraphs = text.split('\n').map(line =>
+  const normalized = text.replace(/\r\n/g, '\n').replace(/\n$/, '')
+  const paragraphs = normalized.split('\n').map(line =>
     line === ''
       ? { type: 'paragraph' }
       : { type: 'paragraph', content: [{ type: 'text', text: line }] }
   )
-  return JSON.stringify({
-    type: 'doc',
-    content: paragraphs.length ? paragraphs : [{ type: 'paragraph' }],
-  })
+  return JSON.stringify({ type: 'doc', content: paragraphs })
 }
