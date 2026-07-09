@@ -6,7 +6,7 @@ import {
 } from '../../hooks/useNotes'
 import { useViewPreference } from '../../hooks/useViewPreference'
 import { formatDate } from '../../utils/date'
-import { blocksToText } from '../../utils/blocks'
+import { blocksToText, textToBlocks } from '../../utils/blocks'
 import { EmptyState } from '../../components/molecules/EmptyState'
 import { PageHeader } from '../../components/molecules/PageHeader'
 import { ViewToggle } from '../../components/molecules/ViewToggle'
@@ -20,7 +20,7 @@ import { Button } from '../../components/atoms/Button'
 import { Badge } from '../../components/atoms/Badge'
 import { IconButton } from '../../components/atoms/IconButton'
 import { BlockEditor } from '../../components/organisms/BlockEditor'
-import type { Note, NoteStatus, Priority } from '../../types'
+import type { Folder as FolderType, Note, NoteStatus, Priority } from '../../types'
 import type { NoteInput } from '../../hooks/useNotes'
 
 type MainTab = 'editor' | 'graph'
@@ -52,7 +52,7 @@ function emptyForm(folderId?: string): NoteForm {
 function noteToForm(note: Note): NoteForm {
   return {
     title: note.title,
-    blocks: note.blocks,
+    blocks: note.blocks.trim() ? note.blocks : (note.content.trim() ? textToBlocks(note.content) : note.blocks),
     status: note.status,
     priority: note.priority,
     due_date: note.due_date?.slice(0, 10) ?? '',
@@ -76,10 +76,11 @@ interface NoteModalProps {
   onSave: (data: NoteInput) => void
   note?: Note | null
   folderId?: string
+  folders: FolderType[]
   isPending: boolean
 }
 
-function NoteModal({ open, onClose, onSave, note, folderId, isPending }: NoteModalProps) {
+function NoteModal({ open, onClose, onSave, note, folderId, folders, isPending }: NoteModalProps) {
   const isEdit = Boolean(note)
   const [form, setForm] = useState<NoteForm>(() =>
     note ? noteToForm(note) : emptyForm(folderId),
@@ -114,6 +115,7 @@ function NoteModal({ open, onClose, onSave, note, folderId, isPending }: NoteMod
           dueDate={form.due_date}
           tags={form.tags}
           folderId={form.folder_id}
+          folders={folders}
           onChange={(patch) =>
             setForm((f) => ({
               ...f,
@@ -221,7 +223,7 @@ export function NotesPage() {
 
   const renderCard = useCallback(
     (note: Note) => {
-      const preview = blocksToText(note.blocks)
+      const preview = note.blocks.trim() ? blocksToText(note.blocks) : note.content
       const dueDate = formatDate(note.due_date)
       return (
         <div className="space-y-2">
@@ -515,6 +517,7 @@ export function NotesPage() {
         onSave={editNote ? handleUpdate : handleCreate}
         note={editNote}
         folderId={selectedFolder}
+        folders={folders}
         isPending={createNote.isPending || updateNote.isPending}
       />
     </div>

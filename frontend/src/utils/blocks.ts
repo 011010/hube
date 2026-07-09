@@ -29,3 +29,18 @@ export function blocksToText(json: string): string {
     return ''
   }
 }
+
+// textToBlocks wraps legacy plain-text content (from notes created/edited before
+// the block editor existed) into a minimal TipTap doc so it stays visible and
+// editable instead of appearing blank.
+export function textToBlocks(text: string): string {
+  return JSON.stringify({
+    type: 'doc',
+    content: [
+      {
+        type: 'paragraph',
+        content: [{ type: 'text', text }],
+      },
+    ],
+  })
+}
