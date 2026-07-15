@@ -148,3 +148,88 @@ docker pull ghcr.io/011010/hube-web:latest
 ```
 
 Or use `docker-compose.yml` pointing to the ghcr.io images directly (WIP — deploy automation is a pending task).
+
+## Self-hosted via Tailscale
+
+Run `hube` privately on your own machine and access it only from devices joined to your Tailnet.
+
+### 1. Install Tailscale on the server
+
+```bash
+brew install --cask tailscale
+sudo tailscale up
+```
+
+Get the Tailscale IP and DNS name:
+
+```bash
+tailscale ip -4
+tailscale status
+```
+
+Example DNS name: `mac-mini-de-ios-ho.tailed673f.ts.net`.
+
+### 2. Configure the environment
+
+```bash
+cp .env.example .env.tailscale
+```
+
+Edit `.env.tailscale` and set `HUBE_DOMAIN` to your Tailscale DNS name. Leave external API keys empty if you don't use them.
+
+### 3. Build and run locally
+
+```bash
+docker compose -f docker-compose.tailscale.yml --env-file .env.tailscale up -d
+```
+
+This builds the backend and frontend images locally, then starts the stack on port `80`.
+
+The database lives in `./data/hube.db`. To reuse an existing database, copy it (along with any `hube.db-wal` and `hube.db-shm` files) into `./data/` before starting the containers.
+
+### 4. Access from any device in the Tailnet
+
+Open the browser on a phone, tablet, or laptop that is also logged into the same Tailscale account:
+
+```text
+http://mac-mini-de-ios-ho.tailed673f.ts.net
+```
+
+Or use the Tailscale IP directly:
+
+```text
+http://100.73.49.95
+```
+
+### 5. Point the CLI at the remote server
+
+Install the CLI locally:
+
+```bash
+make install-cli
+```
+
+Add to your shell profile (e.g. `~/.zshrc`):
+
+```bash
+export PATH="$HOME/go/bin:$PATH"
+alias hube='HUBE_URL=http://mac-mini-de-ios-ho.tailed673f.ts.net cli'
+```
+
+Then reload your shell and use:
+
+```bash
+hube tasks
+hube notes
+hube transactions
+```
+
+### Keeping the server available
+
+- Disable automatic sleep when connected to power: `System Settings > Battery > Options`.
+- Enable Tailscale to start on login: `System Settings > General > Login Items`.
+- Enable Docker Desktop to start on login: `Docker Desktop > Settings > General`.
+
+### Optional: internal HTTPS
+
+Tailscale provides HTTPS certificates for `.ts.net` names. To enable it, turn on **Tailscale HTTPS** in the admin DNS panel, update `HUBE_DOMAIN` in `.env.tailscale`, and change the Caddyfile to use that domain.
