@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { Sparkles, Send, Square } from 'lucide-react'
-import { API_BASE } from '../../services/api'
+import { API_BASE, TOKEN_KEY } from '../../services/api'
 import ReactMarkdown from 'react-markdown'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
@@ -57,13 +57,20 @@ export function AIPage() {
   const [provider, setProvider] = useState<Provider>('auto')
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const abortRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
   async function sendMessage(text: string) {
-    if (!text.trim() || loading) return
+    // While a request is in flight, the send button becomes a stop button:
+    // clicking it (or pressing Enter / Escape) aborts the current stream.
+    if (loading) {
+      abortRef.current?.abort()
+      return
+    }
+    if (!text.trim()) return
 
     const userMsg: Message = {
       id: crypto.randomUUID(),
@@ -89,12 +96,28 @@ export function AIPage() {
       content: m.content,
     }))
 
+    const controller = new AbortController()
+    abortRef.current = controller
+
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    const token = localStorage.getItem(TOKEN_KEY)
+    if (token) headers.Authorization = `Bearer ${token}`
+
     try {
       const response = await fetch(`${API_BASE}/ai/chat`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ messages: history, provider: provider === 'auto' ? '' : provider }),
+        signal: controller.signal,
       })
+
+      if (response.status === 401) {
+        // Mirror the axios interceptor: drop the bad token and reload so the
+        // user lands on the auth gate instead of a half-broken chat.
+        localStorage.removeItem(TOKEN_KEY)
+        window.location.reload()
+        return
+      }
 
       if (!response.ok) {
         const errText = await response.text()
@@ -123,14 +146,22 @@ export function AIPage() {
         }
       }
     } catch (err) {
-      setMessages(prev =>
-        prev.map(m =>
-          m.id === assistantId
-            ? { ...m, content: `Error: ${err instanceof Error ? err.message : 'Unknown error'}`, streaming: false }
-            : m
+      const aborted = err instanceof Error && err.name === 'AbortError'
+      if (!aborted) {
+        setMessages(prev =>
+          prev.map(m =>
+            m.id === assistantId
+              ? { ...m, content: `Error: ${err instanceof Error ? err.message : 'Unknown error'}`, streaming: false }
+              : m
+          )
         )
-      )
+      }
+      // On abort we leave whatever text was already streamed in place; the
+      // finally block finalizes the message state below.
     } finally {
+      if (abortRef.current === controller) {
+        abortRef.current = null
+      }
       setLoading(false)
       setMessages(prev =>
         prev.map(m => (m.id === assistantId ? { ...m, streaming: false } : m))
@@ -170,6 +201,11 @@ export function AIPage() {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       sendMessage(input)
+      return
+    }
+    if (e.key === 'Escape' && loading) {
+      e.preventDefault()
+      abortRef.current?.abort()
     }
   }
 
@@ -298,9 +334,9 @@ export function AIPage() {
             />
             <button
               onClick={() => sendMessage(input)}
-              disabled={!input.trim() || loading}
+              disabled={!loading && !input.trim()}
               className="w-10 h-10 rounded-xl bg-(--color-accent) hover:bg-(--color-accent-hover) disabled:opacity-40 text-white flex items-center justify-center transition-colors shrink-0"
-              aria-label="Send message"
+              aria-label={loading ? 'Stop generating' : 'Send message'}
             >
               {loading ? <Square size={14} /> : <Send size={14} />}
             </button>

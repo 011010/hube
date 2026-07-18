@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useRef } from 'react'
 import axios from 'axios'
-import { http, API_BASE } from '../../services/api'
+import { http, API_BASE, TOKEN_KEY } from '../../services/api'
 import { useSettings, useUpdateSettings } from '../../hooks/useSettings'
-import type { Settings } from '../../hooks/useSettings'
+import type { Settings, SettingsUpdatePayload } from '../../hooks/useSettings'
 import { useTheme } from '../../contexts/ThemeContext'
 import { Check, Moon, Sun, Monitor } from 'lucide-react'
 import { PageHeader } from '../../components/molecules/PageHeader'
@@ -126,7 +126,10 @@ function ExportSection() {
   async function handleExport() {
     setStatus('exporting')
     try {
-      const res = await fetch(`${API_BASE}/export`)
+      const token = localStorage.getItem(TOKEN_KEY)
+      const res = await fetch(`${API_BASE}/export`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
       if (!res.ok) {
         const body = await res.json().catch(() => ({ error: res.statusText }))
         throw new Error(body?.error ?? res.statusText)
@@ -172,10 +175,14 @@ export function SettingsPage() {
   const { mode, theme, setMode, setTheme } = useTheme()
   const [form, setForm] = useState<Settings | null>(null)
   const [saved, setSaved] = useState(false)
+  // New key values typed by the user. The server never returns key values, so
+  // these stay local and are only sent (then cleared) when non-empty.
+  const [monkeyKey, setMonkeyKey] = useState('')
+  const [paypingaKey, setPaypingaKey] = useState('')
 
-  useEffect(() => {
-    if (data && !form) setForm(data)
-  }, [data])
+  // Seed the form once data arrives. Adjusting state during render (guarded so
+  // it converges) avoids the cascading render of a seeding effect.
+  if (data && form === null) setForm(data)
 
   if (isLoading || !form) return <div className="p-6 text-text-muted text-sm">Loading…</div>
 
@@ -192,11 +199,24 @@ export function SettingsPage() {
     // Re-sync view_preferences from the latest react-query cache before submitting:
     // useViewPreference performs its own PUT whenever a view is toggled, and `form`
     // was only seeded once at mount, so it can otherwise revert a fresher preference.
-    const payload: Settings = data
-      ? { ...form, general: { ...form.general, view_preferences: data.general.view_preferences } }
-      : form
+    const payload: SettingsUpdatePayload = {
+      general: data
+        ? { ...form.general, view_preferences: data.general.view_preferences }
+        : form.general,
+      integrations: {
+        monkeyapi_url: form.integrations.monkeyapi_url,
+        monkeyapi_enabled: form.integrations.monkeyapi_enabled,
+        paypinga_url: form.integrations.paypinga_url,
+        paypinga_enabled: form.integrations.paypinga_enabled,
+        // Only include a key when the user typed a replacement.
+        ...(monkeyKey.trim() ? { monkeyapi_key: monkeyKey.trim() } : {}),
+        ...(paypingaKey.trim() ? { paypinga_key: paypingaKey.trim() } : {}),
+      },
+    }
     update.mutate(payload, {
       onSuccess: () => {
+        setMonkeyKey('')
+        setPaypingaKey('')
         setSaved(true)
         setTimeout(() => setSaved(false), 2000)
       },
@@ -304,12 +324,19 @@ export function SettingsPage() {
               placeholder="https://your-app.vercel.app"
             />
           </Field>
-          <Field label="API Key">
+          <Field
+            label="API Key"
+            hint={
+              form.integrations.monkeyapi_key_set
+                ? 'Configured ✓ — type a new key to replace it, or leave empty to keep the current one.'
+                : 'Not configured yet.'
+            }
+          >
             <Input
               type="password"
-              value={form.integrations.monkeyapi_key}
-              onChange={e => setIntegration({ monkeyapi_key: (e.target as HTMLInputElement).value })}
-              placeholder="Leave unchanged to keep current key"
+              value={monkeyKey}
+              onChange={e => setMonkeyKey((e.target as HTMLInputElement).value)}
+              placeholder={form.integrations.monkeyapi_key_set ? '•••••••• (configured)' : 'Enter API key'}
             />
           </Field>
         </div>
@@ -330,12 +357,19 @@ export function SettingsPage() {
               placeholder="https://your-app.vercel.app"
             />
           </Field>
-          <Field label="API Key">
+          <Field
+            label="API Key"
+            hint={
+              form.integrations.paypinga_key_set
+                ? 'Configured ✓ — type a new key to replace it, or leave empty to keep the current one.'
+                : 'Not configured yet.'
+            }
+          >
             <Input
               type="password"
-              value={form.integrations.paypinga_key}
-              onChange={e => setIntegration({ paypinga_key: (e.target as HTMLInputElement).value })}
-              placeholder="Leave unchanged to keep current key"
+              value={paypingaKey}
+              onChange={e => setPaypingaKey((e.target as HTMLInputElement).value)}
+              placeholder={form.integrations.paypinga_key_set ? '•••••••• (configured)' : 'Enter API key'}
             />
           </Field>
         </div>

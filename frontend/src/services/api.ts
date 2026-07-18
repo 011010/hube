@@ -2,7 +2,35 @@ import axios from 'axios'
 import type { Task, CalendarEvent, App, WishlistItem, Diagram } from '../types'
 
 export const API_BASE = (import.meta.env.VITE_API_URL ?? '/api/v1').replace(/\/$/, '')
+export const TOKEN_KEY = 'hube_token'
 export const http = axios.create({ baseURL: API_BASE })
+
+// Attach the stored bearer token to every outgoing request.
+http.interceptors.request.use(config => {
+  const token = localStorage.getItem(TOKEN_KEY)
+  if (token) config.headers.Authorization = `Bearer ${token}`
+  return config
+})
+
+// A 401 means the stored token is missing or no longer valid: drop it and
+// bounce back to the auth gate with a single page reload. The module-level
+// flag (plus the hadToken check) guarantees we never reload in a loop.
+let reloadingForUnauthorized = false
+
+http.interceptors.response.use(
+  response => response,
+  (error: unknown) => {
+    if (axios.isAxiosError(error) && error.response?.status === 401) {
+      const hadToken = localStorage.getItem(TOKEN_KEY) !== null
+      localStorage.removeItem(TOKEN_KEY)
+      if (hadToken && !reloadingForUnauthorized) {
+        reloadingForUnauthorized = true
+        window.location.reload()
+      }
+    }
+    return Promise.reject(error)
+  },
+)
 
 export const tasksApi = {
   list: () => http.get<Task[]>('/tasks').then(r => r.data),
