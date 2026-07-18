@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { aggregateExpensesByCategory } from './finance'
+import { aggregateExpensesByCategory, aggregateExpensesByDay } from './finance'
 import type { RecentTransaction } from '../types'
 
 const tx = (over: Partial<RecentTransaction>): RecentTransaction => ({
@@ -30,5 +30,39 @@ describe('aggregateExpensesByCategory', () => {
 
   it('empty input returns []', () => {
     expect(aggregateExpensesByCategory([])).toEqual([])
+  })
+})
+
+describe('aggregateExpensesByDay', () => {
+  it('groups by day, fills missing days with 0, sorts asc', () => {
+    const r = aggregateExpensesByDay([
+      tx({ date: '2026-07-10T10:00:00Z', amount: 30 }),
+      tx({ date: '2026-07-12T10:00:00Z', amount: 50 }),
+      tx({ date: '2026-07-10T22:00:00Z', amount: 20 }),
+    ])
+    expect(r).toEqual([
+      { date: '2026-07-10', total: 50 },
+      { date: '2026-07-11', total: 0 },
+      { date: '2026-07-12', total: 50 },
+    ])
+  })
+
+  it('single day returns one point', () => {
+    const r = aggregateExpensesByDay([tx({ date: '2026-07-10', amount: 10 })])
+    expect(r).toEqual([{ date: '2026-07-10', total: 10 }])
+  })
+
+  it('empty input returns []', () => {
+    expect(aggregateExpensesByDay([])).toEqual([])
+  })
+
+  it('drops income and "All" and empty category', () => {
+    const r = aggregateExpensesByDay([
+      tx({ date: '2026-07-10', amount: 10 }),
+      tx({ type: 'income', date: '2026-07-10', amount: 999, category: 'Salary' }),
+      tx({ category: 'All', date: '2026-07-10', amount: 999 }),
+      tx({ category: '', date: '2026-07-10', amount: 999 }),
+    ])
+    expect(r).toEqual([{ date: '2026-07-10', total: 10 }])
   })
 })

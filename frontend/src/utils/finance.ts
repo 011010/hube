@@ -35,3 +35,38 @@ export function aggregateExpensesByCategory(
     color: CHART_PALETTE[i % CHART_PALETTE.length],
   }))
 }
+
+export type DayPoint = {
+  date: string
+  total: number
+}
+
+const dayKey = (iso: string) => iso.slice(0, 10)
+
+function addDays(yyyyMmDd: string, n: number): string {
+  const d = new Date(yyyyMmDd + 'T00:00:00Z')
+  d.setUTCDate(d.getUTCDate() + n)
+  return d.toISOString().slice(0, 10)
+}
+
+export function aggregateExpensesByDay(
+  transactions: RecentTransaction[],
+): DayPoint[] {
+  const totals = new Map<string, number>()
+  for (const t of transactions) {
+    if (!isExpense(t)) continue
+    const k = dayKey(t.date)
+    totals.set(k, (totals.get(k) ?? 0) + t.amount)
+  }
+  if (totals.size === 0) return []
+  const dates = Array.from(totals.keys()).sort()
+  const start = dates[0]
+  const end = dates[dates.length - 1]
+  const out: DayPoint[] = []
+  let cur = start
+  while (cur <= end) {
+    out.push({ date: cur, total: totals.get(cur) ?? 0 })
+    cur = addDays(cur, 1)
+  }
+  return out
+}
