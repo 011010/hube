@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Modal } from '../atoms/Modal'
 import { Button } from '../atoms/Button'
 import { Input } from '../atoms/Input'
@@ -34,7 +34,21 @@ export function EventModal({ open, onClose, onSave, onDelete, event, defaultDate
   const [allDay, setAllDay] = useState(false)
   const [color, setColor] = useState(COLORS[0])
 
-  useEffect(() => {
+  // Reset/seed the fields whenever the event, default date, or open state
+  // changes. Adjusting state during render (guarded by the previous inputs)
+  // avoids the cascading render of a seeding effect.
+  const [lastSync, setLastSync] = useState<{
+    open: boolean
+    event?: CalendarEvent | null
+    defaultDate?: string
+  } | null>(null)
+  if (
+    lastSync === null ||
+    lastSync.open !== open ||
+    lastSync.event !== event ||
+    lastSync.defaultDate !== defaultDate
+  ) {
+    setLastSync({ open, event, defaultDate })
     if (event) {
       setTitle(event.title)
       setDescription(event.description)
@@ -50,7 +64,7 @@ export function EventModal({ open, onClose, onSave, onDelete, event, defaultDate
       setAllDay(false)
       setColor(COLORS[0])
     }
-  }, [event, defaultDate, open])
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()

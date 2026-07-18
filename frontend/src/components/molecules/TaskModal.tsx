@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Modal } from '../atoms/Modal'
 import { Button } from '../atoms/Button'
 import { Input } from '../atoms/Input'
@@ -62,7 +62,12 @@ export function TaskModal({ open, onClose, onSave, task, isPending }: TaskModalP
     recurrence: '',
   })
 
-  useEffect(() => {
+  // Reset/seed the form whenever the modal opens or the target task changes.
+  // Adjusting state during render (guarded by the previous inputs) avoids the
+  // cascading render of a seeding effect.
+  const [lastSync, setLastSync] = useState<{ open: boolean; task?: Task } | null>(null)
+  if (lastSync === null || lastSync.open !== open || lastSync.task !== task) {
+    setLastSync({ open, task })
     if (open) {
       setForm({
         title: task?.title ?? '',
@@ -73,7 +78,7 @@ export function TaskModal({ open, onClose, onSave, task, isPending }: TaskModalP
         recurrence: task?.recurrence ?? '',
       })
     }
-  }, [open, task])
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
