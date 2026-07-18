@@ -20,8 +20,13 @@ import (
 	appsetting "github.com/husari/hube/internal/application/setting"
 	apptask "github.com/husari/hube/internal/application/task"
 	appwishlist "github.com/husari/hube/internal/application/wishlist"
+	"github.com/husari/hube/internal/infrastructure/http/middleware"
 	"github.com/husari/hube/internal/infrastructure/sqlite"
 )
+
+// testToken is the bearer token the test router requires; the must* helpers
+// attach it to every request, mirroring the production auth middleware.
+const testToken = "test-token"
 
 func newTestServer(t *testing.T) *httptest.Server {
 	t.Helper()
@@ -59,6 +64,7 @@ func newTestServer(t *testing.T) *httptest.Server {
 			next.ServeHTTP(w, req)
 		})
 	})
+	r.Use(middleware.Auth(testToken))
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Route("/tasks", NewTaskHandler(taskSvc).Routes())
@@ -86,24 +92,36 @@ func newTestServer(t *testing.T) *httptest.Server {
 	return srv
 }
 
+// mustDo sends req with the test bearer token attached and returns the response.
+func mustDo(t *testing.T, req *http.Request) *http.Response {
+	t.Helper()
+	req.Header.Set("Authorization", "Bearer "+testToken)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("%s %s: %v", req.Method, req.URL, err)
+	}
+	return resp
+}
+
 // mustPost sends a POST request with a JSON body and returns the response.
 func mustPost(t *testing.T, url, body string) *http.Response {
 	t.Helper()
-	resp, err := http.Post(url, "application/json", strings.NewReader(body)) //nolint:noctx
+	req, err := http.NewRequest(http.MethodPost, url, strings.NewReader(body)) //nolint:noctx
 	if err != nil {
-		t.Fatalf("POST %s: %v", url, err)
+		t.Fatalf("new POST request %s: %v", url, err)
 	}
-	return resp
+	req.Header.Set("Content-Type", "application/json")
+	return mustDo(t, req)
 }
 
 // mustGet sends a GET request and returns the response.
 func mustGet(t *testing.T, url string) *http.Response {
 	t.Helper()
-	resp, err := http.Get(url) //nolint:noctx
+	req, err := http.NewRequest(http.MethodGet, url, nil) //nolint:noctx
 	if err != nil {
-		t.Fatalf("GET %s: %v", url, err)
+		t.Fatalf("new GET request %s: %v", url, err)
 	}
-	return resp
+	return mustDo(t, req)
 }
 
 // mustPut sends a PUT request with a JSON body and returns the response.
@@ -114,11 +132,7 @@ func mustPut(t *testing.T, url, body string) *http.Response {
 		t.Fatalf("new PUT request %s: %v", url, err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatalf("PUT %s: %v", url, err)
-	}
-	return resp
+	return mustDo(t, req)
 }
 
 // mustDelete sends a DELETE request and returns the response.
@@ -128,11 +142,7 @@ func mustDelete(t *testing.T, url string) *http.Response {
 	if err != nil {
 		t.Fatalf("new DELETE request %s: %v", url, err)
 	}
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatalf("DELETE %s: %v", url, err)
-	}
-	return resp
+	return mustDo(t, req)
 }
 
 // mustDecode decodes the JSON body of a response into v, then closes the body.
@@ -147,11 +157,12 @@ func mustDecode(t *testing.T, resp *http.Response, v any) {
 // mustPostRaw sends a POST with raw bytes (used for body-limit tests).
 func mustPostRaw(t *testing.T, url string, body []byte) *http.Response {
 	t.Helper()
-	resp, err := http.Post(url, "application/json", bytes.NewReader(body)) //nolint:noctx
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body)) //nolint:noctx
 	if err != nil {
-		t.Fatalf("POST %s: %v", url, err)
+		t.Fatalf("new POST request %s: %v", url, err)
 	}
-	return resp
+	req.Header.Set("Content-Type", "application/json")
+	return mustDo(t, req)
 }
 
 // resourceURL builds /api/v1/<resource>/<id>.

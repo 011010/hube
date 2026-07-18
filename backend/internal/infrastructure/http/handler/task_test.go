@@ -85,11 +85,7 @@ func TestTask_BodyLimit(t *testing.T) {
 
 	// 3 MB body — exceeds the 2 MB limit set in the router
 	body := bytes.Repeat([]byte("x"), 3<<20)
-	resp, err := http.Post(srv.URL+"/api/v1/tasks", "application/json", bytes.NewReader(body))
-	if err != nil {
-		// Connection reset is also acceptable for oversized bodies
-		return
-	}
+	resp := mustPostRaw(t, srv.URL+"/api/v1/tasks", body)
 	defer resp.Body.Close()
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }

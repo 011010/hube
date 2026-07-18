@@ -20,6 +20,7 @@ import (
 	appwishlist "github.com/husari/hube/internal/application/wishlist"
 	"github.com/husari/hube/internal/infrastructure/external"
 	"github.com/husari/hube/internal/infrastructure/http/handler"
+	"github.com/husari/hube/internal/infrastructure/http/middleware"
 )
 
 func NewRouter(
@@ -42,6 +43,7 @@ func NewRouter(
 	backupSvc *backup.Service,
 	exportSvc *backup.ExportService,
 	allowedOrigins []string,
+	apiToken string,
 ) http.Handler {
 	r := chi.NewRouter()
 
@@ -58,6 +60,9 @@ func NewRouter(
 		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders: []string{"Accept", "Authorization", "Content-Type"},
 	}))
+	// Auth runs after CORS so that 401 responses still carry CORS headers and
+	// browsers can read the status code instead of a CORS error.
+	r.Use(middleware.Auth(apiToken))
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Route("/tasks", handler.NewTaskHandler(taskSvc).Routes())
@@ -75,7 +80,7 @@ func NewRouter(
 		r.Post("/email/digest", eh.SendDigest)
 		r.Get("/finance/summary", handler.NewFinanceHandler(moneyMonkey).Summary)
 		r.Get("/cards/summary", handler.NewCardTrackerHandler(payPinga).Summary)
-		r.Post("/ai/chat", handler.NewAIHandler(claude, openai, hubExec).Chat)
+		r.Post("/ai/chat", handler.NewAIHandler(settingSvc, claude, openai, hubExec).Chat)
 
 		if backupSvc != nil || exportSvc != nil {
 			bh := handler.NewBackupHandler(backupSvc, exportSvc)

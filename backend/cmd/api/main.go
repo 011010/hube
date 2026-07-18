@@ -8,9 +8,9 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/joho/godotenv"
-	"time"
 
 	appai "github.com/husari/hube/internal/application/ai"
 	appapp "github.com/husari/hube/internal/application/app"
@@ -42,6 +42,10 @@ func main() {
 	if port == "" {
 		port = "8080"
 	}
+	apiToken := os.Getenv("HUBE_API_TOKEN")
+	if apiToken == "" {
+		log.Fatal("HUBE_API_TOKEN is required: the API refuses all requests without it. Set it in your environment or .env file. Generate one with: openssl rand -hex 32")
+	}
 
 	db, err := sqlite.Open(dbPath)
 	if err != nil {
@@ -64,55 +68,44 @@ func main() {
 	wishlistSvc := appwishlist.NewService(sqlite.NewWishlistRepo(db))
 	diagramSvc := appdiagram.NewService(sqlite.NewDiagramRepo(db))
 
-	var ragSvc *appnote.RAGService
-	if key := os.Getenv("OPENAI_API_KEY"); key != "" {
-		embClient := external.NewEmbeddingsClient(key, os.Getenv("OPENAI_BASE_URL"), os.Getenv("OPENAI_EMBEDDING_MODEL"))
-		ragSvc = appnote.NewRAGService(noteRepo, embClient)
-		log.Printf("RAG semantic search enabled")
-	}
-
 	settingRepo := sqlite.NewSettingRepo(db)
 	settingSvc := appsetting.NewService(settingRepo)
 
-	// Seed integration config from env vars (only if not already stored in DB)
+	// Seed integration config from env vars (only if not already stored in DB).
+	// The DB is the single source of truth at runtime: clients read from it on
+	// every request, so changes made through the UI take effect immediately.
 	for k, v := range map[string]string{
-		"integration.monkeyapi_url":  os.Getenv("MONKEYAPI_URL"),
-		"integration.monkeyapi_key":  os.Getenv("MONKEYAPI_KEY"),
-		"integration.paypinga_url":   os.Getenv("PAYPINGA_URL"),
-		"integration.paypinga_key":   os.Getenv("PAYPINGA_KEY"),
-		"integration.claude_api_key":  os.Getenv("ANTHROPIC_API_KEY"),
-		"integration.openai_api_key":  os.Getenv("OPENAI_API_KEY"),
-		"integration.openai_base_url": os.Getenv("OPENAI_BASE_URL"),
-		"integration.openai_model":    os.Getenv("OPENAI_MODEL"),
+		"integration.monkeyapi_url":       os.Getenv("MONKEYAPI_URL"),
+		"integration.monkeyapi_key":       os.Getenv("MONKEYAPI_KEY"),
+		"integration.paypinga_url":        os.Getenv("PAYPINGA_URL"),
+		"integration.paypinga_key":        os.Getenv("PAYPINGA_KEY"),
+		"integration.claude_api_key":      os.Getenv("ANTHROPIC_API_KEY"),
+		"integration.openai_api_key":      os.Getenv("OPENAI_API_KEY"),
+		"integration.openai_base_url":     os.Getenv("OPENAI_BASE_URL"),
+		"integration.openai_model":        os.Getenv("OPENAI_MODEL"),
+		"integration.openai_embedding_model": os.Getenv("OPENAI_EMBEDDING_MODEL"),
 	} {
 		if err := settingSvc.Seed(ctx, k, v); err != nil {
 			log.Printf("warn: seed setting %s: %v", k, err)
 		}
 	}
 
-	var moneyMonkey *external.MoneyMonkeyClient
-	if url, key := os.Getenv("MONKEYAPI_URL"), os.Getenv("MONKEYAPI_KEY"); url != "" && key != "" {
-		moneyMonkey = external.NewMoneyMonkeyClient(url, key)
-		log.Printf("Money Monkey integration enabled: %s", url)
+	// Log which integrations are configured at boot, based on the seeded DB.
+	logBootIntegrations(ctx, settingSvc)
+
+	var ragSvc *appnote.RAGService
+	if hasKey, _ := hasIntegrationKey(ctx, settingSvc, "integration.openai_api_key"); hasKey {
+		embClient := external.NewEmbeddingsClient(settingSvc)
+		ragSvc = appnote.NewRAGService(noteRepo, embClient)
+		log.Printf("RAG semantic search enabled")
 	}
 
-	var payPinga *external.PayPingaClient
-	if url, key := os.Getenv("PAYPINGA_URL"), os.Getenv("PAYPINGA_KEY"); url != "" && key != "" {
-		payPinga = external.NewPayPingaClient(url, key)
-		log.Printf("PayPinga integration enabled: %s", url)
-	}
-
-	var claudeClient *external.ClaudeClient
-	if key := os.Getenv("ANTHROPIC_API_KEY"); key != "" {
-		claudeClient = external.NewClaudeClient(key)
-		log.Printf("Anthropic Claude enabled (claude-sonnet-4-6)")
-	}
-
-	var openaiClient *external.OpenAIClient
-	if key := os.Getenv("OPENAI_API_KEY"); key != "" {
-		openaiClient = external.NewOpenAIClient(key, os.Getenv("OPENAI_BASE_URL"), os.Getenv("OPENAI_MODEL"))
-		log.Printf("OpenAI-compatible provider enabled (base: %s)", os.Getenv("OPENAI_BASE_URL"))
-	}
+	// Integration clients always exist; they read their configuration from
+	// the settings service on every request.
+	moneyMonkey := external.NewMoneyMonkeyClient(settingSvc)
+	payPinga := external.NewPayPingaClient(settingSvc)
+	claudeClient := external.NewClaudeClient(settingSvc)
+	openaiClient := external.NewOpenAIClient(settingSvc)
 
 	var emailSvc *appemail.Service
 	if host := os.Getenv("SMTP_HOST"); host != "" {
@@ -141,7 +134,7 @@ func main() {
 		origins = append(origins, "https://"+domain, "http://"+domain)
 	}
 
-	router := hubehttp.NewRouter(taskSvc, eventSvc, appSvc, noteSvc, folderSvc, projectSvc, settingSvc, wishlistSvc, diagramSvc, ragSvc, emailSvc, moneyMonkey, payPinga, claudeClient, openaiClient, hubExecutor, backupSvc, exportSvc, origins)
+	router := hubehttp.NewRouter(taskSvc, eventSvc, appSvc, noteSvc, folderSvc, projectSvc, settingSvc, wishlistSvc, diagramSvc, ragSvc, emailSvc, moneyMonkey, payPinga, claudeClient, openaiClient, hubExecutor, backupSvc, exportSvc, origins, apiToken)
 
 	addr := fmt.Sprintf(":%s", port)
 	log.Printf("hube API running on %s", addr)
@@ -149,10 +142,42 @@ func main() {
 		Addr:         addr,
 		Handler:      router,
 		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 60 * time.Second,
+		// Bumped to 5 minutes to accommodate long agentic AI chat streams
+		// (multiple tool rounds + streaming text). The /ai/chat handler streams
+		// via Flush and context cancellation still cuts off runaway requests.
+		WriteTimeout: 5 * time.Minute,
 		IdleTimeout:  120 * time.Second,
 	}
 	if err := srv.ListenAndServe(); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func hasIntegrationKey(ctx context.Context, svc *appsetting.Service, key string) (bool, string) {
+	v, err := svc.Get(ctx, key)
+	if err != nil {
+		return false, ""
+	}
+	return v != "", v
+}
+
+func logBootIntegrations(ctx context.Context, svc *appsetting.Service) {
+	if ok, v := hasIntegrationKey(ctx, svc, "integration.monkeyapi_url"); ok {
+		log.Printf("Money Monkey integration enabled: %s", v)
+	}
+	if ok, v := hasIntegrationKey(ctx, svc, "integration.paypinga_url"); ok {
+		log.Printf("PayPinga integration enabled: %s", v)
+	}
+	if hasIntegrationKeyBool(ctx, svc, "integration.claude_api_key") {
+		log.Printf("Anthropic Claude enabled (claude-sonnet-4-6)")
+	}
+	if hasIntegrationKeyBool(ctx, svc, "integration.openai_api_key") {
+		base, _ := svc.Get(ctx, "integration.openai_base_url")
+		log.Printf("OpenAI-compatible provider enabled (base: %s)", base)
+	}
+}
+
+func hasIntegrationKeyBool(ctx context.Context, svc *appsetting.Service, key string) bool {
+	ok, _ := hasIntegrationKey(ctx, svc, key)
+	return ok
 }

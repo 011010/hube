@@ -11,16 +11,37 @@ import (
 	aidom "github.com/husari/hube/internal/domain/ai"
 )
 
-const claudeModel = anthropic.ModelClaudeSonnet4_6
+const (
+	claudeKeyKey = "integration.claude_api_key"
+	claudeModel  = anthropic.ModelClaudeSonnet4_6
+)
 
+// ClaudeClient lazily builds the Anthropic SDK client the first time it sees
+// each API key. New keys (or initial configuration after first boot) take
+// effect on the next /ai/chat request without restarting the API.
 type ClaudeClient struct {
-	client anthropic.Client
+	settings SettingReader
+	client   anthropic.Client
+	lastKey  string
 }
 
-func NewClaudeClient(apiKey string) *ClaudeClient {
-	return &ClaudeClient{
-		client: anthropic.NewClient(option.WithAPIKey(apiKey)),
+func NewClaudeClient(settings SettingReader) *ClaudeClient {
+	return &ClaudeClient{settings: settings}
+}
+
+func (c *ClaudeClient) clientFor(ctx context.Context) (anthropic.Client, error) {
+	key, err := c.settings.Get(ctx, claudeKeyKey)
+	if err != nil {
+		return anthropic.Client{}, fmt.Errorf("read %s: %w", claudeKeyKey, err)
 	}
+	if key == "" {
+		return anthropic.Client{}, ErrNotConfigured
+	}
+	if c.lastKey != key {
+		c.client = anthropic.NewClient(option.WithAPIKey(key))
+		c.lastKey = key
+	}
+	return c.client, nil
 }
 
 func toAnthropicTools(defs []aidom.ToolDef) []anthropic.ToolUnionParam {
@@ -55,6 +76,11 @@ func (c *ClaudeClient) Chat(
 	executor aidom.ToolExecutor,
 	w http.ResponseWriter,
 ) error {
+	client, err := c.clientFor(ctx)
+	if err != nil {
+		return err
+	}
+
 	flusher, _ := w.(http.Flusher)
 
 	messages := make([]anthropic.MessageParam, 0, len(history))
@@ -70,7 +96,7 @@ func (c *ClaudeClient) Chat(
 	tools := toAnthropicTools(executor.Tools())
 
 	for round := 0; round < 10; round++ {
-		stream := c.client.Messages.NewStreaming(ctx, anthropic.MessageNewParams{
+		stream := client.Messages.NewStreaming(ctx, anthropic.MessageNewParams{
 			Model:     claudeModel,
 			MaxTokens: 4096,
 			System:    []anthropic.TextBlockParam{{Text: systemPrompt}},

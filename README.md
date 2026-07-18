@@ -64,6 +64,7 @@ The web container exposes port `80`. The API is internal (only accessible by the
 
 | Variable | Default | Description |
 |---|---|---|
+| `HUBE_API_TOKEN` | — | **Required.** Bearer token the API requires on every request. Generate with `openssl rand -hex 32` |
 | `PORT` | `8090` | API listen port |
 | `DB_PATH` | `./hube.db` | SQLite database path |
 | `MONKEYAPI_URL` | — | MoneyMonkey base URL (finance) |
@@ -73,6 +74,13 @@ The web container exposes port `80`. The API is internal (only accessible by the
 | `CLAUDE_API_KEY` | — | Anthropic API key (AI Playground) |
 | `OPENAI_BASE_URL` | — | OpenAI-compatible base URL (Ollama, OpenRouter, OpenCode) |
 | `OPENAI_API_KEY` | — | API key for the OpenAI-compatible provider |
+
+## Authentication
+
+The API requires a bearer token on every request (except `GET /health` and CORS preflight). Set `HUBE_API_TOKEN` on the server; requests must send `Authorization: Bearer <token>`.
+
+- **CLI**: set `HUBE_TOKEN` to the same value — the CLI attaches it to every request automatically.
+- **Frontend**: the web app asks for the token once and stores it in the browser.
 
 ## CLI
 

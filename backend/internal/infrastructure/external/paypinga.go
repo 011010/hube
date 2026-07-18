@@ -10,26 +10,41 @@ import (
 	"github.com/husari/hube/internal/domain/cardtracker"
 )
 
+const (
+	payPingaURLKey = "integration.paypinga_url"
+	payPingaKeyKey = "integration.paypinga_key"
+)
+
 type PayPingaClient struct {
-	baseURL string
-	apiKey  string
-	http    *http.Client
+	settings SettingReader
+	http     *http.Client
 }
 
-func NewPayPingaClient(baseURL, apiKey string) *PayPingaClient {
+func NewPayPingaClient(settings SettingReader) *PayPingaClient {
 	return &PayPingaClient{
-		baseURL: baseURL,
-		apiKey:  apiKey,
-		http:    &http.Client{Timeout: 10 * time.Second},
+		settings: settings,
+		http:     &http.Client{Timeout: 10 * time.Second},
 	}
 }
 
 func (c *PayPingaClient) GetSummary(ctx context.Context) (*cardtracker.Summary, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/api/ct-summary", nil)
+	baseURL, err := c.settings.Get(ctx, payPingaURLKey)
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", payPingaURLKey, err)
+	}
+	apiKey, err := c.settings.Get(ctx, payPingaKeyKey)
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", payPingaKeyKey, err)
+	}
+	if baseURL == "" || apiKey == "" {
+		return nil, ErrNotConfigured
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/api/ct-summary", nil)
 	if err != nil {
 		return nil, fmt.Errorf("build request: %w", err)
 	}
-	req.Header.Set("X-Hube-Key", c.apiKey)
+	req.Header.Set("X-Hube-Key", apiKey)
 
 	resp, err := c.http.Do(req)
 	if err != nil {

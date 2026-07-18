@@ -9,22 +9,17 @@ import (
 	"strings"
 )
 
-const defaultEmbeddingModel = "text-embedding-3-small"
+const (
+	openAIEmbedModelKey  = "integration.openai_embedding_model"
+	defaultEmbeddingModel = "text-embedding-3-small"
+)
 
 type EmbeddingsClient struct {
-	apiKey  string
-	baseURL string
-	model   string
+	settings SettingReader
 }
 
-func NewEmbeddingsClient(apiKey, baseURL, model string) *EmbeddingsClient {
-	if baseURL == "" {
-		baseURL = defaultOpenAIBase
-	}
-	if model == "" {
-		model = defaultEmbeddingModel
-	}
-	return &EmbeddingsClient{apiKey, strings.TrimRight(baseURL, "/"), model}
+func NewEmbeddingsClient(settings SettingReader) *EmbeddingsClient {
+	return &EmbeddingsClient{settings: settings}
 }
 
 type embeddingRequest struct {
@@ -39,13 +34,38 @@ type embeddingResponse struct {
 }
 
 func (c *EmbeddingsClient) Embed(ctx context.Context, text string) ([]float32, error) {
-	body, _ := json.Marshal(embeddingRequest{Input: text, Model: c.model})
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/embeddings", bytes.NewReader(body))
+	apiKey, err := c.settings.Get(ctx, openAIKeyKey)
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", openAIKeyKey, err)
+	}
+	if apiKey == "" {
+		return nil, ErrNotConfigured
+	}
+
+	baseURL, err := c.settings.Get(ctx, openAIBaseURLKey)
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", openAIBaseURLKey, err)
+	}
+	if baseURL == "" {
+		baseURL = defaultOpenAIBase
+	}
+	baseURL = strings.TrimRight(baseURL, "/")
+
+	model, err := c.settings.Get(ctx, openAIEmbedModelKey)
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", openAIEmbedModelKey, err)
+	}
+	if model == "" {
+		model = defaultEmbeddingModel
+	}
+
+	body, _ := json.Marshal(embeddingRequest{Input: text, Model: model})
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, baseURL+"/embeddings", bytes.NewReader(body))
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+c.apiKey)
+	req.Header.Set("Authorization", "Bearer "+apiKey)
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
@@ -69,11 +89,14 @@ func (c *EmbeddingsClient) Embed(ctx context.Context, text string) ([]float32, e
 
 // CosineSimilarity returns the cosine similarity between two vectors.
 func CosineSimilarity(a, b []float32) float32 {
-	if len(a) != len(b) {
+	if len(a) == 0 || len(b) == 0 {
 		return 0
 	}
 	var dot, normA, normB float32
 	for i := range a {
+		if i >= len(b) {
+			break
+		}
 		dot += a[i] * b[i]
 		normA += a[i] * a[i]
 		normB += b[i] * b[i]

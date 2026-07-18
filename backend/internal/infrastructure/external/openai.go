@@ -7,33 +7,65 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
 	aidom "github.com/husari/hube/internal/domain/ai"
 )
 
-const defaultOpenAIBase = "https://api.openai.com/v1"
-const defaultOpenAIModel = "gpt-4o"
+const (
+	openAIKeyKey       = "integration.openai_api_key"
+	openAIBaseURLKey   = "integration.openai_base_url"
+	openAIModelKey     = "integration.openai_model"
+	defaultOpenAIBase  = "https://api.openai.com/v1"
+	defaultOpenAIModel = "gpt-4o"
+	// maxSSEBytes caps a single SSE line we'll accept; tool call argument
+	// dumps can grow large but staying under 1 MiB keeps the parser bounded.
+	maxSSEBytes = 1 << 20
+)
 
 var httpClient = &http.Client{Timeout: 60 * time.Second}
 
 type OpenAIClient struct {
+	settings SettingReader
+}
+
+func NewOpenAIClient(settings SettingReader) *OpenAIClient {
+	return &OpenAIClient{settings: settings}
+}
+
+type openAIConfig struct {
 	apiKey  string
 	baseURL string
 	model   string
 }
 
-func NewOpenAIClient(apiKey, baseURL, model string) *OpenAIClient {
+func (c *OpenAIClient) configFor(ctx context.Context) (openAIConfig, error) {
+	apiKey, err := c.settings.Get(ctx, openAIKeyKey)
+	if err != nil {
+		return openAIConfig{}, fmt.Errorf("read %s: %w", openAIKeyKey, err)
+	}
+	if apiKey == "" {
+		return openAIConfig{}, ErrNotConfigured
+	}
+	baseURL, err := c.settings.Get(ctx, openAIBaseURLKey)
+	if err != nil {
+		return openAIConfig{}, fmt.Errorf("read %s: %w", openAIBaseURLKey, err)
+	}
 	if baseURL == "" {
 		baseURL = defaultOpenAIBase
+	}
+	baseURL = strings.TrimRight(baseURL, "/")
+
+	model, err := c.settings.Get(ctx, openAIModelKey)
+	if err != nil {
+		return openAIConfig{}, fmt.Errorf("read %s: %w", openAIModelKey, err)
 	}
 	if model == "" {
 		model = defaultOpenAIModel
 	}
-	// Trim trailing slash
-	baseURL = strings.TrimRight(baseURL, "/")
-	return &OpenAIClient{apiKey, baseURL, model}
+	return openAIConfig{apiKey: apiKey, baseURL: baseURL, model: model}, nil
 }
 
 // --- wire types for OpenAI chat completions API ---
@@ -76,6 +108,12 @@ type oaiRequest struct {
 }
 
 // Streaming chunk types
+type pendingCall struct {
+	id        string
+	name      string
+	arguments string
+}
+
 type oaiChunk struct {
 	Choices []struct {
 		Delta struct {
@@ -114,6 +152,11 @@ func (c *OpenAIClient) Chat(
 	executor aidom.ToolExecutor,
 	w http.ResponseWriter,
 ) error {
+	cfg, err := c.configFor(ctx)
+	if err != nil {
+		return err
+	}
+
 	flusher, _ := w.(http.Flusher)
 
 	messages := []oaiMessage{{Role: "system", Content: systemPrompt}}
@@ -129,7 +172,7 @@ func (c *OpenAIClient) Chat(
 
 	for round := 0; round < 10; round++ {
 		req := oaiRequest{
-			Model:    c.model,
+			Model:    cfg.model,
 			Messages: messages,
 			Tools:    tools,
 			Stream:   true,
@@ -137,37 +180,32 @@ func (c *OpenAIClient) Chat(
 		body, _ := json.Marshal(req)
 
 		httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost,
-			c.baseURL+"/chat/completions", bytes.NewReader(body))
+			cfg.baseURL+"/chat/completions", bytes.NewReader(body))
 		if err != nil {
 			return err
 		}
 		httpReq.Header.Set("Content-Type", "application/json")
-		httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
+		httpReq.Header.Set("Authorization", "Bearer "+cfg.apiKey)
 
 		resp, err := httpClient.Do(httpReq)
 		if err != nil {
 			return err
 		}
-		defer resp.Body.Close()
 
 		if resp.StatusCode != http.StatusOK {
 			var errBody map[string]any
 			json.NewDecoder(resp.Body).Decode(&errBody) //nolint:errcheck
+			resp.Body.Close()
 			return fmt.Errorf("API error %d: %v", resp.StatusCode, errBody)
 		}
 
 		// Accumulate the streamed response
 		var textBuilder strings.Builder
-		// tool call accumulator: index → partial call
-		type pendingCall struct {
-			id        string
-			name      string
-			arguments string
-		}
 		pending := map[int]*pendingCall{}
 		var finishReason string
 
 		scanner := bufio.NewScanner(resp.Body)
+		scanner.Buffer(make([]byte, 0, 64*1024), maxSSEBytes)
 		for scanner.Scan() {
 			line := scanner.Text()
 			if !strings.HasPrefix(line, "data: ") {
@@ -215,18 +253,23 @@ func (c *OpenAIClient) Chat(
 				p.arguments += tc.Function.Arguments
 			}
 		}
-		if err := scanner.Err(); err != nil {
-			return err
+		scanErr := scanner.Err()
+		resp.Body.Close()
+		if scanErr != nil {
+			return fmt.Errorf("read stream: %w", scanErr)
 		}
 
 		if finishReason != "tool_calls" || len(pending) == 0 {
 			break
 		}
 
-		// Build the assistant message with tool_calls for history
+		// Build the assistant message with tool_calls for history. Iterate
+		// indices in the order OpenAI sent them so the conversation stays
+		// consistent if a future implementation drops the contiguous-index
+		// guarantee.
 		var toolCalls []oaiToolCall
-		for i := 0; i < len(pending); i++ {
-			p := pending[i]
+		for _, idx := range sortedPendingKeys(pending) {
+			p := pending[idx]
 			toolCalls = append(toolCalls, oaiToolCall{
 				ID:   p.id,
 				Type: "function",
@@ -277,4 +320,13 @@ func (c *OpenAIClient) Chat(
 		flusher.Flush()
 	}
 	return nil
+}
+
+func sortedPendingKeys(m map[int]*pendingCall) []int {
+	keys := make([]int, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Ints(keys)
+	return keys
 }

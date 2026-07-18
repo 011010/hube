@@ -15,7 +15,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var apiURL string
+var apiURL, apiToken string
 
 func main() {
 	root := &cobra.Command{
@@ -28,6 +28,8 @@ func main() {
 				// and frontend/vite.config.ts's dev proxy target).
 				apiURL = "http://localhost:8080"
 			}
+			// Bearer token for the API (must match the server's HUBE_API_TOKEN).
+			apiToken = os.Getenv("HUBE_TOKEN")
 		},
 	}
 
@@ -384,10 +386,41 @@ func transactionsCmd() *cobra.Command {
 
 // ── helpers ─────────────────────────────────────────────────────────────────
 
-func get(url string, dst any) error {
-	resp, err := http.Get(url) //nolint:gosec
+// newRequest builds an HTTP request and attaches the bearer token when
+// HUBE_TOKEN is set.
+func newRequest(method, url string, body io.Reader) (*http.Request, error) {
+	req, err := http.NewRequest(method, url, body)
 	if err != nil {
-		return fmt.Errorf("request failed: %w", err)
+		return nil, fmt.Errorf("build request: %w", err)
+	}
+	if apiToken != "" {
+		req.Header.Set("Authorization", "Bearer "+apiToken)
+	}
+	return req, nil
+}
+
+// do sends req and returns a helpful error when the API rejects the request
+// as unauthorized.
+func do(req *http.Request) (*http.Response, error) {
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("request failed: %w", err)
+	}
+	if resp.StatusCode == http.StatusUnauthorized {
+		resp.Body.Close()
+		return nil, fmt.Errorf("API returned 401 unauthorized: set the HUBE_TOKEN environment variable to the same token as the server's HUBE_API_TOKEN")
+	}
+	return resp, nil
+}
+
+func get(url string, dst any) error {
+	req, err := newRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return err
+	}
+	resp, err := do(req)
+	if err != nil {
+		return err
 	}
 	defer resp.Body.Close()
 
@@ -401,9 +434,13 @@ func get(url string, dst any) error {
 // getRaw sends a GET request and returns the raw response body as a string,
 // for endpoints that return plain text/markdown instead of JSON.
 func getRaw(url string) (string, error) {
-	resp, err := http.Get(url) //nolint:gosec
+	req, err := newRequest(http.MethodGet, url, nil)
 	if err != nil {
-		return "", fmt.Errorf("request failed: %w", err)
+		return "", err
+	}
+	resp, err := do(req)
+	if err != nil {
+		return "", err
 	}
 	defer resp.Body.Close()
 
@@ -426,9 +463,15 @@ func postJSON(url string, body, dst any) error {
 		return fmt.Errorf("marshal request: %w", err)
 	}
 
-	resp, err := http.Post(url, "application/json", bytes.NewReader(b)) //nolint:gosec
+	req, err := newRequest(http.MethodPost, url, bytes.NewReader(b))
 	if err != nil {
-		return fmt.Errorf("request failed: %w", err)
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := do(req)
+	if err != nil {
+		return err
 	}
 	defer resp.Body.Close()
 
@@ -449,15 +492,15 @@ func putJSON(url string, body, dst any) error {
 		return fmt.Errorf("marshal request: %w", err)
 	}
 
-	req, err := http.NewRequest(http.MethodPut, url, bytes.NewReader(b))
+	req, err := newRequest(http.MethodPut, url, bytes.NewReader(b))
 	if err != nil {
-		return fmt.Errorf("build request: %w", err)
+		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := do(req)
 	if err != nil {
-		return fmt.Errorf("request failed: %w", err)
+		return err
 	}
 	defer resp.Body.Close()
 

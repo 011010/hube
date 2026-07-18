@@ -13,13 +13,12 @@ func NewFinanceHandler(client *external.MoneyMonkeyClient) *FinanceHandler {
 }
 
 func (h *FinanceHandler) Summary(w http.ResponseWriter, r *http.Request) {
-	if h.client == nil {
-		writeJSON(w, http.StatusOK, map[string]any{"configured": false})
-		return
-	}
-
 	summary, err := h.client.GetSummary(r.Context())
 	if err != nil {
+		if external.IsNotConfigured(err) {
+			writeJSON(w, http.StatusOK, map[string]any{"configured": false})
+			return
+		}
 		writeError(w, http.StatusBadGateway, err)
 		return
 	}
