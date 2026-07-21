@@ -6,17 +6,28 @@ import (
 	"strings"
 	"time"
 
-	"github.com/husari/hube/internal/application/task"
 	domaintask "github.com/husari/hube/internal/domain/task"
-	"github.com/husari/hube/internal/infrastructure/external"
 )
 
-type Service struct {
-	smtp    *external.SMTPClient
-	taskSvc *task.Service
+// Sender delivers a composed message. *external.SMTPClient satisfies it
+// implicitly. Defining the interface here (where it is consumed) keeps the
+// digest logic independent of the transport.
+type Sender interface {
+	Send(to []string, subject, body string) error
 }
 
-func NewService(smtp *external.SMTPClient, taskSvc *task.Service) *Service {
+// TaskLister supplies the tasks a digest is built from. *task.Service
+// satisfies it implicitly.
+type TaskLister interface {
+	List(ctx context.Context) ([]domaintask.Task, error)
+}
+
+type Service struct {
+	smtp    Sender
+	taskSvc TaskLister
+}
+
+func NewService(smtp Sender, taskSvc TaskLister) *Service {
 	return &Service{smtp: smtp, taskSvc: taskSvc}
 }
 
