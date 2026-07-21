@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	openAIEmbedModelKey  = "integration.openai_embedding_model"
+	openAIEmbedModelKey   = "integration.openai_embedding_model"
 	defaultEmbeddingModel = "text-embedding-3-small"
 )
 
@@ -85,35 +85,4 @@ func (c *EmbeddingsClient) Embed(ctx context.Context, text string) ([]float32, e
 		return nil, fmt.Errorf("empty embedding response")
 	}
 	return result.Data[0].Embedding, nil
-}
-
-// CosineSimilarity returns the cosine similarity between two vectors.
-func CosineSimilarity(a, b []float32) float32 {
-	if len(a) == 0 || len(b) == 0 {
-		return 0
-	}
-	var dot, normA, normB float32
-	for i := range a {
-		if i >= len(b) {
-			break
-		}
-		dot += a[i] * b[i]
-		normA += a[i] * a[i]
-		normB += b[i] * b[i]
-	}
-	if normA == 0 || normB == 0 {
-		return 0
-	}
-	return dot / (sqrt32(normA) * sqrt32(normB))
-}
-
-func sqrt32(x float32) float32 {
-	if x <= 0 {
-		return 0
-	}
-	z := x
-	for i := 0; i < 10; i++ {
-		z = (z + x/z) / 2
-	}
-	return z
 }
