@@ -53,3 +53,57 @@ func TestProject_CRUD(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
 	resp.Body.Close()
 }
+
+func TestProject_RejectsInvalidPayloads(t *testing.T) {
+	srv := newTestServer(t)
+	base := srv.URL + "/api/v1/projects"
+
+	tests := []struct {
+		name string
+		body string
+	}{
+		{"empty name", `{"name":""}`},
+		{"whitespace-only name", `{"name":"   "}`},
+		{"unknown status", `{"name":"Hube","status":"abandoned"}`},
+		{"non ISO due date", `{"name":"Hube","due_date":"21/07/2026"}`},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			resp := mustPost(t, base, tc.body)
+			assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+		})
+	}
+
+	resp := mustGet(t, base)
+	var list []map[string]any
+	mustDecode(t, resp, &list)
+	assert.Empty(t, list)
+}
+
+func TestProject_NormalizesDefaultsOnCreate(t *testing.T) {
+	srv := newTestServer(t)
+
+	// The defaulting used to live in the application service; it now lives
+	// in the entity, and this pins that the behaviour survived the move.
+	resp := mustPost(t, srv.URL+"/api/v1/projects", `{"name":"  Hube  "}`)
+	assert.Equal(t, http.StatusCreated, resp.StatusCode)
+
+	var created map[string]any
+	mustDecode(t, resp, &created)
+	assert.Equal(t, "Hube", created["name"])
+	assert.Equal(t, "planning", created["status"])
+	assert.Equal(t, "#6366f1", created["color"])
+}
+
+func TestProject_EmptyDueDateBecomesNull(t *testing.T) {
+	srv := newTestServer(t)
+
+	// An untouched date input submits "", which must not fail date parsing.
+	resp := mustPost(t, srv.URL+"/api/v1/projects", `{"name":"Hube","due_date":""}`)
+	assert.Equal(t, http.StatusCreated, resp.StatusCode)
+
+	var created map[string]any
+	mustDecode(t, resp, &created)
+	assert.Nil(t, created["due_date"])
+}
