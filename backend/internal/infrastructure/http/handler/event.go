@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"time"
 
@@ -68,6 +69,11 @@ func (h *EventHandler) create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.svc.Create(r.Context(), &e); err != nil {
+		var valErr *event.ValidationError
+		if errors.As(err, &valErr) {
+			writeError(w, http.StatusBadRequest, valErr)
+			return
+		}
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
@@ -87,6 +93,11 @@ func (h *EventHandler) update(w http.ResponseWriter, r *http.Request) {
 	}
 	existing.ID = id
 	if err := h.svc.Update(r.Context(), existing); err != nil {
+		var valErr *event.ValidationError
+		if errors.As(err, &valErr) {
+			writeError(w, http.StatusBadRequest, valErr)
+			return
+		}
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}

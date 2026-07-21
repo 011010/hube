@@ -29,6 +29,10 @@ func (s *Service) Get(ctx context.Context, id string) (*event.Event, error) {
 }
 
 func (s *Service) Create(ctx context.Context, e *event.Event) error {
+	e.Normalize()
+	if err := e.Validate(); err != nil {
+		return err
+	}
 	e.ID = uuid.New().String()
 	e.CreatedAt = time.Now()
 	e.UpdatedAt = time.Now()
@@ -36,6 +40,10 @@ func (s *Service) Create(ctx context.Context, e *event.Event) error {
 }
 
 func (s *Service) Update(ctx context.Context, e *event.Event) error {
+	e.Normalize()
+	if err := e.Validate(); err != nil {
+		return err
+	}
 	e.UpdatedAt = time.Now()
 	return s.repo.Update(ctx, e)
 }
