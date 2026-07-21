@@ -104,3 +104,67 @@ func TestTask_NotFound_MasksInternalError(t *testing.T) {
 		"error message must not leak internal sql details, got: %q", errMsg)
 	assert.Equal(t, "internal server error", errMsg)
 }
+
+func TestTask_RejectsInvalidPayloads(t *testing.T) {
+	srv := newTestServer(t)
+	base := srv.URL + "/api/v1/tasks"
+
+	// Every one of these used to return 201 and persist as written: the
+	// entity had no Validate, the service called none, and the schema has
+	// no CHECK constraints.
+	tests := []struct {
+		name string
+		body string
+	}{
+		{"empty title", `{"title":"","priority":"high"}`},
+		{"whitespace-only title", `{"title":"   ","priority":"high"}`},
+		{"unknown priority", `{"title":"Test task","priority":"banana"}`},
+		{"unknown recurrence", `{"title":"Test task","recurrence":"fortnightly"}`},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			resp := mustPost(t, base, tc.body)
+			assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+		})
+	}
+
+	// Nothing from the rejected batch reached the database.
+	resp := mustGet(t, base)
+	var list []map[string]any
+	mustDecode(t, resp, &list)
+	assert.Empty(t, list)
+}
+
+func TestTask_UpdateRejectsInvalidStatus(t *testing.T) {
+	srv := newTestServer(t)
+	base := srv.URL + "/api/v1/tasks"
+
+	resp := mustPost(t, base, `{"title":"Test task","priority":"high"}`)
+	assert.Equal(t, http.StatusCreated, resp.StatusCode)
+	var created map[string]any
+	mustDecode(t, resp, &created)
+	id := created["id"].(string)
+
+	// Create coerces status to todo, so an invalid status can only be
+	// reached through update — which is exactly where it must be caught.
+	resp = mustPut(t, resourceURL(srv.URL, "tasks", id), `{"status":"not-a-status"}`)
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+
+	resp = mustGet(t, resourceURL(srv.URL, "tasks", id))
+	var fetched map[string]any
+	mustDecode(t, resp, &fetched)
+	assert.Equal(t, "todo", fetched["status"], "the rejected update must not have been applied")
+}
+
+func TestTask_CreateCoercesStatusToTodo(t *testing.T) {
+	srv := newTestServer(t)
+
+	// Pinning a deliberate product rule: a new task always starts in todo,
+	// so a caller asking for done is corrected rather than rejected.
+	resp := mustPost(t, srv.URL+"/api/v1/tasks", `{"title":"Test task","status":"done"}`)
+	assert.Equal(t, http.StatusCreated, resp.StatusCode)
+	var created map[string]any
+	mustDecode(t, resp, &created)
+	assert.Equal(t, "todo", created["status"])
+}

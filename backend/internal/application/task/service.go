@@ -29,14 +29,24 @@ func (s *Service) Get(ctx context.Context, id string) (*task.Task, error) {
 }
 
 func (s *Service) Create(ctx context.Context, t *task.Task) error {
-	t.ID = uuid.New().String()
+	t.Normalize()
+	// A new task always starts in todo, whatever the caller asked for, so
+	// the status is forced before validation rather than rejected.
 	t.Status = task.StatusTodo
+	if err := t.Validate(); err != nil {
+		return err
+	}
+	t.ID = uuid.New().String()
 	t.CreatedAt = time.Now()
 	t.UpdatedAt = time.Now()
 	return s.repo.Create(ctx, t)
 }
 
 func (s *Service) Update(ctx context.Context, t *task.Task) error {
+	t.Normalize()
+	if err := t.Validate(); err != nil {
+		return err
+	}
 	t.UpdatedAt = time.Now()
 	return s.repo.Update(ctx, t)
 }
