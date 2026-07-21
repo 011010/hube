@@ -3,7 +3,7 @@ package setting
 import (
 	"context"
 
-	"github.com/husari/hube/internal/infrastructure/sqlite"
+	"github.com/husari/hube/internal/domain/setting"
 )
 
 const masked = "••••••••"
@@ -15,9 +15,9 @@ var sensitiveKeys = map[string]bool{
 	"integration.openai_api_key": true,
 }
 
-type Service struct{ repo *sqlite.SettingRepo }
+type Service struct{ repo setting.Repository }
 
-func NewService(repo *sqlite.SettingRepo) *Service { return &Service{repo: repo} }
+func NewService(repo setting.Repository) *Service { return &Service{repo: repo} }
 
 func (s *Service) Get(ctx context.Context, key string) (string, error) {
 	return s.repo.Get(ctx, key)
