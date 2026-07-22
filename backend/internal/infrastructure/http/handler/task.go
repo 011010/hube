@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -56,6 +57,11 @@ func (h *TaskHandler) create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.svc.Create(r.Context(), &t); err != nil {
+		var valErr *task.ValidationError
+		if errors.As(err, &valErr) {
+			writeError(w, http.StatusBadRequest, valErr)
+			return
+		}
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
@@ -75,6 +81,11 @@ func (h *TaskHandler) update(w http.ResponseWriter, r *http.Request) {
 	}
 	existing.ID = id
 	if err := h.svc.Update(r.Context(), existing); err != nil {
+		var valErr *task.ValidationError
+		if errors.As(err, &valErr) {
+			writeError(w, http.StatusBadRequest, valErr)
+			return
+		}
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}

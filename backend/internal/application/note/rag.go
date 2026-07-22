@@ -7,15 +7,21 @@ import (
 	"sort"
 
 	"github.com/husari/hube/internal/domain/note"
-	"github.com/husari/hube/internal/infrastructure/external"
 )
+
+// Embedder turns text into a vector. *external.EmbeddingsClient satisfies it
+// implicitly. Defining the interface here (where it is consumed) keeps the
+// retrieval logic independent of the embedding provider.
+type Embedder interface {
+	Embed(ctx context.Context, text string) ([]float32, error)
+}
 
 type RAGService struct {
 	repo       note.EmbeddingRepository
-	embeddings *external.EmbeddingsClient
+	embeddings Embedder
 }
 
-func NewRAGService(repo note.EmbeddingRepository, embeddings *external.EmbeddingsClient) *RAGService {
+func NewRAGService(repo note.EmbeddingRepository, embeddings Embedder) *RAGService {
 	return &RAGService{repo: repo, embeddings: embeddings}
 }
 
@@ -64,7 +70,7 @@ func (s *RAGService) SemanticSearch(ctx context.Context, query string, topK int)
 		if err := json.Unmarshal(rec.Embedding, &vec); err != nil {
 			continue
 		}
-		scores = append(scores, scored{id: rec.ID, score: external.CosineSimilarity(queryVec, vec)})
+		scores = append(scores, scored{id: rec.ID, score: cosineSimilarity(queryVec, vec)})
 	}
 
 	sort.Slice(scores, func(i, j int) bool { return scores[i].score > scores[j].score })

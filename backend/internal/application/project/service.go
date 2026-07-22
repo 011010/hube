@@ -19,16 +19,18 @@ func (s *Service) Get(ctx context.Context, id string) (*project.Project, error) 
 }
 
 func (s *Service) Create(ctx context.Context, p *project.Project) error {
-	if p.Status == "" {
-		p.Status = project.StatusPlanning
-	}
-	if p.Color == "" {
-		p.Color = "#6366f1"
+	p.Normalize()
+	if err := p.Validate(); err != nil {
+		return err
 	}
 	return s.repo.Create(ctx, p)
 }
 
 func (s *Service) Update(ctx context.Context, p *project.Project) error {
+	p.Normalize()
+	if err := p.Validate(); err != nil {
+		return err
+	}
 	return s.repo.Update(ctx, p)
 }
 

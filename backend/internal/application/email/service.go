@@ -6,18 +6,35 @@ import (
 	"strings"
 	"time"
 
-	"github.com/husari/hube/internal/application/task"
 	domaintask "github.com/husari/hube/internal/domain/task"
-	"github.com/husari/hube/internal/infrastructure/external"
 )
 
-type Service struct {
-	smtp    *external.SMTPClient
-	taskSvc *task.Service
+// Sender delivers a composed message. *external.SMTPClient satisfies it
+// implicitly. Defining the interface here (where it is consumed) keeps the
+// digest logic independent of the transport.
+type Sender interface {
+	Send(to []string, subject, body string) error
 }
 
-func NewService(smtp *external.SMTPClient, taskSvc *task.Service) *Service {
-	return &Service{smtp: smtp, taskSvc: taskSvc}
+// TaskLister supplies the tasks a digest is built from. *task.Service
+// satisfies it implicitly.
+type TaskLister interface {
+	List(ctx context.Context) ([]domaintask.Task, error)
+}
+
+type Service struct {
+	smtp    Sender
+	taskSvc TaskLister
+
+	// now supplies the instant the digest is built against. It is a field
+	// so tests can pin it: the overdue / due today / upcoming split is
+	// decided by the calendar day, which makes any test written against
+	// the real clock fail when it runs near midnight.
+	now func() time.Time
+}
+
+func NewService(smtp Sender, taskSvc TaskLister) *Service {
+	return &Service{smtp: smtp, taskSvc: taskSvc, now: time.Now}
 }
 
 type DigestOptions struct {
@@ -30,7 +47,7 @@ func (s *Service) SendDigest(ctx context.Context, opts DigestOptions) error {
 		return fmt.Errorf("email digest: list tasks: %w", err)
 	}
 
-	now := time.Now()
+	now := s.now()
 	var pending, overdue, dueToday []string
 
 	for _, t := range tasks {
