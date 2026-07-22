@@ -25,10 +25,16 @@ type TaskLister interface {
 type Service struct {
 	smtp    Sender
 	taskSvc TaskLister
+
+	// now supplies the instant the digest is built against. It is a field
+	// so tests can pin it: the overdue / due today / upcoming split is
+	// decided by the calendar day, which makes any test written against
+	// the real clock fail when it runs near midnight.
+	now func() time.Time
 }
 
 func NewService(smtp Sender, taskSvc TaskLister) *Service {
-	return &Service{smtp: smtp, taskSvc: taskSvc}
+	return &Service{smtp: smtp, taskSvc: taskSvc, now: time.Now}
 }
 
 type DigestOptions struct {
@@ -41,7 +47,7 @@ func (s *Service) SendDigest(ctx context.Context, opts DigestOptions) error {
 		return fmt.Errorf("email digest: list tasks: %w", err)
 	}
 
-	now := time.Now()
+	now := s.now()
 	var pending, overdue, dueToday []string
 
 	for _, t := range tasks {

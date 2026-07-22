@@ -38,8 +38,13 @@ func (f *fakeTasks) List(context.Context) ([]domaintask.Task, error) {
 	return f.tasks, f.err
 }
 
+// refNow is the instant every digest test is built against: mid-afternoon, so
+// there is room on both sides of it inside the same calendar day.
+var refNow = time.Date(2026, 7, 21, 15, 0, 0, 0, time.UTC)
+
+// at returns a due date offset from refNow.
 func at(d time.Duration) *time.Time {
-	t := time.Now().Add(d)
+	t := refNow.Add(d)
 	return &t
 }
 
@@ -58,6 +63,7 @@ func digest(t *testing.T, tasks []domaintask.Task) (string, *fakeSender) {
 	t.Helper()
 	sender := &fakeSender{}
 	svc := NewService(sender, &fakeTasks{tasks: tasks})
+	svc.now = func() time.Time { return refNow }
 
 	if err := svc.SendDigest(context.Background(), DigestOptions{To: []string{"me@example.com"}}); err != nil {
 		t.Fatalf("SendDigest: %v", err)
@@ -122,6 +128,47 @@ func TestDigestCountsEarlierTodayAsOverdue(t *testing.T) {
 	}
 	if strings.Contains(body, "DUE TODAY") {
 		t.Errorf("a task already past its time must not be DUE TODAY:\n%s", body)
+	}
+}
+
+func TestDigestBucketBoundaries(t *testing.T) {
+	// These cases sit within seconds of a boundary, which is only
+	// expressible because the clock is pinned. Written against the real
+	// clock they would be unreproducible.
+	tests := []struct {
+		name    string
+		due     *time.Time
+		section string
+	}{
+		{"one second before now", at(-time.Second), "OVERDUE (1)"},
+		{"exactly now", at(0), "DUE TODAY (1)"},
+		{"one second after now", at(time.Second), "DUE TODAY (1)"},
+		{"the last second of today", at(8*time.Hour + 59*time.Minute + 59*time.Second), "DUE TODAY (1)"},
+		{"the first second of tomorrow", at(9 * time.Hour), "UPCOMING (1)"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			body, _ := digest(t, []domaintask.Task{
+				newTask("boundary", domaintask.StatusTodo, tc.due),
+			})
+			if !strings.Contains(body, tc.section) {
+				t.Errorf("expected %q, got:\n%s", tc.section, body)
+			}
+		})
+	}
+}
+
+func TestDigestIsBuiltAgainstTheInjectedClock(t *testing.T) {
+	// Guards the wiring itself: if SendDigest went back to calling
+	// time.Now directly, the header would not read the pinned date.
+	body, sender := digest(t, nil)
+
+	if !strings.Contains(body, "Tuesday, July 21, 2026") {
+		t.Errorf("header should reflect the pinned clock, got:\n%s", body)
+	}
+	if got := sender.sent[0].subject; got != "Hube Digest — Jul 21" {
+		t.Errorf("subject: got %q", got)
 	}
 }
 
