@@ -1,157 +1,37 @@
 import { useState, useMemo, useCallback } from 'react'
 import { Plus, Trash2, Folder, Sparkles, Search, X, FileText, Network, PanelLeft } from 'lucide-react'
 import {
-  useNotes, useCreateNote, useUpdateNote, useDeleteNote,
+  useNotes, useNote, useCreateNote, useUpdateNote, useDeleteNote,
   useFolders, useCreateFolder, useDeleteFolder, useSearchNotes, useSemanticSearch,
 } from '../../hooks/useNotes'
 import { useViewPreference } from '../../hooks/useViewPreference'
 import { useStatusKanbanMove } from '../../hooks/useStatusKanbanMove'
-import { formatDate } from '../../utils/date'
-import { blocksToText, textToBlocks } from '../../utils/blocks'
-import { priorityVariant } from '../../utils/badges'
+import { blocksToText } from '../../utils/blocks'
 import { statusLabel, statusVariant } from '../../utils/note'
 import { EmptyState } from '../../components/molecules/EmptyState'
 import { PageHeader } from '../../components/molecules/PageHeader'
 import { ViewToggle } from '../../components/molecules/ViewToggle'
-import { PropertiesPanel } from '../../components/molecules/PropertiesPanel'
 import { KanbanBoard } from '../../components/organisms/KanbanBoard'
 import { DataTable } from '../../components/organisms/DataTable'
 import { GraphView } from '../../components/organisms/GraphView'
-import { Modal } from '../../components/atoms/Modal'
-import { Input } from '../../components/atoms/Input'
+import { NoteEditorPanel } from '../../components/organisms/NoteEditorPanel'
 import { Button } from '../../components/atoms/Button'
 import { Badge } from '../../components/atoms/Badge'
 import { IconButton } from '../../components/atoms/IconButton'
-import { BlockEditor } from '../../components/organisms/BlockEditor'
-import type { Folder as FolderType, Note, NoteStatus, Priority } from '../../types'
-import type { NoteInput } from '../../hooks/useNotes'
+import type { Note, NoteStatus } from '../../types'
 
 type MainTab = 'editor' | 'graph'
 
 const VALID_STATUSES: NoteStatus[] = ['draft', 'in_progress', 'published']
 
-interface NoteForm {
-  title: string
-  blocks: string
-  status: NoteStatus
-  priority: Priority
-  due_date: string
-  tags: string[]
-  folder_id: string | null
-}
-
-function emptyForm(folderId?: string): NoteForm {
-  return {
-    title: '',
-    blocks: '',
-    status: 'draft',
-    priority: 'medium',
-    due_date: '',
-    tags: [],
-    folder_id: folderId ?? null,
-  }
-}
-
-function noteToForm(note: Note): NoteForm {
-  return {
-    title: note.title,
-    blocks: note.blocks.trim() ? note.blocks : (note.content.trim() ? textToBlocks(note.content) : note.blocks),
-    status: note.status,
-    priority: note.priority,
-    due_date: note.due_date?.slice(0, 10) ?? '',
-    tags: note.tags,
-    folder_id: note.folder_id,
-  }
-}
-
-interface NoteModalProps {
-  open: boolean
-  onClose: () => void
-  onSave: (data: NoteInput) => void
-  note?: Note | null
-  folderId?: string
-  folders: FolderType[]
-  isPending: boolean
-}
-
-function NoteModal({ open, onClose, onSave, note, folderId, folders, isPending }: NoteModalProps) {
-  const isEdit = Boolean(note)
-  const [form, setForm] = useState<NoteForm>(() =>
-    note ? noteToForm(note) : emptyForm(folderId),
-  )
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    onSave({
-      title: form.title.trim() || 'Untitled',
-      blocks: form.blocks,
-      status: form.status,
-      priority: form.priority,
-      due_date: form.due_date || null,
-      tags: form.tags,
-      folder_id: form.folder_id || null,
-    })
-  }
-
-  return (
-    <Modal open={open} onClose={onClose} title={isEdit ? 'Edit note' : 'New note'}>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <Input
-          autoFocus
-          value={form.title}
-          onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-          placeholder="Note title"
-        />
-
-        <PropertiesPanel
-          status={form.status}
-          priority={form.priority}
-          dueDate={form.due_date}
-          tags={form.tags}
-          folderId={form.folder_id}
-          folders={folders}
-          onChange={(patch) =>
-            setForm((f) => ({
-              ...f,
-              ...(patch.status !== undefined && { status: patch.status }),
-              ...(patch.priority !== undefined && { priority: patch.priority }),
-              ...(patch.dueDate !== undefined && { due_date: patch.dueDate ?? '' }),
-              ...(patch.tags !== undefined && { tags: patch.tags }),
-              ...(patch.folderId !== undefined && { folder_id: patch.folderId }),
-            }))
-          }
-        />
-
-        <div className="h-64">
-          <BlockEditor
-            value={form.blocks}
-            onChange={(json) => setForm((f) => ({ ...f, blocks: json }))}
-            placeholder="Start writing…"
-          />
-        </div>
-
-        <div className="flex justify-end gap-2 pt-1">
-          <Button type="button" variant="ghost" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" disabled={isPending}>
-            {isEdit ? 'Save changes' : 'Create note'}
-          </Button>
-        </div>
-      </form>
-    </Modal>
-  )
-}
-
 export function NotesPage() {
   const [selectedFolder, setSelectedFolder] = useState<string | undefined>(undefined)
+  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [semanticMode, setSemanticMode] = useState(false)
   const [newFolderName, setNewFolderName] = useState('')
   const [showNewFolder, setShowNewFolder] = useState(false)
   const [view, setView] = useViewPreference('notes_view')
-  const [createOpen, setCreateOpen] = useState(false)
-  const [editNote, setEditNote] = useState<Note | null>(null)
   const [mainTab, setMainTab] = useState<MainTab>('editor')
   const [panelOpen, setPanelOpen] = useState(false)
 
@@ -174,6 +54,18 @@ export function NotesPage() {
     return notes
   }, [search, semanticMode, semanticResults, searchResults, notes])
 
+  // Prefer the list entry so edits render without waiting for a refetch, and
+  // fall back to a direct fetch for notes outside the current list (active
+  // search, another folder, or a note that was just created).
+  const { data: fetchedNote } = useNote(selectedNoteId)
+  const selectedNote = useMemo(
+    () =>
+      displayNotes.find((n) => n.id === selectedNoteId) ??
+      (fetchedNote?.id === selectedNoteId ? fetchedNote : null),
+    [displayNotes, selectedNoteId, fetchedNote],
+  )
+  const showEditor = mainTab === 'editor' && selectedNote !== null
+
   const handleNewFolder = (e: React.FormEvent) => {
     e.preventDefault()
     if (!newFolderName.trim()) return
@@ -188,14 +80,26 @@ export function NotesPage() {
     )
   }
 
-  const handleCreate = (data: NoteInput) => {
-    createNote.mutate(data, { onSuccess: () => setCreateOpen(false) })
+  const handleNewNote = () => {
+    createNote.mutate(
+      {
+        title: 'Untitled',
+        blocks: '',
+        status: 'draft',
+        tags: [],
+        folder_id: selectedFolder ?? null,
+      },
+      { onSuccess: (note) => setSelectedNoteId(note.id) },
+    )
   }
 
-  const handleUpdate = (data: NoteInput) => {
-    if (!editNote) return
-    updateNote.mutate({ id: editNote.id, data }, { onSuccess: () => setEditNote(null) })
-  }
+  const handleDelete = useCallback(
+    (id: string) => {
+      deleteNote.mutate(id)
+      setSelectedNoteId((current) => (current === id ? null : current))
+    },
+    [deleteNote],
+  )
 
   const handleMove = useStatusKanbanMove(displayNotes, VALID_STATUSES, (id, data) => updateNote.mutate({ id, data }))
 
@@ -211,52 +115,73 @@ export function NotesPage() {
   const renderCard = useCallback(
     (note: Note) => {
       const preview = note.blocks.trim() ? blocksToText(note.blocks) : note.content
-      const dueDate = formatDate(note.due_date)
       return (
         <div className="space-y-2">
           <div className="flex items-start justify-between gap-2">
             <button
               type="button"
-              onClick={() => setEditNote(note)}
-              className="text-left text-sm font-medium text-text-secondary hover:text-text-primary line-clamp-2"
+              onClick={() => setSelectedNoteId(note.id)}
+              className={`text-left text-sm font-medium line-clamp-2 transition-colors ${
+                note.id === selectedNoteId
+                  ? 'text-accent'
+                  : 'text-text-secondary hover:text-text-primary'
+              }`}
             >
               {note.title || 'Untitled'}
             </button>
             <button
               type="button"
-              onClick={() => deleteNote.mutate(note.id)}
+              onClick={() => handleDelete(note.id)}
               className="text-text-muted hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 focus-visible:opacity-100 shrink-0"
               aria-label="Delete note"
             >
               <Trash2 size={14} />
             </button>
           </div>
-          {preview && <p className="text-xs text-text-muted line-clamp-2">{preview}</p>}
-          <div className="flex items-center gap-2 flex-wrap">
-            <Badge label={note.priority} variant={priorityVariant(note.priority)} />
-            {dueDate && <span className="text-xs text-text-muted">{dueDate}</span>}
-          </div>
+          {/* Same rule as the table: next to the editor, only the name fits. */}
+          {!showEditor && preview && (
+            <p className="text-xs text-text-muted line-clamp-2">{preview}</p>
+          )}
+          {!showEditor && note.tags.length > 0 && (
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {note.tags.map((tag) => (
+                <span key={tag} className="text-xs text-text-muted bg-surface-elevated rounded px-1.5 py-0.5">
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       )
     },
-    [deleteNote],
+    [handleDelete, selectedNoteId, showEditor],
   )
 
-  const tableColumns = useMemo(
-    () => [
-      {
-        key: 'title',
-        header: 'Title',
-        render: (note: Note) => (
-          <button
-            type="button"
-            onClick={() => setEditNote(note)}
-            className="text-left text-sm font-medium text-text-secondary hover:text-text-primary"
-          >
-            {note.title || 'Untitled'}
-          </button>
-        ),
-      },
+  const tableColumns = useMemo(() => {
+    const titleColumn = {
+      key: 'title',
+      header: 'Title',
+      render: (note: Note) => (
+        <button
+          type="button"
+          onClick={() => setSelectedNoteId(note.id)}
+          className={`text-left text-sm font-medium transition-colors break-words ${
+            note.id === selectedNoteId
+              ? 'text-accent'
+              : 'text-text-secondary hover:text-text-primary'
+          }`}
+        >
+          {note.title || 'Untitled'}
+        </button>
+      ),
+    }
+
+    // Alongside the editor the list is a narrow companion: any column past
+    // the name is unreadable in the width that is left.
+    if (showEditor) return [titleColumn]
+
+    return [
+      titleColumn,
       {
         key: 'status',
         header: 'Status',
@@ -267,19 +192,10 @@ export function NotesPage() {
         ),
       },
       {
-        key: 'priority',
-        header: 'Priority',
-        sortable: true,
-        sortValue: (note: Note) => note.priority,
-        render: (note: Note) => <Badge label={note.priority} variant={priorityVariant(note.priority)} />,
-      },
-      {
-        key: 'due_date',
-        header: 'Due date',
-        sortable: true,
-        sortValue: (note: Note) => note.due_date ?? '',
+        key: 'tags',
+        header: 'Tags',
         render: (note: Note) => (
-          <span className="text-text-secondary">{formatDate(note.due_date) ?? '-'}</span>
+          <span className="text-text-secondary">{note.tags.length > 0 ? note.tags.join(', ') : '-'}</span>
         ),
       },
       {
@@ -297,7 +213,7 @@ export function NotesPage() {
         render: (note: Note) => (
           <button
             type="button"
-            onClick={() => deleteNote.mutate(note.id)}
+            onClick={() => handleDelete(note.id)}
             className="text-text-muted hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
             aria-label="Delete note"
           >
@@ -305,11 +221,9 @@ export function NotesPage() {
           </button>
         ),
       },
-    ],
-    [deleteNote],
-  )
+    ]
+  }, [handleDelete, selectedNoteId, showEditor])
 
-  const isModalOpen = createOpen || editNote !== null
   const folderLabel = selectedFolder ? folders.find((f) => f.id === selectedFolder)?.name : 'All notes'
 
   return (
@@ -323,7 +237,7 @@ export function NotesPage() {
         />
       )}
 
-      {/* Folders/notes-list panel */}
+      {/* Folders panel */}
       <aside
         className={`fixed inset-y-0 left-0 z-30 w-56 shrink-0 bg-surface-base border-r border-border flex flex-col transition-transform duration-200 ease-out md:static md:z-auto md:translate-x-0 ${
           panelOpen ? 'translate-x-0' : '-translate-x-full'
@@ -332,7 +246,7 @@ export function NotesPage() {
         <div className="p-3 border-b border-border flex items-center justify-between">
           <span className="text-xs font-semibold text-text-muted uppercase tracking-wider">Notes</span>
           <button
-            onClick={() => setCreateOpen(true)}
+            onClick={handleNewNote}
             className="text-text-muted hover:text-accent transition-colors"
             title="New note"
           >
@@ -465,7 +379,7 @@ export function NotesPage() {
               </div>
               {mainTab === 'editor' && <ViewToggle value={view} onChange={setView} />}
               {mainTab === 'editor' && (
-                <Button type="button" onClick={() => setCreateOpen(true)} icon={<Plus size={16} />}>
+                <Button type="button" onClick={handleNewNote} icon={<Plus size={16} />}>
                   New note
                 </Button>
               )}
@@ -473,62 +387,68 @@ export function NotesPage() {
           }
         />
 
-        <div className="flex-1 overflow-y-auto min-h-0">
-          {mainTab === 'graph' ? (
-            <GraphView />
-          ) : (
-            <>
-              {isLoading && <p className="text-text-muted text-sm">Loading notes…</p>}
+        {/* List on the left, selected note on the right */}
+        <div className="flex-1 flex min-h-0 gap-6">
+          <div
+            className={`flex-1 min-w-0 overflow-y-auto ${
+              showEditor ? 'hidden lg:block lg:w-72 lg:flex-none' : ''
+            }`}
+          >
+            {mainTab === 'graph' ? (
+              <GraphView />
+            ) : (
+              <>
+                {isLoading && <p className="text-text-muted text-sm">Loading notes…</p>}
 
-              {!isLoading && displayNotes.length === 0 && (
-                <EmptyState
-                  icon={<FileText size={44} />}
-                  title={search ? 'No results' : 'No notes yet'}
-                  description={search ? 'Try a different search term.' : 'Create a note to get started.'}
-                  action={
-                    !search ? (
-                      <Button type="button" onClick={() => setCreateOpen(true)} icon={<Plus size={16} />}>
-                        New note
-                      </Button>
-                    ) : undefined
-                  }
-                />
-              )}
+                {!isLoading && displayNotes.length === 0 && (
+                  <EmptyState
+                    icon={<FileText size={44} />}
+                    title={search ? 'No results' : 'No notes yet'}
+                    description={search ? 'Try a different search term.' : 'Create a note to get started.'}
+                    action={
+                      !search ? (
+                        <Button type="button" onClick={handleNewNote} icon={<Plus size={16} />}>
+                          New note
+                        </Button>
+                      ) : undefined
+                    }
+                  />
+                )}
 
-              {!isLoading && displayNotes.length > 0 &&
-                (view === 'kanban' ? (
-                  <KanbanBoard
-                    columns={columns}
-                    getItemId={(note) => note.id}
-                    renderCard={renderCard}
-                    onMove={handleMove}
-                  />
-                ) : (
-                  <DataTable
-                    columns={tableColumns}
-                    data={displayNotes}
-                    getRowKey={(note) => note.id}
-                  />
-                ))}
-            </>
+                {!isLoading && displayNotes.length > 0 &&
+                  (view === 'kanban' ? (
+                    <KanbanBoard
+                      columns={columns}
+                      getItemId={(note) => note.id}
+                      renderCard={renderCard}
+                      onMove={handleMove}
+                    />
+                  ) : (
+                    <DataTable
+                      columns={tableColumns}
+                      data={displayNotes}
+                      getRowKey={(note) => note.id}
+                      fitContainer={showEditor}
+                    />
+                  ))}
+              </>
+            )}
+          </div>
+
+          {showEditor && selectedNote && (
+            <div className="flex-1 min-w-0 lg:border-l lg:border-border lg:pl-6">
+              <NoteEditorPanel
+                key={selectedNote.id}
+                note={selectedNote}
+                folders={folders}
+                onSave={(data) => updateNote.mutate({ id: selectedNote.id, data })}
+                onDelete={() => handleDelete(selectedNote.id)}
+                onClose={() => setSelectedNoteId(null)}
+              />
+            </div>
           )}
         </div>
       </main>
-
-      {/* Create / Edit modal */}
-      <NoteModal
-        key={editNote?.id ?? 'new'}
-        open={isModalOpen}
-        onClose={() => {
-          setCreateOpen(false)
-          setEditNote(null)
-        }}
-        onSave={editNote ? handleUpdate : handleCreate}
-        note={editNote}
-        folderId={selectedFolder}
-        folders={folders}
-        isPending={createNote.isPending || updateNote.isPending}
-      />
     </div>
   )
 }

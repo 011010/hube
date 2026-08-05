@@ -15,6 +15,11 @@ export interface DataTableProps<T> {
   data: T[]
   getRowKey: (item: T) => string | number
   emptyMessage?: ReactNode
+  /**
+   * Let the table shrink to its container and wrap cell content instead of
+   * scrolling horizontally. For narrow, few-column layouts.
+   */
+  fitContainer?: boolean
 }
 
 type SortDirection = 'asc' | 'desc'
@@ -45,6 +50,7 @@ export function DataTable<T>({
   data,
   getRowKey,
   emptyMessage = 'No rows',
+  fitContainer = false,
 }: DataTableProps<T>) {
   const [sort, setSort] = useState<SortState | null>(null)
 
@@ -79,8 +85,14 @@ export function DataTable<T>({
   }
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-border bg-surface-elevated">
-      <table className="w-full border-collapse text-sm min-w-max">
+    <div
+      className={`rounded-xl border border-border bg-surface-elevated ${
+        fitContainer ? '' : 'overflow-x-auto'
+      }`}
+    >
+      <table
+        className={`w-full border-collapse text-sm ${fitContainer ? '' : 'min-w-max'}`}
+      >
         <thead>
           <tr className="border-b border-border">
             {columns.map((column) => {

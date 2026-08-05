@@ -119,16 +119,15 @@ func TestNoteRepo_LinksStoredOnCreateAndUpdate(t *testing.T) {
 	repo := NewNoteRepo(db)
 	ctx := context.Background()
 
-	target := &note.Note{Title: "Other Note", Status: note.StatusDraft, Priority: note.PriorityMedium}
+	target := &note.Note{Title: "Other Note", Status: note.StatusDraft}
 	if err := repo.Create(ctx, target); err != nil {
 		t.Fatalf("create target note: %v", err)
 	}
 
 	source := &note.Note{
-		Title:    "Source Note",
-		Blocks:   `{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"See [[Other Note]]"}]}]}`,
-		Status:   note.StatusDraft,
-		Priority: note.PriorityMedium,
+		Title:  "Source Note",
+		Blocks: `{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"See [[Other Note]]"}]}]}`,
+		Status: note.StatusDraft,
 	}
 	if err := repo.Create(ctx, source); err != nil {
 		t.Fatalf("create source note: %v", err)
@@ -171,10 +170,9 @@ func TestNoteRepo_LinksIgnoreUnknownAndSelfTitles(t *testing.T) {
 	ctx := context.Background()
 
 	source := &note.Note{
-		Title:    "Self Ref",
-		Blocks:   `{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"[[Self Ref]] and [[Nonexistent]]"}]}]}`,
-		Status:   note.StatusDraft,
-		Priority: note.PriorityMedium,
+		Title:  "Self Ref",
+		Blocks: `{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"[[Self Ref]] and [[Nonexistent]]"}]}]}`,
+		Status: note.StatusDraft,
 	}
 	if err := repo.Create(ctx, source); err != nil {
 		t.Fatalf("create source note: %v", err)
@@ -200,10 +198,9 @@ func TestNoteRepo_Create_MalformedBlocksReturnsValidationError(t *testing.T) {
 	ctx := context.Background()
 
 	n := &note.Note{
-		Title:    "Bad Blocks",
-		Blocks:   "not json",
-		Status:   note.StatusDraft,
-		Priority: note.PriorityMedium,
+		Title:  "Bad Blocks",
+		Blocks: "not json",
+		Status: note.StatusDraft,
 	}
 
 	err = repo.Create(ctx, n)
@@ -226,7 +223,7 @@ func TestNoteRepo_Update_MalformedBlocksReturnsValidationError(t *testing.T) {
 	repo := NewNoteRepo(db)
 	ctx := context.Background()
 
-	n := &note.Note{Title: "Ok Note", Status: note.StatusDraft, Priority: note.PriorityMedium}
+	n := &note.Note{Title: "Ok Note", Status: note.StatusDraft}
 	if err := repo.Create(ctx, n); err != nil {
 		t.Fatalf("create note: %v", err)
 	}

@@ -1,16 +1,12 @@
-import type { Folder, NoteStatus, Priority } from '../../types'
+import type { Folder, NoteStatus } from '../../types'
 
 interface PropertiesPanelProps {
   status: NoteStatus
-  priority: Priority
-  dueDate: string | null
   tags: string[]
   folderId: string | null
   folders: Folder[]
   onChange: (patch: {
     status?: NoteStatus
-    priority?: Priority
-    dueDate?: string | null
     tags?: string[]
     folderId?: string | null
   }) => void
@@ -22,23 +18,15 @@ const STATUS_OPTIONS: { value: NoteStatus; label: string }[] = [
   { value: 'published', label: 'Published' },
 ]
 
-const PRIORITY_OPTIONS: { value: Priority; label: string }[] = [
-  { value: 'low', label: 'Low' },
-  { value: 'medium', label: 'Medium' },
-  { value: 'high', label: 'High' },
-]
-
 export function PropertiesPanel({
   status,
-  priority,
-  dueDate,
   tags,
   folderId,
   folders,
   onChange,
 }: PropertiesPanelProps) {
   return (
-    <div className="grid grid-cols-2 gap-4 p-4 bg-surface-elevated border border-border rounded-xl">
+    <div className="grid grid-cols-2 gap-x-4 gap-y-3">
       <div className="flex flex-col gap-1.5">
         <label htmlFor="note-status" className="text-xs text-text-secondary">
           Status
@@ -55,37 +43,6 @@ export function PropertiesPanel({
             </option>
           ))}
         </select>
-      </div>
-
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="note-priority" className="text-xs text-text-secondary">
-          Priority
-        </label>
-        <select
-          id="note-priority"
-          value={priority}
-          onChange={(e) => onChange({ priority: e.target.value as Priority })}
-          className="w-full px-3 py-2 rounded-lg bg-surface-card border border-border text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-accent/40 transition-all"
-        >
-          {PRIORITY_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="note-due-date" className="text-xs text-text-secondary">
-          Due date
-        </label>
-        <input
-          id="note-due-date"
-          type="date"
-          value={dueDate ?? ''}
-          onChange={(e) => onChange({ dueDate: e.target.value || null })}
-          className="w-full px-3 py-2 rounded-lg bg-surface-card border border-border text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-accent/40 transition-all"
-        />
       </div>
 
       <div className="flex flex-col gap-1.5">

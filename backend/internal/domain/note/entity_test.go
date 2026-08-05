@@ -6,41 +6,25 @@ import (
 )
 
 func TestNote_Normalize(t *testing.T) {
-	emptyDate := ""
 	tests := []struct {
 		name     string
 		input    Note
 		expected Note
 	}{
 		{
-			name:     "defaults empty status and priority",
+			name:     "defaults empty status",
 			input:    Note{Title: "Test"},
-			expected: Note{Title: "Test", Status: StatusDraft, Priority: PriorityMedium},
+			expected: Note{Title: "Test", Status: StatusDraft},
 		},
 		{
-			name:     "preserves existing status and priority",
-			input:    Note{Title: "Test", Status: StatusPublished, Priority: PriorityHigh},
-			expected: Note{Title: "Test", Status: StatusPublished, Priority: PriorityHigh},
-		},
-		{
-			name:     "defaults only empty status",
-			input:    Note{Title: "Test", Priority: PriorityLow},
-			expected: Note{Title: "Test", Status: StatusDraft, Priority: PriorityLow},
-		},
-		{
-			name:     "defaults only empty priority",
-			input:    Note{Title: "Test", Status: StatusInProgress},
-			expected: Note{Title: "Test", Status: StatusInProgress, Priority: PriorityMedium},
+			name:     "preserves existing status",
+			input:    Note{Title: "Test", Status: StatusPublished},
+			expected: Note{Title: "Test", Status: StatusPublished},
 		},
 		{
 			name:     "trims whitespace from title",
-			input:    Note{Title: "  Test Note  ", Status: StatusDraft, Priority: PriorityMedium},
-			expected: Note{Title: "Test Note", Status: StatusDraft, Priority: PriorityMedium},
-		},
-		{
-			name:     "normalizes empty due_date to nil",
-			input:    Note{Title: "Test", Status: StatusDraft, Priority: PriorityMedium, DueDate: &emptyDate},
-			expected: Note{Title: "Test", Status: StatusDraft, Priority: PriorityMedium, DueDate: nil},
+			input:    Note{Title: "  Test Note  ", Status: StatusDraft},
+			expected: Note{Title: "Test Note", Status: StatusDraft},
 		},
 	}
 
@@ -53,21 +37,11 @@ func TestNote_Normalize(t *testing.T) {
 			if tt.input.Status != tt.expected.Status {
 				t.Errorf("Status = %q, want %q", tt.input.Status, tt.expected.Status)
 			}
-			if tt.input.Priority != tt.expected.Priority {
-				t.Errorf("Priority = %q, want %q", tt.input.Priority, tt.expected.Priority)
-			}
-			if (tt.input.DueDate == nil) != (tt.expected.DueDate == nil) {
-				t.Errorf("DueDate nil mismatch")
-			}
-			if tt.input.DueDate != nil && tt.expected.DueDate != nil && *tt.input.DueDate != *tt.expected.DueDate {
-				t.Errorf("DueDate = %q, want %q", *tt.input.DueDate, *tt.expected.DueDate)
-			}
 		})
 	}
 }
 
 func TestNote_Validate(t *testing.T) {
-	validDate := "2026-07-07"
 	tests := []struct {
 		name      string
 		note      Note
@@ -76,39 +50,27 @@ func TestNote_Validate(t *testing.T) {
 	}{
 		{
 			name:      "empty title rejected",
-			note:      Note{Status: StatusDraft, Priority: PriorityMedium},
+			note:      Note{Status: StatusDraft},
 			wantErr:   "title is required",
 			wantField: "title",
 		},
 		{
 			name:      "invalid status rejected",
-			note:      Note{Title: "Test", Status: "invalid", Priority: PriorityMedium},
+			note:      Note{Title: "Test", Status: "invalid"},
 			wantErr:   "invalid status",
 			wantField: "status",
 		},
 		{
-			name:      "invalid priority rejected",
-			note:      Note{Title: "Test", Status: StatusDraft, Priority: "invalid"},
-			wantErr:   "invalid priority",
-			wantField: "priority",
-		},
-		{
-			name:      "invalid due_date rejected",
-			note:      Note{Title: "Test", Status: StatusDraft, Priority: PriorityMedium, DueDate: strPtr("not-a-date")},
-			wantErr:   "invalid due_date",
-			wantField: "due_date",
-		},
-		{
 			name: "valid note accepted",
-			note: Note{Title: "Test", Status: StatusDraft, Priority: PriorityMedium, DueDate: &validDate},
+			note: Note{Title: "Test", Status: StatusDraft},
 		},
 		{
-			name: "all valid statuses accepted",
-			note: Note{Title: "Test", Status: StatusInProgress, Priority: PriorityHigh},
+			name: "in_progress status accepted",
+			note: Note{Title: "Test", Status: StatusInProgress},
 		},
 		{
-			name: "all valid priorities accepted",
-			note: Note{Title: "Test", Status: StatusPublished, Priority: PriorityLow},
+			name: "published status accepted",
+			note: Note{Title: "Test", Status: StatusPublished},
 		},
 	}
 
@@ -138,8 +100,4 @@ func TestNote_Validate(t *testing.T) {
 			}
 		})
 	}
-}
-
-func strPtr(s string) *string {
-	return &s
 }

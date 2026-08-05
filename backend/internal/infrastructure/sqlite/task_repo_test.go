@@ -13,7 +13,7 @@ import (
 func createTestNote(t *testing.T, db *sqlx.DB, title string) string {
 	t.Helper()
 	noteRepo := NewNoteRepo(db)
-	n := &note.Note{Title: title, Status: note.StatusDraft, Priority: note.PriorityMedium}
+	n := &note.Note{Title: title, Status: note.StatusDraft}
 	if err := noteRepo.Create(context.Background(), n); err != nil {
 		t.Fatalf("create test note: %v", err)
 	}
