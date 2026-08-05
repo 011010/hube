@@ -65,12 +65,6 @@ func (s *Service) ExportAgentMarkdown(_ context.Context, n *note.Note) (string, 
 	sb.WriteString("---\n")
 	fmt.Fprintf(&sb, "title: %s\n", yamlQuote(n.Title))
 	fmt.Fprintf(&sb, "status: %s\n", n.Status)
-	fmt.Fprintf(&sb, "priority: %s\n", n.Priority)
-	if n.DueDate != nil {
-		fmt.Fprintf(&sb, "due_date: %s\n", *n.DueDate)
-	} else {
-		sb.WriteString("due_date: null\n")
-	}
 	if len(n.Tags) > 0 {
 		sb.WriteString("tags:\n")
 		for _, tag := range n.Tags {

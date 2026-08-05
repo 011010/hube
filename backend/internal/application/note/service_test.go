@@ -66,9 +66,6 @@ func TestService_Create_NormalizesAndValidates(t *testing.T) {
 	if n.Status != note.StatusDraft {
 		t.Errorf("Status = %q, want %q", n.Status, note.StatusDraft)
 	}
-	if n.Priority != note.PriorityMedium {
-		t.Errorf("Priority = %q, want %q", n.Priority, note.PriorityMedium)
-	}
 	if repo.created != n {
 		t.Error("Create did not persist the normalized note")
 	}
@@ -78,7 +75,7 @@ func TestService_Create_InvalidStatus(t *testing.T) {
 	repo := &mockRepo{}
 	svc := NewService(repo)
 
-	n := &note.Note{Title: "Test", Status: "invalid", Priority: note.PriorityMedium}
+	n := &note.Note{Title: "Test", Status: "invalid"}
 	err := svc.Create(context.Background(), n)
 	if err == nil {
 		t.Fatal("Create expected error for invalid status")
@@ -99,7 +96,7 @@ func TestService_Create_EmptyTitle(t *testing.T) {
 	repo := &mockRepo{}
 	svc := NewService(repo)
 
-	n := &note.Note{Status: note.StatusDraft, Priority: note.PriorityMedium}
+	n := &note.Note{Status: note.StatusDraft}
 	err := svc.Create(context.Background(), n)
 	if err == nil {
 		t.Fatal("Create expected error for empty title")
@@ -116,7 +113,7 @@ func TestService_Create_EmptyTitle(t *testing.T) {
 	}
 }
 
-func TestService_Update_NormalizesEmptyStatusAndPriority(t *testing.T) {
+func TestService_Update_NormalizesEmptyStatus(t *testing.T) {
 	repo := &mockRepo{}
 	svc := NewService(repo)
 
@@ -128,30 +125,26 @@ func TestService_Update_NormalizesEmptyStatusAndPriority(t *testing.T) {
 	if n.Status != note.StatusDraft {
 		t.Errorf("Status = %q, want %q", n.Status, note.StatusDraft)
 	}
-	if n.Priority != note.PriorityMedium {
-		t.Errorf("Priority = %q, want %q", n.Priority, note.PriorityMedium)
-	}
 	if repo.updated != n {
 		t.Error("Update did not persist the normalized note")
 	}
 }
 
-func TestService_Update_InvalidDueDate(t *testing.T) {
+func TestService_Update_InvalidStatus(t *testing.T) {
 	repo := &mockRepo{}
 	svc := NewService(repo)
 
-	invalidDate := "not-a-date"
-	n := &note.Note{ID: "1", Title: "Test", Status: note.StatusDraft, Priority: note.PriorityMedium, DueDate: &invalidDate}
+	n := &note.Note{ID: "1", Title: "Test", Status: "invalid"}
 	err := svc.Update(context.Background(), n)
 	if err == nil {
-		t.Fatal("Update expected error for invalid due_date")
+		t.Fatal("Update expected error for invalid status")
 	}
 	var valErr *note.ValidationError
 	if !errors.As(err, &valErr) {
 		t.Fatalf("error type = %T, want *note.ValidationError", err)
 	}
-	if valErr.Field != "due_date" {
-		t.Errorf("ValidationError.Field = %q, want %q", valErr.Field, "due_date")
+	if valErr.Field != "status" {
+		t.Errorf("ValidationError.Field = %q, want %q", valErr.Field, "status")
 	}
 	if repo.updated != nil {
 		t.Error("Update should not persist an invalid note")
@@ -162,7 +155,6 @@ func TestService_ExportAgentMarkdown(t *testing.T) {
 	repo := &mockRepo{}
 	svc := NewService(repo)
 
-	due := "2026-08-01"
 	created := time.Date(2026, 7, 1, 12, 0, 0, 0, time.UTC)
 	updated := time.Date(2026, 7, 2, 9, 30, 0, 0, time.UTC)
 	n := &note.Note{
@@ -170,8 +162,6 @@ func TestService_ExportAgentMarkdown(t *testing.T) {
 		Title:     "My Note",
 		Content:   "Hello world",
 		Status:    note.StatusDraft,
-		Priority:  note.PriorityHigh,
-		DueDate:   &due,
 		Tags:      []string{"go", "test"},
 		CreatedAt: created,
 		UpdatedAt: updated,
@@ -188,8 +178,6 @@ func TestService_ExportAgentMarkdown(t *testing.T) {
 	wantFields := []string{
 		`title: "My Note"`,
 		"status: draft",
-		"priority: high",
-		"due_date: 2026-08-01",
 		"tags:",
 		`  - "go"`,
 		`  - "test"`,
@@ -214,24 +202,20 @@ func TestService_ExportAgentMarkdown(t *testing.T) {
 	}
 }
 
-func TestService_ExportAgentMarkdown_NoDueDateOrTags(t *testing.T) {
+func TestService_ExportAgentMarkdown_NoTags(t *testing.T) {
 	repo := &mockRepo{}
 	svc := NewService(repo)
 
 	n := &note.Note{
-		ID:       "1",
-		Title:    "Bare Note",
-		Content:  "",
-		Status:   note.StatusDraft,
-		Priority: note.PriorityMedium,
+		ID:      "1",
+		Title:   "Bare Note",
+		Content: "",
+		Status:  note.StatusDraft,
 	}
 
 	md, err := svc.ExportAgentMarkdown(context.Background(), n)
 	if err != nil {
 		t.Fatalf("ExportAgentMarkdown returned unexpected error: %v", err)
-	}
-	if !strings.Contains(md, "due_date: null") {
-		t.Errorf("expected due_date: null for nil DueDate, got:\n%s", md)
 	}
 	if !strings.Contains(md, "tags: []") {
 		t.Errorf("expected tags: [] for empty tags, got:\n%s", md)
@@ -243,11 +227,10 @@ func TestService_ExportAgentMarkdown_EscapesTagsAgainstYAMLInjection(t *testing.
 	svc := NewService(repo)
 
 	n := &note.Note{
-		ID:       "1",
-		Title:    "Injection Note",
-		Content:  "body",
-		Status:   note.StatusDraft,
-		Priority: note.PriorityMedium,
+		ID:      "1",
+		Title:   "Injection Note",
+		Content: "body",
+		Status:  note.StatusDraft,
 		// A tag containing a raw newline followed by YAML syntax used to be
 		// written unescaped, letting it break out of the tags list and inject
 		// a sibling "injected" key into the frontmatter.

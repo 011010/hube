@@ -87,8 +87,6 @@ export interface Note {
   content: string
   blocks: string
   status: NoteStatus
-  priority: Priority
-  due_date: string | null
   folder_id: string | null
   tags: string[]
   created_at: string

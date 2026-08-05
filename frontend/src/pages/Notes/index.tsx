@@ -6,9 +6,7 @@ import {
 } from '../../hooks/useNotes'
 import { useViewPreference } from '../../hooks/useViewPreference'
 import { useStatusKanbanMove } from '../../hooks/useStatusKanbanMove'
-import { formatDate } from '../../utils/date'
 import { blocksToText, textToBlocks } from '../../utils/blocks'
-import { priorityVariant } from '../../utils/badges'
 import { statusLabel, statusVariant } from '../../utils/note'
 import { EmptyState } from '../../components/molecules/EmptyState'
 import { PageHeader } from '../../components/molecules/PageHeader'
@@ -23,7 +21,7 @@ import { Button } from '../../components/atoms/Button'
 import { Badge } from '../../components/atoms/Badge'
 import { IconButton } from '../../components/atoms/IconButton'
 import { BlockEditor } from '../../components/organisms/BlockEditor'
-import type { Folder as FolderType, Note, NoteStatus, Priority } from '../../types'
+import type { Folder as FolderType, Note, NoteStatus } from '../../types'
 import type { NoteInput } from '../../hooks/useNotes'
 
 type MainTab = 'editor' | 'graph'
@@ -34,8 +32,6 @@ interface NoteForm {
   title: string
   blocks: string
   status: NoteStatus
-  priority: Priority
-  due_date: string
   tags: string[]
   folder_id: string | null
 }
@@ -45,8 +41,6 @@ function emptyForm(folderId?: string): NoteForm {
     title: '',
     blocks: '',
     status: 'draft',
-    priority: 'medium',
-    due_date: '',
     tags: [],
     folder_id: folderId ?? null,
   }
@@ -57,8 +51,6 @@ function noteToForm(note: Note): NoteForm {
     title: note.title,
     blocks: note.blocks.trim() ? note.blocks : (note.content.trim() ? textToBlocks(note.content) : note.blocks),
     status: note.status,
-    priority: note.priority,
-    due_date: note.due_date?.slice(0, 10) ?? '',
     tags: note.tags,
     folder_id: note.folder_id,
   }
@@ -86,8 +78,6 @@ function NoteModal({ open, onClose, onSave, note, folderId, folders, isPending }
       title: form.title.trim() || 'Untitled',
       blocks: form.blocks,
       status: form.status,
-      priority: form.priority,
-      due_date: form.due_date || null,
       tags: form.tags,
       folder_id: form.folder_id || null,
     })
@@ -105,8 +95,6 @@ function NoteModal({ open, onClose, onSave, note, folderId, folders, isPending }
 
         <PropertiesPanel
           status={form.status}
-          priority={form.priority}
-          dueDate={form.due_date}
           tags={form.tags}
           folderId={form.folder_id}
           folders={folders}
@@ -114,8 +102,6 @@ function NoteModal({ open, onClose, onSave, note, folderId, folders, isPending }
             setForm((f) => ({
               ...f,
               ...(patch.status !== undefined && { status: patch.status }),
-              ...(patch.priority !== undefined && { priority: patch.priority }),
-              ...(patch.dueDate !== undefined && { due_date: patch.dueDate ?? '' }),
               ...(patch.tags !== undefined && { tags: patch.tags }),
               ...(patch.folderId !== undefined && { folder_id: patch.folderId }),
             }))
@@ -211,7 +197,6 @@ export function NotesPage() {
   const renderCard = useCallback(
     (note: Note) => {
       const preview = note.blocks.trim() ? blocksToText(note.blocks) : note.content
-      const dueDate = formatDate(note.due_date)
       return (
         <div className="space-y-2">
           <div className="flex items-start justify-between gap-2">
@@ -232,10 +217,15 @@ export function NotesPage() {
             </button>
           </div>
           {preview && <p className="text-xs text-text-muted line-clamp-2">{preview}</p>}
-          <div className="flex items-center gap-2 flex-wrap">
-            <Badge label={note.priority} variant={priorityVariant(note.priority)} />
-            {dueDate && <span className="text-xs text-text-muted">{dueDate}</span>}
-          </div>
+          {note.tags.length > 0 && (
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {note.tags.map((tag) => (
+                <span key={tag} className="text-xs text-text-muted bg-surface-elevated rounded px-1.5 py-0.5">
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       )
     },
@@ -267,19 +257,10 @@ export function NotesPage() {
         ),
       },
       {
-        key: 'priority',
-        header: 'Priority',
-        sortable: true,
-        sortValue: (note: Note) => note.priority,
-        render: (note: Note) => <Badge label={note.priority} variant={priorityVariant(note.priority)} />,
-      },
-      {
-        key: 'due_date',
-        header: 'Due date',
-        sortable: true,
-        sortValue: (note: Note) => note.due_date ?? '',
+        key: 'tags',
+        header: 'Tags',
         render: (note: Note) => (
-          <span className="text-text-secondary">{formatDate(note.due_date) ?? '-'}</span>
+          <span className="text-text-secondary">{note.tags.length > 0 ? note.tags.join(', ') : '-'}</span>
         ),
       },
       {

@@ -23,30 +23,18 @@ func TestNote_Create_Validation(t *testing.T) {
 	}{
 		{
 			name:       "empty title rejected",
-			body:       `{"status":"draft","priority":"medium"}`,
+			body:       `{"status":"draft"}`,
 			wantStatus: http.StatusBadRequest,
 			wantErr:    "title is required",
 		},
 		{
 			name:       "invalid status rejected",
-			body:       `{"title":"Test","status":"invalid","priority":"medium"}`,
+			body:       `{"title":"Test","status":"invalid"}`,
 			wantStatus: http.StatusBadRequest,
 			wantErr:    "invalid status",
 		},
 		{
-			name:       "invalid priority rejected",
-			body:       `{"title":"Test","status":"draft","priority":"invalid"}`,
-			wantStatus: http.StatusBadRequest,
-			wantErr:    "invalid priority",
-		},
-		{
-			name:       "invalid due_date rejected",
-			body:       `{"title":"Test","status":"draft","priority":"medium","due_date":"not-a-date"}`,
-			wantStatus: http.StatusBadRequest,
-			wantErr:    "invalid due_date",
-		},
-		{
-			name:       "empty status and priority get defaults",
+			name:       "empty status gets default",
 			body:       `{"title":"Test"}`,
 			wantStatus: http.StatusCreated,
 		},
@@ -78,14 +66,13 @@ func TestNote_Create_Validation_DefaultsApplied(t *testing.T) {
 	var created map[string]any
 	mustDecode(t, resp, &created)
 	assert.Equal(t, "draft", created["status"])
-	assert.Equal(t, "medium", created["priority"])
 }
 
 func TestNote_Update_Validation(t *testing.T) {
 	srv := newTestServer(t)
 	base := srv.URL + "/api/v1/notes"
 
-	resp := mustPost(t, base, `{"title":"My note","status":"draft","priority":"medium"}`)
+	resp := mustPost(t, base, `{"title":"My note","status":"draft"}`)
 	assert.Equal(t, http.StatusCreated, resp.StatusCode)
 	var created map[string]any
 	mustDecode(t, resp, &created)
@@ -108,7 +95,7 @@ func TestNote_Create_MalformedBlocksRejectedAs400(t *testing.T) {
 	srv := newTestServer(t)
 	base := srv.URL + "/api/v1/notes"
 
-	resp := mustPost(t, base, `{"title":"Test","status":"draft","priority":"medium","blocks":"not json"}`)
+	resp := mustPost(t, base, `{"title":"Test","status":"draft","blocks":"not json"}`)
 	defer resp.Body.Close()
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
@@ -117,7 +104,7 @@ func TestNote_Update_MalformedBlocksRejectedAs400(t *testing.T) {
 	srv := newTestServer(t)
 	base := srv.URL + "/api/v1/notes"
 
-	resp := mustPost(t, base, `{"title":"Test","status":"draft","priority":"medium"}`)
+	resp := mustPost(t, base, `{"title":"Test","status":"draft"}`)
 	assert.Equal(t, http.StatusCreated, resp.StatusCode)
 	var created map[string]any
 	mustDecode(t, resp, &created)
@@ -133,7 +120,7 @@ func TestNote_CRUD(t *testing.T) {
 	base := srv.URL + "/api/v1/notes"
 
 	// Create
-	resp := mustPost(t, base, `{"title":"My note","blocks":"{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"text\":\"Hello world\"}]}]}","status":"draft","priority":"medium","tags":["go","test"]}`)
+	resp := mustPost(t, base, `{"title":"My note","blocks":"{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"text\":\"Hello world\"}]}]}","status":"draft","tags":["go","test"]}`)
 	assert.Equal(t, http.StatusCreated, resp.StatusCode)
 	var created map[string]any
 	mustDecode(t, resp, &created)
@@ -142,7 +129,6 @@ func TestNote_CRUD(t *testing.T) {
 	assert.NotEmpty(t, id)
 	assert.Equal(t, "My note", created["title"])
 	assert.Equal(t, "draft", created["status"])
-	assert.Equal(t, "medium", created["priority"])
 	assert.Equal(t, "Hello world", created["content"])
 
 	// List
@@ -159,17 +145,15 @@ func TestNote_CRUD(t *testing.T) {
 	mustDecode(t, resp, &fetched)
 	assert.Equal(t, "My note", fetched["title"])
 	assert.Equal(t, "draft", fetched["status"])
-	assert.Equal(t, "medium", fetched["priority"])
 	assert.Equal(t, "Hello world", fetched["content"])
 
-	// Partial PUT — update only tags, title/status/priority must survive
+	// Partial PUT — update only tags, title/status must survive
 	resp = mustPut(t, resourceURL(srv.URL, "notes", id), `{"tags":["updated"]}`)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	var updated map[string]any
 	mustDecode(t, resp, &updated)
 	assert.Equal(t, "My note", updated["title"])
 	assert.Equal(t, "draft", updated["status"])
-	assert.Equal(t, "medium", updated["priority"])
 
 	// Delete
 	resp = mustDelete(t, resourceURL(srv.URL, "notes", id))
@@ -276,7 +260,7 @@ func TestNoteExport(t *testing.T) {
 	srv := newTestServer(t)
 	base := srv.URL + "/api/v1/notes"
 
-	resp := mustPost(t, base, `{"title":"Export Me","blocks":"{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"text\":\"Hello world\"}]}]}","status":"draft","priority":"high","tags":["go","test"]}`)
+	resp := mustPost(t, base, `{"title":"Export Me","blocks":"{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"text\":\"Hello world\"}]}]}","status":"draft","tags":["go","test"]}`)
 	assert.Equal(t, http.StatusCreated, resp.StatusCode)
 	var created map[string]any
 	mustDecode(t, resp, &created)
@@ -299,7 +283,6 @@ func TestNoteExport(t *testing.T) {
 	assert.True(t, strings.HasPrefix(md, "---\n"), "expected YAML frontmatter delimiter, got: %s", md)
 	assert.Contains(t, md, `title: "Export Me"`)
 	assert.Contains(t, md, "status: draft")
-	assert.Contains(t, md, "priority: high")
 	assert.Contains(t, md, `  - "go"`)
 	assert.Contains(t, md, `  - "test"`)
 	assert.Contains(t, md, "Hello world")
