@@ -135,8 +135,8 @@ export function NoteEditorPanel({ note, folders, onSave, onDelete, onClose }: No
         />
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto pt-4 space-y-4">
-        <div>
+      <div className="flex-1 min-h-0 flex flex-col pt-4 gap-4">
+        <div className="shrink-0">
           <PropertiesPanel
             status={draft.status}
             tags={draft.tags}
@@ -152,7 +152,8 @@ export function NoteEditorPanel({ note, folders, onSave, onDelete, onClose }: No
           />
         </div>
 
-        <div className="h-[28rem]">
+        {/* Takes whatever height is left so tall windows aren't half empty. */}
+        <div className="flex-1 min-h-0">
           <BlockEditor
             value={draft.blocks}
             onChange={(json) => update({ blocks: json })}

@@ -26,7 +26,7 @@ export function PropertiesPanel({
   onChange,
 }: PropertiesPanelProps) {
   return (
-    <div className="grid grid-cols-2 gap-4 p-4 bg-surface-elevated border border-border rounded-xl">
+    <div className="grid grid-cols-2 gap-x-4 gap-y-3">
       <div className="flex flex-col gap-1.5">
         <label htmlFor="note-status" className="text-xs text-text-secondary">
           Status

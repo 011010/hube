@@ -121,7 +121,11 @@ export function NotesPage() {
             <button
               type="button"
               onClick={() => setSelectedNoteId(note.id)}
-              className="text-left text-sm font-medium text-text-secondary hover:text-text-primary line-clamp-2"
+              className={`text-left text-sm font-medium line-clamp-2 transition-colors ${
+                note.id === selectedNoteId
+                  ? 'text-accent'
+                  : 'text-text-secondary hover:text-text-primary'
+              }`}
             >
               {note.title || 'Untitled'}
             </button>
@@ -134,8 +138,11 @@ export function NotesPage() {
               <Trash2 size={14} />
             </button>
           </div>
-          {preview && <p className="text-xs text-text-muted line-clamp-2">{preview}</p>}
-          {note.tags.length > 0 && (
+          {/* Same rule as the table: next to the editor, only the name fits. */}
+          {!showEditor && preview && (
+            <p className="text-xs text-text-muted line-clamp-2">{preview}</p>
+          )}
+          {!showEditor && note.tags.length > 0 && (
             <div className="flex items-center gap-1.5 flex-wrap">
               {note.tags.map((tag) => (
                 <span key={tag} className="text-xs text-text-muted bg-surface-elevated rounded px-1.5 py-0.5">
@@ -147,24 +154,34 @@ export function NotesPage() {
         </div>
       )
     },
-    [handleDelete],
+    [handleDelete, selectedNoteId, showEditor],
   )
 
-  const tableColumns = useMemo(
-    () => [
-      {
-        key: 'title',
-        header: 'Title',
-        render: (note: Note) => (
-          <button
-            type="button"
-            onClick={() => setSelectedNoteId(note.id)}
-            className="text-left text-sm font-medium text-text-secondary hover:text-text-primary"
-          >
-            {note.title || 'Untitled'}
-          </button>
-        ),
-      },
+  const tableColumns = useMemo(() => {
+    const titleColumn = {
+      key: 'title',
+      header: 'Title',
+      render: (note: Note) => (
+        <button
+          type="button"
+          onClick={() => setSelectedNoteId(note.id)}
+          className={`text-left text-sm font-medium transition-colors break-words ${
+            note.id === selectedNoteId
+              ? 'text-accent'
+              : 'text-text-secondary hover:text-text-primary'
+          }`}
+        >
+          {note.title || 'Untitled'}
+        </button>
+      ),
+    }
+
+    // Alongside the editor the list is a narrow companion: any column past
+    // the name is unreadable in the width that is left.
+    if (showEditor) return [titleColumn]
+
+    return [
+      titleColumn,
       {
         key: 'status',
         header: 'Status',
@@ -204,9 +221,8 @@ export function NotesPage() {
           </button>
         ),
       },
-    ],
-    [handleDelete],
-  )
+    ]
+  }, [handleDelete, selectedNoteId, showEditor])
 
   const folderLabel = selectedFolder ? folders.find((f) => f.id === selectedFolder)?.name : 'All notes'
 
@@ -375,7 +391,7 @@ export function NotesPage() {
         <div className="flex-1 flex min-h-0 gap-6">
           <div
             className={`flex-1 min-w-0 overflow-y-auto ${
-              showEditor ? 'hidden lg:block lg:w-1/2 lg:flex-none' : ''
+              showEditor ? 'hidden lg:block lg:w-72 lg:flex-none' : ''
             }`}
           >
             {mainTab === 'graph' ? (
@@ -412,6 +428,7 @@ export function NotesPage() {
                       columns={tableColumns}
                       data={displayNotes}
                       getRowKey={(note) => note.id}
+                      fitContainer={showEditor}
                     />
                   ))}
               </>
@@ -419,7 +436,7 @@ export function NotesPage() {
           </div>
 
           {showEditor && selectedNote && (
-            <div className="flex-1 min-w-0 lg:w-1/2 lg:flex-none lg:border-l lg:border-border lg:pl-6">
+            <div className="flex-1 min-w-0 lg:border-l lg:border-border lg:pl-6">
               <NoteEditorPanel
                 key={selectedNote.id}
                 note={selectedNote}
