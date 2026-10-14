@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/husari/hube/internal/domain/dateonly"
 	"github.com/husari/hube/internal/domain/project"
 	"github.com/jmoiron/sqlx"
 )
@@ -29,6 +30,7 @@ func (r *ProjectRepo) FindAll(ctx context.Context) ([]project.Project, error) {
 	err := r.db.SelectContext(ctx, &projects,
 		projectSelect+` GROUP BY p.id ORDER BY p.updated_at DESC`,
 	)
+	canonicalizeProjectDates(projects)
 	return projects, err
 }
 
@@ -40,7 +42,19 @@ func (r *ProjectRepo) FindByID(ctx context.Context, id string) (*project.Project
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
+	if err == nil {
+		p.DueDate = dateonly.Canonicalize(p.DueDate)
+	}
 	return &p, err
+}
+
+// canonicalizeProjectDates mirrors canonicalizeDates for projects: a column
+// declared DATE comes back from the driver as a timestamp, so reads are reduced
+// to the bare day the API writes.
+func canonicalizeProjectDates(projects []project.Project) {
+	for i := range projects {
+		projects[i].DueDate = dateonly.Canonicalize(projects[i].DueDate)
+	}
 }
 
 func (r *ProjectRepo) Create(ctx context.Context, p *project.Project) error {

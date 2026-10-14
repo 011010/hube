@@ -107,3 +107,30 @@ func TestProject_EmptyDueDateBecomesNull(t *testing.T) {
 	mustDecode(t, resp, &created)
 	assert.Nil(t, created["due_date"])
 }
+
+func TestProject_DueDateRoundTripsAsACalendarDay(t *testing.T) {
+	srv := newTestServer(t)
+	base := srv.URL + "/api/v1/projects"
+
+	// A day written through the API must read back as that same day. The
+	// storage driver hands a DATE column back as an RFC3339 timestamp, which
+	// used to leak into responses and made re-saving a fetched project fail
+	// validation.
+	resp := mustPost(t, base, `{"name":"Hube","due_date":"2026-10-13"}`)
+	assert.Equal(t, http.StatusCreated, resp.StatusCode)
+	var created map[string]any
+	mustDecode(t, resp, &created)
+	id := created["id"].(string)
+
+	resp = mustGet(t, resourceURL(srv.URL, "projects", id))
+	var fetched map[string]any
+	mustDecode(t, resp, &fetched)
+	assert.Equal(t, "2026-10-13", fetched["due_date"])
+
+	// Re-saving the value just read must not be rejected.
+	resp = mustPut(t, resourceURL(srv.URL, "projects", id), `{"due_date":"2026-10-13"}`)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	var updated map[string]any
+	mustDecode(t, resp, &updated)
+	assert.Equal(t, "2026-10-13", updated["due_date"])
+}
