@@ -10,8 +10,8 @@ type RecentTransaction struct {
 }
 
 type Summary struct {
-	Balance           float64             `json:"balance"`
-	MonthIncome       float64             `json:"month_income"`
-	MonthExpenses     float64             `json:"month_expenses"`
+	Balance            float64             `json:"balance"`
+	MonthIncome        float64             `json:"month_income"`
+	MonthExpenses      float64             `json:"month_expenses"`
 	RecentTransactions []RecentTransaction `json:"recent_transactions"`
 }
