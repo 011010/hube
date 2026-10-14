@@ -157,6 +157,49 @@ func TestTask_UpdateRejectsInvalidStatus(t *testing.T) {
 	assert.Equal(t, "todo", fetched["status"], "the rejected update must not have been applied")
 }
 
+func TestTask_CreateAcceptsDateOnlyDueDate(t *testing.T) {
+	srv := newTestServer(t)
+	base := srv.URL + "/api/v1/tasks"
+
+	// The task modal is an <input type="date">, so the client posts a bare
+	// calendar day ("YYYY-MM-DD"). The API used to answer 400 because
+	// DueDate was a *time.Time, whose JSON decoder only accepts RFC3339.
+	resp := mustPost(t, base, `{"title":"Ship it","due_date":"2026-10-13"}`)
+	assert.Equal(t, http.StatusCreated, resp.StatusCode)
+	var created map[string]any
+	mustDecode(t, resp, &created)
+	assert.Equal(t, "2026-10-13", created["due_date"])
+
+	// The day must survive the storage round-trip too, not just the response.
+	id := created["id"].(string)
+	resp = mustGet(t, resourceURL(srv.URL, "tasks", id))
+	var fetched map[string]any
+	mustDecode(t, resp, &fetched)
+	assert.Equal(t, "2026-10-13", fetched["due_date"])
+}
+
+func TestTask_CreateNormalizesFullTimestampToCalendarDay(t *testing.T) {
+	srv := newTestServer(t)
+	base := srv.URL + "/api/v1/tasks"
+
+	// The documented ISO 8601 form carries a time; it is reduced to the
+	// calendar day so the stored value is uniform.
+	resp := mustPost(t, base, `{"title":"Ship it","due_date":"2025-12-31T00:00:00Z"}`)
+	assert.Equal(t, http.StatusCreated, resp.StatusCode)
+	var created map[string]any
+	mustDecode(t, resp, &created)
+	assert.Equal(t, "2025-12-31", created["due_date"])
+}
+
+func TestTask_CreateRejectsMalformedDueDate(t *testing.T) {
+	srv := newTestServer(t)
+	base := srv.URL + "/api/v1/tasks"
+
+	resp := mustPost(t, base, `{"title":"Ship it","due_date":"13/10/2026"}`)
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+	resp.Body.Close()
+}
+
 func TestTask_CreateCoercesStatusToTodo(t *testing.T) {
 	srv := newTestServer(t)
 

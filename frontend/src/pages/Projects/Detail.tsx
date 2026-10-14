@@ -5,6 +5,7 @@ import { ArrowLeft, Plus, Trash2, Check } from 'lucide-react'
 import { useProject, useUpdateProject, useProjectTasks } from '../../hooks/useProjects'
 import { useCreateTask, useUpdateTask, useDeleteTask } from '../../hooks/useTasks'
 import { TaskModal } from '../../components/molecules/TaskModal'
+import { formatDate } from '../../utils/date'
 import type { Task, ProjectStatus } from '../../types'
 
 const STATUS_OPTS: { value: ProjectStatus; label: string }[] = [
@@ -178,7 +179,7 @@ export function ProjectDetailPage() {
 
                 {task.due_date && (
                   <span className="text-xs text-text-muted shrink-0">
-                    {new Date(task.due_date).toLocaleDateString()}
+                    {formatDate(task.due_date)}
                   </span>
                 )}
 

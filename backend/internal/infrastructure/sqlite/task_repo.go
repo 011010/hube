@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/husari/hube/internal/domain/dateonly"
 	"github.com/husari/hube/internal/domain/task"
 	"github.com/jmoiron/sqlx"
 )
@@ -12,21 +13,36 @@ type TaskRepo struct{ db *sqlx.DB }
 
 func NewTaskRepo(db *sqlx.DB) *TaskRepo { return &TaskRepo{db: db} }
 
+// canonicalizeDates reduces each task's due date to the bare calendar day the
+// API writes. The modernc driver parses a column declared DATE/DATETIME into a
+// time.Time, so a stored day comes back as an RFC3339 timestamp; without this,
+// a read would not match the value that was written.
+func canonicalizeDates(tasks []task.Task) {
+	for i := range tasks {
+		tasks[i].DueDate = dateonly.Canonicalize(tasks[i].DueDate)
+	}
+}
+
 func (r *TaskRepo) FindAll(ctx context.Context) ([]task.Task, error) {
 	tasks := make([]task.Task, 0)
 	err := r.db.SelectContext(ctx, &tasks, `SELECT * FROM tasks ORDER BY created_at DESC`)
+	canonicalizeDates(tasks)
 	return tasks, err
 }
 
 func (r *TaskRepo) FindByProject(ctx context.Context, projectID string) ([]task.Task, error) {
 	tasks := make([]task.Task, 0)
 	err := r.db.SelectContext(ctx, &tasks, `SELECT * FROM tasks WHERE project_id = ? ORDER BY created_at DESC`, projectID)
+	canonicalizeDates(tasks)
 	return tasks, err
 }
 
 func (r *TaskRepo) FindByID(ctx context.Context, id string) (*task.Task, error) {
 	var t task.Task
 	err := r.db.GetContext(ctx, &t, `SELECT * FROM tasks WHERE id = ?`, id)
+	if err == nil {
+		t.DueDate = dateonly.Canonicalize(t.DueDate)
+	}
 	return &t, err
 }
 
@@ -51,6 +67,7 @@ func (r *TaskRepo) Update(ctx context.Context, t *task.Task) error {
 func (r *TaskRepo) FindRecurring(ctx context.Context) ([]task.Task, error) {
 	items := make([]task.Task, 0)
 	err := r.db.SelectContext(ctx, &items, `SELECT * FROM tasks WHERE recurrence != '' AND status = 'done'`)
+	canonicalizeDates(items)
 	return items, err
 }
 

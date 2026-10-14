@@ -150,7 +150,7 @@ export const docSections: DocSectionData[] = [
                 ['description', 'string', 'Optional free text'],
                 ['priority', 'enum', <><Code>low</Code> · <Code>medium</Code> · <Code>high</Code></>],
                 ['status', 'enum', <><Code>todo</Code> · <Code>in_progress</Code> · <Code>done</Code></>],
-                ['due_date', 'ISO 8601', 'Optional — e.g. 2025-12-31T00:00:00Z'],
+                ['due_date', 'YYYY-MM-DD', 'Optional calendar day — e.g. 2025-12-31 (full ISO 8601 is also accepted)'],
                 ['project_id', 'string', 'Optional — links to a project'],
                 ['recurrence', 'enum', <><Code>""</Code> · <Code>daily</Code> · <Code>weekly</Code> · <Code>monthly</Code></>],
               ],

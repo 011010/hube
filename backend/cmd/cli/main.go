@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"strings"
 	"text/tabwriter"
-	"time"
 
 	"github.com/spf13/cobra"
 )
@@ -43,11 +42,11 @@ func main() {
 // ── tasks ──────────────────────────────────────────────────────────────────
 
 type task struct {
-	ID       string     `json:"id"`
-	Title    string     `json:"title"`
-	Status   string     `json:"status"`
-	Priority string     `json:"priority"`
-	DueDate  *time.Time `json:"due_date"`
+	ID       string  `json:"id"`
+	Title    string  `json:"title"`
+	Status   string  `json:"status"`
+	Priority string  `json:"priority"`
+	DueDate  *string `json:"due_date"`
 }
 
 func tasksCmd() *cobra.Command {
@@ -72,7 +71,7 @@ func tasksCmd() *cobra.Command {
 			for _, t := range tasks {
 				due := "-"
 				if t.DueDate != nil {
-					due = t.DueDate.Format("2006-01-02")
+					due = *t.DueDate
 				}
 				fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", t.Status, t.Priority, t.Title, due)
 			}

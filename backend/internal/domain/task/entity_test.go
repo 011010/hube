@@ -3,7 +3,6 @@ package task
 import (
 	"errors"
 	"testing"
-	"time"
 )
 
 func TestTask_Normalize(t *testing.T) {
@@ -63,7 +62,6 @@ func TestTask_Validate(t *testing.T) {
 		}
 		return tk
 	}
-
 	tests := []struct {
 		name      string
 		task      Task
@@ -100,6 +98,19 @@ func TestTask_Validate(t *testing.T) {
 			name:      "unknown recurrence is rejected",
 			task:      valid(func(tk *Task) { tk.Recurrence = "fortnightly" }),
 			wantField: "recurrence",
+		},
+		{
+			name: "a bare calendar day is a valid due date",
+			task: valid(func(tk *Task) { tk.DueDate = strPtr("2026-10-13") }),
+		},
+		{
+			name: "no due date is valid",
+			task: valid(func(tk *Task) { tk.DueDate = nil }),
+		},
+		{
+			name:      "a malformed due date is rejected",
+			task:      valid(func(tk *Task) { tk.DueDate = strPtr("13/10/2026") }),
+			wantField: "due_date",
 		},
 	}
 
@@ -158,6 +169,66 @@ func TestTask_NormalizeThenValidateRejectsWhitespaceTitle(t *testing.T) {
 	}
 }
 
+func TestTask_NormalizeDueDate(t *testing.T) {
+	tests := []struct {
+		name string
+		in   *string
+		want *string
+	}{
+		{
+			name: "a bare calendar day is kept as-is",
+			in:   strPtr("2026-10-13"),
+			want: strPtr("2026-10-13"),
+		},
+		{
+			// The documented ISO 8601 form for due_date is a full
+			// timestamp; it is reduced to the day so storage is uniform.
+			name: "a full RFC3339 timestamp is reduced to its calendar day",
+			in:   strPtr("2025-12-31T00:00:00Z"),
+			want: strPtr("2025-12-31"),
+		},
+		{
+			name: "surrounding whitespace is trimmed",
+			in:   strPtr("  2026-10-13  "),
+			want: strPtr("2026-10-13"),
+		},
+		{
+			name: "a blank value collapses to nil",
+			in:   strPtr("   "),
+			want: nil,
+		},
+		{
+			name: "nil stays nil",
+			in:   nil,
+			want: nil,
+		},
+		{
+			// Not a day and not a timestamp: left intact so Validate rejects it.
+			name: "an unrecognised value is left for Validate",
+			in:   strPtr("13/10/2026"),
+			want: strPtr("13/10/2026"),
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			tk := Task{Title: "Ship it", Priority: PriorityMedium, DueDate: tc.in}
+			tk.Normalize()
+			switch {
+			case tc.want == nil && tk.DueDate != nil:
+				t.Errorf("got %q, want nil", *tk.DueDate)
+			case tc.want != nil && tk.DueDate == nil:
+				t.Errorf("got nil, want %q", *tc.want)
+			case tc.want != nil && *tk.DueDate != *tc.want:
+				t.Errorf("got %q, want %q", *tk.DueDate, *tc.want)
+			}
+		})
+	}
+}
+
+// strPtr is a small helper for building the *string fields the entity uses.
+func strPtr(s string) *string { return &s }
+
 func TestValidationError_Message(t *testing.T) {
 	err := &ValidationError{Field: "title", Message: "title is required"}
 	if got, want := err.Error(), "title: title is required"; got != want {
@@ -165,7 +236,7 @@ func TestValidationError_Message(t *testing.T) {
 	}
 }
 
-// Compile-time reminder that DueDate is a *time.Time here, unlike the string
-// dates other entities carry. JSON decoding rejects malformed values before
-// Validate ever runs, so there is nothing to check for it.
-var _ = Task{DueDate: new(time.Time)}
+// Compile-time reminder that DueDate is a date-only string ("2006-01-02"),
+// matching Project.DueDate, not a time.Time. A due date is a calendar day and
+// the wire format is the bare day the UI's date input produces.
+var _ = Task{DueDate: new(string)}

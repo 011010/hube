@@ -42,13 +42,14 @@ func (f *fakeTasks) List(context.Context) ([]domaintask.Task, error) {
 // there is room on both sides of it inside the same calendar day.
 var refNow = time.Date(2026, 7, 21, 15, 0, 0, 0, time.UTC)
 
-// at returns a due date offset from refNow.
-func at(d time.Duration) *time.Time {
-	t := refNow.Add(d)
-	return &t
+// day returns the calendar day offset from refNow, in the "2006-01-02" form
+// the task entity carries due dates in.
+func day(offset int) *string {
+	d := refNow.AddDate(0, 0, offset).Format("2006-01-02")
+	return &d
 }
 
-func newTask(title string, status domaintask.Status, due *time.Time) domaintask.Task {
+func newTask(title string, status domaintask.Status, due *string) domaintask.Task {
 	return domaintask.Task{
 		Title:    title,
 		Status:   status,
@@ -76,7 +77,7 @@ func digest(t *testing.T, tasks []domaintask.Task) (string, *fakeSender) {
 
 func TestDigestSkipsCompletedTasks(t *testing.T) {
 	body, _ := digest(t, []domaintask.Task{
-		newTask("shipped already", domaintask.StatusDone, at(-48*time.Hour)),
+		newTask("shipped already", domaintask.StatusDone, day(-2)),
 	})
 
 	if strings.Contains(body, "shipped already") {
@@ -90,9 +91,9 @@ func TestDigestSkipsCompletedTasks(t *testing.T) {
 
 func TestDigestClassifiesTasksByDueDate(t *testing.T) {
 	body, _ := digest(t, []domaintask.Task{
-		newTask("late thing", domaintask.StatusTodo, at(-48*time.Hour)),
-		newTask("today thing", domaintask.StatusTodo, at(2*time.Hour)),
-		newTask("later thing", domaintask.StatusTodo, at(120*time.Hour)),
+		newTask("late thing", domaintask.StatusTodo, day(-2)),
+		newTask("today thing", domaintask.StatusTodo, day(0)),
+		newTask("later thing", domaintask.StatusTodo, day(5)),
 		newTask("someday thing", domaintask.StatusTodo, nil),
 	})
 
@@ -115,36 +116,18 @@ func TestDigestClassifiesTasksByDueDate(t *testing.T) {
 	}
 }
 
-func TestDigestCountsEarlierTodayAsOverdue(t *testing.T) {
-	// The cutoff is the current instant, not the calendar day: a task due
-	// at 09:00 is overdue by 15:00. DUE TODAY means "still ahead of you
-	// today". Pinning this because the two branches are easy to swap.
-	body, _ := digest(t, []domaintask.Task{
-		newTask("this morning", domaintask.StatusTodo, at(-1*time.Hour)),
-	})
-
-	if !strings.Contains(body, "OVERDUE (1)") {
-		t.Errorf("expected OVERDUE, got:\n%s", body)
-	}
-	if strings.Contains(body, "DUE TODAY") {
-		t.Errorf("a task already past its time must not be DUE TODAY:\n%s", body)
-	}
-}
-
-func TestDigestBucketBoundaries(t *testing.T) {
-	// These cases sit within seconds of a boundary, which is only
-	// expressible because the clock is pinned. Written against the real
-	// clock they would be unreproducible.
+func TestDigestBucketsByCalendarDay(t *testing.T) {
+	// A due date is a calendar day, not an instant: a task due today is DUE
+	// TODAY for the whole day, and only a date that has already passed is
+	// OVERDUE. Pinning this because the two branches are easy to swap.
 	tests := []struct {
 		name    string
-		due     *time.Time
+		due     *string
 		section string
 	}{
-		{"one second before now", at(-time.Second), "OVERDUE (1)"},
-		{"exactly now", at(0), "DUE TODAY (1)"},
-		{"one second after now", at(time.Second), "DUE TODAY (1)"},
-		{"the last second of today", at(8*time.Hour + 59*time.Minute + 59*time.Second), "DUE TODAY (1)"},
-		{"the first second of tomorrow", at(9 * time.Hour), "UPCOMING (1)"},
+		{"yesterday", day(-1), "OVERDUE (1)"},
+		{"today", day(0), "DUE TODAY (1)"},
+		{"tomorrow", day(1), "UPCOMING (1)"},
 	}
 
 	for _, tc := range tests {
@@ -158,6 +141,20 @@ func TestDigestBucketBoundaries(t *testing.T) {
 		})
 	}
 }
+
+func TestDigestTreatsUnreadableDueDateAsPending(t *testing.T) {
+	// A due date that is not a bare calendar day must not crash or vanish;
+	// it falls back to the undated bucket rather than being dropped.
+	body, _ := digest(t, []domaintask.Task{
+		newTask("garbled", domaintask.StatusTodo, strPtr("not-a-date")),
+	})
+
+	if !strings.Contains(body, "garbled") || !strings.Contains(body, "UPCOMING (1)") {
+		t.Errorf("expected the task in UPCOMING, got:\n%s", body)
+	}
+}
+
+func strPtr(s string) *string { return &s }
 
 func TestDigestIsBuiltAgainstTheInjectedClock(t *testing.T) {
 	// Guards the wiring itself: if SendDigest went back to calling
