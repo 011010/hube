@@ -38,6 +38,17 @@ func (h *TaskHandler) list(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
+	// status is filtered here rather than in SQL so it composes with the
+	// project filter, matching the assistant's in-memory behaviour.
+	if status := r.URL.Query().Get("status"); status != "" {
+		filtered := tasks[:0]
+		for _, t := range tasks {
+			if string(t.Status) == status {
+				filtered = append(filtered, t)
+			}
+		}
+		tasks = filtered
+	}
 	writeJSON(w, http.StatusOK, tasks)
 }
 
