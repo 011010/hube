@@ -160,9 +160,7 @@ func (e *HubExecutor) Execute(ctx context.Context, name string, input json.RawMe
 			t.Priority = task.PriorityMedium
 		}
 		if d := str("due_date"); d != "" {
-			if parsed, err := time.Parse("2006-01-02", d); err == nil {
-				t.DueDate = &parsed
-			}
+			t.DueDate = &d
 		}
 		if err := e.tasks.Create(ctx, t); err != nil {
 			return nil, err

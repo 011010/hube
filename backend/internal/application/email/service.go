@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/husari/hube/internal/domain/dateonly"
 	domaintask "github.com/husari/hube/internal/domain/task"
 )
 
@@ -48,23 +49,28 @@ func (s *Service) SendDigest(ctx context.Context, opts DigestOptions) error {
 	}
 
 	now := s.now()
+	// Due dates are bare calendar days, so the digest buckets by day: a task
+	// due before today is overdue regardless of the hour.
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
 	var pending, overdue, dueToday []string
 
 	for _, t := range tasks {
 		if t.Status == domaintask.StatusDone {
 			continue
 		}
-		if t.DueDate != nil {
-			due := *t.DueDate
-			if due.Before(now) {
-				overdue = append(overdue, fmt.Sprintf("  - [%s] %s (due %s)", t.Priority, t.Title, due.Format("Jan 2")))
-			} else if due.Year() == now.Year() && due.YearDay() == now.YearDay() {
-				dueToday = append(dueToday, fmt.Sprintf("  - [%s] %s", t.Priority, t.Title))
-			} else {
-				pending = append(pending, fmt.Sprintf("  - [%s] %s (due %s)", t.Priority, t.Title, due.Format("Jan 2")))
-			}
-		} else {
+		due, ok := parseDueDate(t.DueDate)
+		if !ok {
+			// No due date (or an unreadable one) has nowhere else to go.
 			pending = append(pending, fmt.Sprintf("  - [%s] %s", t.Priority, t.Title))
+			continue
+		}
+		switch {
+		case due.Before(today):
+			overdue = append(overdue, fmt.Sprintf("  - [%s] %s (due %s)", t.Priority, t.Title, due.Format("Jan 2")))
+		case due.Equal(today):
+			dueToday = append(dueToday, fmt.Sprintf("  - [%s] %s", t.Priority, t.Title))
+		default:
+			pending = append(pending, fmt.Sprintf("  - [%s] %s (due %s)", t.Priority, t.Title, due.Format("Jan 2")))
 		}
 	}
 
@@ -90,4 +96,17 @@ func (s *Service) SendDigest(ctx context.Context, opts DigestOptions) error {
 
 	subject := fmt.Sprintf("Hube Digest — %s", now.Format("Jan 2"))
 	return s.smtp.Send(opts.To, subject, sb.String())
+}
+
+// parseDueDate reads a task's "2006-01-02" due date. ok is false when the
+// task has no due date or the stored value is not a readable day.
+func parseDueDate(due *string) (time.Time, bool) {
+	if due == nil {
+		return time.Time{}, false
+	}
+	d, err := time.Parse(dateonly.Layout, *due)
+	if err != nil {
+		return time.Time{}, false
+	}
+	return d, true
 }

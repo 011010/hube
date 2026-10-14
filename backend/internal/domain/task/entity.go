@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/husari/hube/internal/domain/dateonly"
 )
 
 type Priority string
@@ -42,7 +44,7 @@ type Task struct {
 	Description    string     `db:"description"      json:"description"`
 	Priority       Priority   `db:"priority"         json:"priority"`
 	Status         Status     `db:"status"           json:"status"`
-	DueDate        *time.Time `db:"due_date"         json:"due_date"`
+	DueDate        *string    `db:"due_date"         json:"due_date"`
 	ProjectID      *string    `db:"project_id"       json:"project_id"`
 	NoteID         *string    `db:"note_id"          json:"note_id"`
 	Recurrence     string     `db:"recurrence"       json:"recurrence"`
@@ -57,6 +59,7 @@ type Task struct {
 func (t *Task) Normalize() {
 	t.Title = strings.TrimSpace(t.Title)
 	t.Recurrence = strings.TrimSpace(t.Recurrence)
+	t.DueDate = dateonly.Canonicalize(t.DueDate)
 	if t.Status == "" {
 		t.Status = StatusTodo
 	}
@@ -70,6 +73,9 @@ func (t *Task) Normalize() {
 func (t *Task) Validate() error {
 	if t.Title == "" {
 		return &ValidationError{Field: "title", Message: "title is required"}
+	}
+	if t.DueDate != nil && !dateonly.Valid(*t.DueDate) {
+		return &ValidationError{Field: "due_date", Message: fmt.Sprintf("invalid due_date: %s", *t.DueDate)}
 	}
 	switch t.Status {
 	case StatusTodo, StatusInProgress, StatusDone:

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/husari/hube/internal/domain/dateonly"
 )
 
 type Status string
@@ -17,10 +19,6 @@ const (
 	// defaultColor is the swatch a project falls back to when the client
 	// does not pick one.
 	defaultColor = "#6366f1"
-
-	// dateLayout is the wire format for DueDate, which is carried as a
-	// string rather than a time.Time.
-	dateLayout = "2006-01-02"
 )
 
 type ValidationError struct {
@@ -57,9 +55,7 @@ func (p *Project) Normalize() {
 	if p.Color == "" {
 		p.Color = defaultColor
 	}
-	if p.DueDate != nil && strings.TrimSpace(*p.DueDate) == "" {
-		p.DueDate = nil
-	}
+	p.DueDate = dateonly.Canonicalize(p.DueDate)
 }
 
 // Validate reports the first field that would make the project unusable. Call
@@ -77,10 +73,8 @@ func (p *Project) Validate() error {
 	default:
 		return &ValidationError{Field: "status", Message: fmt.Sprintf("invalid status: %s", p.Status)}
 	}
-	if p.DueDate != nil {
-		if _, err := time.Parse(dateLayout, *p.DueDate); err != nil {
-			return &ValidationError{Field: "due_date", Message: fmt.Sprintf("invalid due_date: %v", err)}
-		}
+	if p.DueDate != nil && !dateonly.Valid(*p.DueDate) {
+		return &ValidationError{Field: "due_date", Message: fmt.Sprintf("invalid due_date: %s", *p.DueDate)}
 	}
 	return nil
 }
