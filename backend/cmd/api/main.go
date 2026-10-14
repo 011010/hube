@@ -75,14 +75,14 @@ func main() {
 	// The DB is the single source of truth at runtime: clients read from it on
 	// every request, so changes made through the UI take effect immediately.
 	for k, v := range map[string]string{
-		"integration.monkeyapi_url":       os.Getenv("MONKEYAPI_URL"),
-		"integration.monkeyapi_key":       os.Getenv("MONKEYAPI_KEY"),
-		"integration.paypinga_url":        os.Getenv("PAYPINGA_URL"),
-		"integration.paypinga_key":        os.Getenv("PAYPINGA_KEY"),
-		"integration.claude_api_key":      os.Getenv("ANTHROPIC_API_KEY"),
-		"integration.openai_api_key":      os.Getenv("OPENAI_API_KEY"),
-		"integration.openai_base_url":     os.Getenv("OPENAI_BASE_URL"),
-		"integration.openai_model":        os.Getenv("OPENAI_MODEL"),
+		"integration.monkeyapi_url":          os.Getenv("MONKEYAPI_URL"),
+		"integration.monkeyapi_key":          os.Getenv("MONKEYAPI_KEY"),
+		"integration.paypinga_url":           os.Getenv("PAYPINGA_URL"),
+		"integration.paypinga_key":           os.Getenv("PAYPINGA_KEY"),
+		"integration.claude_api_key":         os.Getenv("ANTHROPIC_API_KEY"),
+		"integration.openai_api_key":         os.Getenv("OPENAI_API_KEY"),
+		"integration.openai_base_url":        os.Getenv("OPENAI_BASE_URL"),
+		"integration.openai_model":           os.Getenv("OPENAI_MODEL"),
 		"integration.openai_embedding_model": os.Getenv("OPENAI_EMBEDDING_MODEL"),
 	} {
 		if err := settingSvc.Seed(ctx, k, v); err != nil {
@@ -139,9 +139,9 @@ func main() {
 	addr := fmt.Sprintf(":%s", port)
 	log.Printf("hube API running on %s", addr)
 	srv := &http.Server{
-		Addr:         addr,
-		Handler:      router,
-		ReadTimeout:  15 * time.Second,
+		Addr:        addr,
+		Handler:     router,
+		ReadTimeout: 15 * time.Second,
 		// Bumped to 5 minutes to accommodate long agentic AI chat streams
 		// (multiple tool rounds + streaming text). The /ai/chat handler streams
 		// via Flush and context cancellation still cuts off runaway requests.
