@@ -391,7 +391,7 @@ export function NotesPage() {
         <div className="flex-1 flex min-h-0 gap-6">
           <div
             className={`flex-1 min-w-0 overflow-y-auto ${
-              showEditor ? 'hidden lg:block lg:w-72 lg:flex-none' : ''
+              showEditor ? 'hidden lg:block lg:w-80 lg:flex-none' : ''
             }`}
           >
             {mainTab === 'graph' ? (

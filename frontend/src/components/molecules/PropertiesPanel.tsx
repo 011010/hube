@@ -18,6 +18,11 @@ const STATUS_OPTIONS: { value: NoteStatus; label: string }[] = [
   { value: 'published', label: 'Published' },
 ]
 
+const FIELD_CLASS =
+  'w-full px-2.5 py-1.5 rounded-lg bg-surface-card border border-border text-text-primary text-sm placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-accent/40 transition-all'
+
+const LABEL_CLASS = 'text-[11px] font-medium uppercase tracking-wide text-text-muted'
+
 export function PropertiesPanel({
   status,
   tags,
@@ -25,17 +30,19 @@ export function PropertiesPanel({
   folders,
   onChange,
 }: PropertiesPanelProps) {
+  // One compact row instead of three stacked blocks: the writing surface is the
+  // point of this panel, metadata should not eat a third of it.
   return (
-    <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="note-status" className="text-xs text-text-secondary">
+    <div className="flex flex-wrap items-end gap-3">
+      <div className="flex flex-col gap-1 flex-1 min-w-28">
+        <label htmlFor="note-status" className={LABEL_CLASS}>
           Status
         </label>
         <select
           id="note-status"
           value={status}
           onChange={(e) => onChange({ status: e.target.value as NoteStatus })}
-          className="w-full px-3 py-2 rounded-lg bg-surface-card border border-border text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-accent/40 transition-all"
+          className={FIELD_CLASS}
         >
           {STATUS_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>
@@ -45,15 +52,15 @@ export function PropertiesPanel({
         </select>
       </div>
 
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="note-folder" className="text-xs text-text-secondary">
+      <div className="flex flex-col gap-1 flex-1 min-w-28">
+        <label htmlFor="note-folder" className={LABEL_CLASS}>
           Folder
         </label>
         <select
           id="note-folder"
           value={folderId ?? ''}
           onChange={(e) => onChange({ folderId: e.target.value || null })}
-          className="w-full px-3 py-2 rounded-lg bg-surface-card border border-border text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-accent/40 transition-all"
+          className={FIELD_CLASS}
         >
           <option value="">No folder</option>
           {folders.map((folder) => (
@@ -64,8 +71,8 @@ export function PropertiesPanel({
         </select>
       </div>
 
-      <div className="col-span-2 flex flex-col gap-1.5">
-        <label htmlFor="note-tags" className="text-xs text-text-secondary">
+      <div className="flex flex-col gap-1 flex-[2] min-w-36">
+        <label htmlFor="note-tags" className={LABEL_CLASS}>
           Tags
         </label>
         <input
@@ -80,8 +87,8 @@ export function PropertiesPanel({
                 .filter(Boolean),
             })
           }
-          placeholder="Comma separated tags"
-          className="w-full px-3 py-2 rounded-lg bg-surface-card border border-border text-text-primary text-sm placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-accent/40 transition-all"
+          placeholder="Add tags…"
+          className={FIELD_CLASS}
         />
       </div>
     </div>

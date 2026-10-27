@@ -110,9 +110,18 @@ export function NoteEditorPanel({ note, folders, onSave, onDelete, onClose }: No
           onChange={(e) => update({ title: e.target.value })}
           placeholder="Untitled"
           aria-label="Note title"
-          className="flex-1 min-w-0 bg-transparent text-lg font-semibold text-text-primary placeholder-text-muted focus:outline-none"
+          className="flex-1 min-w-0 bg-transparent text-2xl font-semibold leading-tight text-text-primary placeholder-text-muted focus:outline-none"
         />
-        <span className="text-xs text-text-muted shrink-0" aria-live="polite">
+        <span
+          className="flex items-center gap-1.5 text-xs text-text-muted shrink-0"
+          aria-live="polite"
+        >
+          <span
+            aria-hidden="true"
+            className={`h-1.5 w-1.5 rounded-full transition-colors ${
+              dirty ? 'bg-accent' : 'bg-text-muted/50'
+            }`}
+          />
           {dirty ? 'Saving…' : 'Saved'}
         </span>
         <IconButton
@@ -135,7 +144,7 @@ export function NoteEditorPanel({ note, folders, onSave, onDelete, onClose }: No
         />
       </div>
 
-      <div className="flex-1 min-h-0 flex flex-col pt-4 gap-4">
+      <div className="flex-1 min-h-0 flex flex-col pt-3 gap-3">
         <div className="shrink-0">
           <PropertiesPanel
             status={draft.status}

@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react'
+import { useEffect, useRef, type MouseEvent, type ReactNode } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
@@ -22,28 +22,6 @@ function parseContent(value: string) {
   }
 }
 
-const TASK_LIST_CSS = `
-  .ProseMirror ul[data-type="taskList"] {
-    list-style: none;
-    padding: 0;
-  }
-  .ProseMirror ul[data-type="taskList"] li {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.5rem;
-  }
-  .ProseMirror ul[data-type="taskList"] li > label {
-    flex-shrink: 0;
-    margin-top: 0.25rem;
-  }
-  .ProseMirror ul[data-type="taskList"] li > div {
-    flex: 1;
-  }
-  .ProseMirror ul[data-type="taskList"] input[type="checkbox"] {
-    cursor: pointer;
-  }
-`
-
 interface ToolbarButtonProps {
   onClick: () => void
   active: boolean
@@ -62,7 +40,7 @@ function ToolbarButton({ onClick, active, icon, label }: ToolbarButtonProps) {
       className={`p-1.5 rounded-md transition-colors ${
         active
           ? 'bg-accent text-white'
-          : 'text-text-muted hover:text-text-secondary hover:bg-surface-card'
+          : 'text-text-muted hover:text-text-secondary hover:bg-surface-elevated'
       }`}
     >
       {icon}
@@ -71,6 +49,7 @@ function ToolbarButton({ onClick, active, icon, label }: ToolbarButtonProps) {
 }
 
 export function BlockEditor({ value, onChange, placeholder = 'Start writing…' }: BlockEditorProps) {
+  const surfaceRef = useRef<HTMLDivElement>(null)
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -79,6 +58,11 @@ export function BlockEditor({ value, onChange, placeholder = 'Start writing…' 
       TaskItem.configure({ nested: false }),
     ],
     content: parseContent(value),
+    editorProps: {
+      attributes: {
+        'aria-label': 'Note content',
+      },
+    },
     onUpdate: ({ editor }) => {
       const json = editor.getJSON()
       onChange(JSON.stringify(json), blocksToText(JSON.stringify(json)))
@@ -93,12 +77,18 @@ export function BlockEditor({ value, onChange, placeholder = 'Start writing…' 
     }
   }, [editor, value])
 
+  // The blank space below the last line should behave like the document:
+  // clicking it puts the caret at the end instead of doing nothing.
+  const handleSurfaceClick = (event: MouseEvent<HTMLDivElement>) => {
+    if (event.target !== surfaceRef.current) return
+    editor?.chain().focus('end').run()
+  }
+
   if (!editor) return null
 
   return (
-    <div className="flex flex-col h-full border border-border rounded-xl overflow-hidden bg-surface-elevated">
-      <style>{TASK_LIST_CSS}</style>
-      <div className="flex items-center gap-1 px-3 py-2 border-b border-border bg-surface-card">
+    <div className="flex flex-col h-full min-h-0 rounded-xl border border-border bg-surface-elevated overflow-hidden transition-colors focus-within:border-accent/60">
+      <div className="flex items-center gap-1 px-2.5 py-1.5 border-b border-border bg-surface-card/60 shrink-0">
         <ToolbarButton
           label="Bold"
           icon={<Bold size={16} />}
@@ -137,11 +127,12 @@ export function BlockEditor({ value, onChange, placeholder = 'Start writing…' 
           onClick={() => editor.chain().focus().toggleTaskList().run()}
         />
       </div>
-      <div className="flex-1 overflow-y-auto p-4">
-        <EditorContent
-          editor={editor}
-          className="prose prose-invert prose-sm max-w-none h-full focus:outline-none"
-        />
+      <div
+        ref={surfaceRef}
+        onClick={handleSurfaceClick}
+        className="note-editor flex-1 min-h-0 overflow-y-auto"
+      >
+        <EditorContent editor={editor} className="h-full" />
       </div>
     </div>
   )
