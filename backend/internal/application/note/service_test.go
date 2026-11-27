@@ -12,8 +12,10 @@ import (
 )
 
 type mockRepo struct {
-	created *note.Note
-	updated *note.Note
+	created         *note.Note
+	updated         *note.Note
+	note            *note.Note
+	savedProperties []note.Property
 }
 
 func (m *mockRepo) FindAll(ctx context.Context, folderID *string) ([]note.Note, error) {
@@ -21,7 +23,7 @@ func (m *mockRepo) FindAll(ctx context.Context, folderID *string) ([]note.Note, 
 }
 
 func (m *mockRepo) FindByID(ctx context.Context, id string) (*note.Note, error) {
-	return nil, nil
+	return m.note, nil
 }
 
 func (m *mockRepo) Search(ctx context.Context, query string) ([]note.Note, error) {
@@ -47,6 +49,7 @@ func (m *mockRepo) SetTags(ctx context.Context, noteID string, tags []string) er
 }
 
 func (m *mockRepo) SetProperties(ctx context.Context, noteID string, props []note.Property) error {
+	m.savedProperties = props
 	return nil
 }
 
@@ -272,5 +275,110 @@ func TestService_ExportAgentMarkdown_EscapesTagsAgainstYAMLInjection(t *testing.
 	// above), and no longer breaks into two lines.
 	if tags[0] != "safe" || tags[1] != "evil injected: true" {
 		t.Errorf("expected tags to parse as safe folded scalars, got: %#v", tags)
+	}
+}
+
+func TestService_SetProperties(t *testing.T) {
+	repo := &mockRepo{note: &note.Note{ID: "n1", Title: "Test", Status: note.StatusDraft}}
+	svc := NewService(repo)
+
+	props := []note.Property{
+		{Key: " Rating ", Type: note.PropertyNumber, Value: float64(8)},
+	}
+	got, err := svc.SetProperties(context.Background(), "n1", props)
+	if err != nil {
+		t.Fatalf("SetProperties() error = %v", err)
+	}
+	if len(got) != 1 || got[0].Key != "rating" {
+		t.Fatalf("expected normalized property, got %+v", got)
+	}
+	if len(repo.savedProperties) != 1 || repo.savedProperties[0].Key != "rating" {
+		t.Fatalf("expected repo to receive normalized properties, got %+v", repo.savedProperties)
+	}
+}
+
+func TestService_SetProperties_Validation(t *testing.T) {
+	repo := &mockRepo{note: &note.Note{ID: "n1", Title: "Test", Status: note.StatusDraft}}
+	svc := NewService(repo)
+
+	_, err := svc.SetProperties(context.Background(), "n1", []note.Property{
+		{Key: "rating", Type: note.PropertyNumber, Value: "8"},
+	})
+	if err == nil {
+		t.Fatal("expected validation error")
+	}
+}
+
+func TestService_SetProperties_MissingNote(t *testing.T) {
+	repo := &mockRepo{}
+	svc := NewService(repo)
+
+	got, err := svc.SetProperties(context.Background(), "missing", nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != nil {
+		t.Fatalf("expected nil result, got %+v", got)
+	}
+}
+
+func TestService_ExportAgentMarkdown_Properties(t *testing.T) {
+	repo := &mockRepo{}
+	svc := NewService(repo)
+
+	n := &note.Note{
+		ID:      "1",
+		Title:   "Properties Note",
+		Content: "Body with properties",
+		Status:  note.StatusDraft,
+		Properties: []note.Property{
+			{Key: "archived", Type: note.PropertyBoolean, Value: true},
+			{Key: "published", Type: note.PropertyDate, Value: "2024-03-11"},
+			{Key: "rating", Type: note.PropertyNumber, Value: float64(8)},
+			{Key: "source", Type: note.PropertyText, Value: "https://example.com"},
+			{Key: "topics", Type: note.PropertyList, Value: []string{"design", "tools"}},
+		},
+		CreatedAt: time.Date(2026, 7, 1, 12, 0, 0, 0, time.UTC),
+		UpdatedAt: time.Date(2026, 7, 2, 9, 30, 0, 0, time.UTC),
+	}
+
+	md, err := svc.ExportAgentMarkdown(context.Background(), n)
+	if err != nil {
+		t.Fatalf("ExportAgentMarkdown returned unexpected error: %v", err)
+	}
+
+	parts := strings.SplitN(md, "---\n", 3)
+	if len(parts) != 3 {
+		t.Fatalf("expected exactly two --- delimiters, got markdown:\n%s", md)
+	}
+	frontmatter := parts[1]
+
+	rawLines := []string{
+		"archived: true",
+		`published: "2024-03-11"`,
+		"rating: 8",
+		`source: "https://example.com"`,
+		"topics:",
+		`  - "design"`,
+		`  - "tools"`,
+	}
+	for _, want := range rawLines {
+		if !strings.Contains(frontmatter, want) {
+			t.Errorf("expected frontmatter to contain %q, got:\n%s", want, frontmatter)
+		}
+	}
+
+	var doc map[string]any
+	if err := yaml.Unmarshal([]byte(frontmatter), &doc); err != nil {
+		t.Fatalf("frontmatter is not valid YAML: %v\nfrontmatter:\n%s", err, frontmatter)
+	}
+	for _, key := range []string{"archived", "published", "rating", "source", "topics"} {
+		if _, ok := doc[key]; !ok {
+			t.Errorf("expected parsed frontmatter to contain key %q, got: %#v", key, doc)
+		}
+	}
+
+	if !strings.HasSuffix(strings.TrimRight(md, "\n"), "Body with properties") {
+		t.Errorf("expected markdown body to end with note content, got:\n%s", md)
 	}
 }

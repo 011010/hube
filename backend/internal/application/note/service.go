@@ -51,6 +51,28 @@ func (s *Service) Delete(ctx context.Context, id string) error {
 	return s.repo.Delete(ctx, id)
 }
 
+// SetProperties replaces the note's property set. A missing note returns
+// (nil, nil) so the HTTP layer can answer 404 without inventing an error type.
+func (s *Service) SetProperties(ctx context.Context, id string, props []note.Property) ([]note.Property, error) {
+	n, err := s.repo.FindByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if n == nil {
+		return nil, nil
+	}
+	if err := note.ValidateProperties(props); err != nil {
+		return nil, err
+	}
+	if props == nil {
+		props = []note.Property{}
+	}
+	if err := s.repo.SetProperties(ctx, id, props); err != nil {
+		return nil, err
+	}
+	return props, nil
+}
+
 func (s *Service) Graph(ctx context.Context) (*note.Graph, error) {
 	return s.repo.Graph(ctx)
 }
@@ -72,6 +94,23 @@ func (s *Service) ExportAgentMarkdown(_ context.Context, n *note.Note) (string, 
 		}
 	} else {
 		sb.WriteString("tags: []\n")
+	}
+	for _, p := range n.Properties {
+		switch p.Type {
+		case note.PropertyNumber, note.PropertyBoolean:
+			fmt.Fprintf(&sb, "%s: %v\n", p.Key, p.Value)
+		case note.PropertyList:
+			items, ok := note.StringList(p.Value)
+			if !ok {
+				continue
+			}
+			sb.WriteString(p.Key + ":\n")
+			for _, item := range items {
+				fmt.Fprintf(&sb, "  - %s\n", yamlQuote(item))
+			}
+		default:
+			fmt.Fprintf(&sb, "%s: %s\n", p.Key, yamlQuote(fmt.Sprint(p.Value)))
+		}
 	}
 	fmt.Fprintf(&sb, "created_at: %s\n", n.CreatedAt.UTC().Format(time.RFC3339))
 	fmt.Fprintf(&sb, "updated_at: %s\n", n.UpdatedAt.UTC().Format(time.RFC3339))
