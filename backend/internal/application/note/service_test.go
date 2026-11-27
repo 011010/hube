@@ -122,6 +122,38 @@ func TestService_Create_EmptyTitle(t *testing.T) {
 	}
 }
 
+func TestService_Create_EmptyProperties(t *testing.T) {
+	repo := &mockRepo{}
+	svc := NewService(repo)
+
+	n := &note.Note{Title: "Test"}
+	if err := svc.Create(context.Background(), n); err != nil {
+		t.Fatalf("Create returned unexpected error: %v", err)
+	}
+	if n.Properties == nil {
+		t.Fatal("expected non-nil empty properties, got nil")
+	}
+	if len(n.Properties) != 0 {
+		t.Fatalf("expected empty properties, got %+v", n.Properties)
+	}
+}
+
+func TestService_Update_EmptyProperties(t *testing.T) {
+	repo := &mockRepo{}
+	svc := NewService(repo)
+
+	n := &note.Note{ID: "1", Title: "Test"}
+	if err := svc.Update(context.Background(), n); err != nil {
+		t.Fatalf("Update returned unexpected error: %v", err)
+	}
+	if n.Properties == nil {
+		t.Fatal("expected non-nil empty properties, got nil")
+	}
+	if len(n.Properties) != 0 {
+		t.Fatalf("expected empty properties, got %+v", n.Properties)
+	}
+}
+
 func TestService_Update_NormalizesEmptyStatus(t *testing.T) {
 	repo := &mockRepo{}
 	svc := NewService(repo)

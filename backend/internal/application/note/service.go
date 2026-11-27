@@ -36,6 +36,9 @@ func (s *Service) Create(ctx context.Context, n *note.Note) error {
 	if n.Tags == nil {
 		n.Tags = []string{}
 	}
+	if n.Properties == nil {
+		n.Properties = []note.Property{}
+	}
 	return s.repo.Create(ctx, n)
 }
 
@@ -46,6 +49,9 @@ func (s *Service) Update(ctx context.Context, n *note.Note) error {
 	}
 	if n.Tags == nil {
 		n.Tags = []string{}
+	}
+	if n.Properties == nil {
+		n.Properties = []note.Property{}
 	}
 	return s.repo.Update(ctx, n)
 }
