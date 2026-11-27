@@ -2,7 +2,8 @@ import { useState, useRef, type FormEvent } from 'react'
 import { Plus, X } from 'lucide-react'
 import { Modal } from '../atoms/Modal'
 import { Button } from '../atoms/Button'
-import { CommaListInput, FIELD_CLASS } from '../molecules/CommaListInput'
+import { CommaListInput } from '../molecules/CommaListInput'
+import { FIELD_CLASS, LABEL_CLASS } from '../molecules/fieldStyles'
 import type { Folder, NoteStatus, PropertyType } from '../../types'
 import { newViewId, type KnownPropertyKey, type NoteView, type NoteViewCondition, type PropertyOp } from '../../utils/noteViews'
 
@@ -15,8 +16,6 @@ interface NoteViewEditorProps {
   onDelete: (id: string) => void
   onClose: () => void
 }
-
-const LABEL_CLASS = 'text-[11px] font-medium uppercase tracking-wide text-text-muted'
 
 const STATUS_OPTIONS: { value: NoteStatus; label: string }[] = [
   { value: 'draft', label: 'Draft' },

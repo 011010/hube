@@ -14,7 +14,7 @@ import { statusLabel, statusVariant } from '../../utils/note'
 import { EmptyState } from '../../components/molecules/EmptyState'
 import { PageHeader } from '../../components/molecules/PageHeader'
 import { ViewToggle } from '../../components/molecules/ViewToggle'
-import { FIELD_CLASS } from '../../components/molecules/CommaListInput'
+import { FIELD_CLASS, LABEL_CLASS } from '../../components/molecules/fieldStyles'
 import { KanbanBoard } from '../../components/organisms/KanbanBoard'
 import { DataTable } from '../../components/organisms/DataTable'
 import { GraphView } from '../../components/organisms/GraphView'
@@ -546,9 +546,10 @@ export function NotesPage() {
                     />
                   ) : groups ? (
                     <div className="space-y-4">
-                      {groups.map((group) => (
-                        <div key={group.key}>
-                          <div className="pb-2 text-[11px] font-medium uppercase tracking-wide text-text-muted">
+                      {groups.map((group, i) => (
+                        // The index qualifier keeps keys unique: a value literally reading "No value" duplicates the engine's no-value bucket key.
+                        <section key={`${i}-${group.key}`}>
+                          <div className={`pb-2 ${LABEL_CLASS}`}>
                             {group.key} ({group.notes.length})
                           </div>
                           <DataTable
@@ -557,7 +558,7 @@ export function NotesPage() {
                             getRowKey={(note) => note.id}
                             fitContainer={showEditor}
                           />
-                        </div>
+                        </section>
                       ))}
                     </div>
                   ) : (

@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Plus, X } from 'lucide-react'
 import { Button } from '../atoms/Button'
-import { CommaListInput, FIELD_CLASS } from './CommaListInput'
+import { CommaListInput } from './CommaListInput'
+import { FIELD_CLASS, LABEL_CLASS } from './fieldStyles'
 import type { Folder, NoteProperty, NoteStatus, PropertyType } from '../../types'
 
 interface PropertiesPanelProps {
@@ -32,8 +33,6 @@ const PROPERTY_TYPE_OPTIONS: { value: PropertyType; label: string }[] = [
   { value: 'boolean', label: 'Boolean' },
   { value: 'list', label: 'List' },
 ]
-
-const LABEL_CLASS = 'text-[11px] font-medium uppercase tracking-wide text-text-muted'
 
 const KEY_PATTERN = /^[a-z][a-z0-9_-]{0,63}$/
 
