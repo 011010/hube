@@ -205,15 +205,29 @@ func (h *NoteHandler) getProperties(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *NoteHandler) putProperties(w http.ResponseWriter, r *http.Request) {
-	var body struct {
-		Properties []note.Property `json:"properties"`
+	var raw struct {
+		Properties json.RawMessage `json:"properties"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&raw); err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
+	if len(raw.Properties) == 0 {
+		writeError(w, http.StatusBadRequest, errors.New("properties is required"))
+		return
+	}
 
-	props, err := h.svc.SetProperties(r.Context(), chi.URLParam(r, "id"), body.Properties)
+	var parsed *[]note.Property
+	if err := json.Unmarshal(raw.Properties, &parsed); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	if parsed == nil {
+		writeError(w, http.StatusBadRequest, errors.New("properties must be an array"))
+		return
+	}
+
+	props, err := h.svc.SetProperties(r.Context(), chi.URLParam(r, "id"), *parsed)
 	if err != nil {
 		var valErr *note.ValidationError
 		if errors.As(err, &valErr) {
