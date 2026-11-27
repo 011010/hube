@@ -283,6 +283,103 @@ func TestNoteRepo_Properties(t *testing.T) {
 	}
 }
 
+func TestNoteRepo_Properties_ListAndSearch(t *testing.T) {
+	db, err := Open(":memory:")
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	defer db.Close()
+
+	repo := NewNoteRepo(db)
+	ctx := context.Background()
+
+	makeNote := func(title string) *note.Note {
+		n := &note.Note{Title: title, Status: note.StatusDraft}
+		if err := repo.Create(ctx, n); err != nil {
+			t.Fatalf("create %s: %v", title, err)
+		}
+		return n
+	}
+
+	alpha := makeNote("Alpha")
+	beta := makeNote("Beta")
+	makeNote("Gamma")
+
+	alphaProps := []note.Property{
+		{Key: "rating", Type: note.PropertyNumber, Value: float64(8)},
+		{Key: "source", Type: note.PropertyText, Value: "https://example.com"},
+	}
+	if err := repo.SetProperties(ctx, alpha.ID, alphaProps); err != nil {
+		t.Fatalf("set alpha properties: %v", err)
+	}
+	if err := repo.SetProperties(ctx, beta.ID, []note.Property{
+		{Key: "archived", Type: note.PropertyBoolean, Value: true},
+	}); err != nil {
+		t.Fatalf("set beta properties: %v", err)
+	}
+
+	all, err := repo.FindAll(ctx, nil)
+	if err != nil {
+		t.Fatalf("find all: %v", err)
+	}
+	byTitle := make(map[string]note.Note, len(all))
+	for _, n := range all {
+		byTitle[n.Title] = n
+	}
+
+	gotAlpha, ok := byTitle["Alpha"]
+	if !ok {
+		t.Fatalf("alpha missing from FindAll: %+v", all)
+	}
+	if len(gotAlpha.Properties) != 2 || gotAlpha.Properties[0].Key != "rating" || gotAlpha.Properties[1].Key != "source" {
+		t.Fatalf("alpha properties = %+v, want [rating source]", gotAlpha.Properties)
+	}
+
+	gotBeta, ok := byTitle["Beta"]
+	if !ok {
+		t.Fatalf("beta missing from FindAll: %+v", all)
+	}
+	if len(gotBeta.Properties) != 1 || gotBeta.Properties[0].Key != "archived" {
+		t.Fatalf("beta properties = %+v, want [archived]", gotBeta.Properties)
+	}
+
+	gotGamma, ok := byTitle["Gamma"]
+	if !ok {
+		t.Fatalf("gamma missing from FindAll: %+v", all)
+	}
+	if gotGamma.Properties == nil {
+		t.Fatal("gamma properties is nil, want non-nil empty slice")
+	}
+	if len(gotGamma.Properties) != 0 {
+		t.Fatalf("gamma properties = %+v, want empty", gotGamma.Properties)
+	}
+
+	found, err := repo.Search(ctx, "Alpha")
+	if err != nil {
+		t.Fatalf("search alpha: %v", err)
+	}
+	if len(found) != 1 || found[0].Title != "Alpha" {
+		t.Fatalf("search alpha = %+v, want one Alpha note", found)
+	}
+	if len(found[0].Properties) != 2 || found[0].Properties[0].Key != "rating" || found[0].Properties[1].Key != "source" {
+		t.Fatalf("search alpha properties = %+v, want [rating source]", found[0].Properties)
+	}
+
+	found, err = repo.Search(ctx, "Gamma")
+	if err != nil {
+		t.Fatalf("search gamma: %v", err)
+	}
+	if len(found) != 1 || found[0].Title != "Gamma" {
+		t.Fatalf("search gamma = %+v, want one Gamma note", found)
+	}
+	if found[0].Properties == nil {
+		t.Fatal("search gamma properties is nil, want non-nil empty slice")
+	}
+	if len(found[0].Properties) != 0 {
+		t.Fatalf("search gamma properties = %+v, want empty", found[0].Properties)
+	}
+}
+
 func TestNoteRepo_Update_MalformedBlocksReturnsValidationError(t *testing.T) {
 	db, err := Open(":memory:")
 	if err != nil {
