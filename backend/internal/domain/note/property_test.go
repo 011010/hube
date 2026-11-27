@@ -126,6 +126,55 @@ func TestValidateProperties_Limit(t *testing.T) {
 	})
 }
 
+func TestValidateProperties_ReservedKeys(t *testing.T) {
+	for _, key := range []string{"title", "status", "tags", "created_at", "updated_at"} {
+		t.Run(key, func(t *testing.T) {
+			err := ValidateProperties([]Property{
+				{Key: key, Type: PropertyText, Value: "x"},
+			})
+			var valErr *ValidationError
+			if !errors.As(err, &valErr) {
+				t.Fatalf("ValidateProperties() error = %v, want *ValidationError", err)
+			}
+			if valErr.Field != "properties."+key {
+				t.Fatalf("ValidationError.Field = %q, want %q", valErr.Field, "properties."+key)
+			}
+			if valErr.Message != "reserved property key" {
+				t.Fatalf("ValidationError.Message = %q, want %q", valErr.Message, "reserved property key")
+			}
+		})
+	}
+
+	t.Run("uppercase normalization", func(t *testing.T) {
+		err := ValidateProperties([]Property{
+			{Key: " Title ", Type: PropertyText, Value: "x"},
+		})
+		var valErr *ValidationError
+		if !errors.As(err, &valErr) {
+			t.Fatalf("ValidateProperties() error = %v, want *ValidationError", err)
+		}
+		if valErr.Field != "properties.title" {
+			t.Fatalf("ValidationError.Field = %q, want %q", valErr.Field, "properties.title")
+		}
+		if valErr.Message != "reserved property key" {
+			t.Fatalf("ValidationError.Message = %q, want %q", valErr.Message, "reserved property key")
+		}
+	})
+}
+
+func TestIsReservedPropertyKey(t *testing.T) {
+	for _, key := range []string{"title", "status", "tags", "created_at", "updated_at"} {
+		if !IsReservedPropertyKey(key) {
+			t.Errorf("IsReservedPropertyKey(%q) = false, want true", key)
+		}
+	}
+	for _, key := range []string{"rating", "source", "topics", "properties", "Title", ""} {
+		if IsReservedPropertyKey(key) {
+			t.Errorf("IsReservedPropertyKey(%q) = true, want false", key)
+		}
+	}
+}
+
 func TestValidateProperties_Duplicates(t *testing.T) {
 	tests := []struct {
 		name  string

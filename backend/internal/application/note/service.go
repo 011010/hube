@@ -102,6 +102,9 @@ func (s *Service) ExportAgentMarkdown(_ context.Context, n *note.Note) (string, 
 		sb.WriteString("tags: []\n")
 	}
 	for _, p := range n.Properties {
+		if note.IsReservedPropertyKey(p.Key) {
+			return "", fmt.Errorf("export property %q: reserved key", p.Key)
+		}
 		switch p.Type {
 		case note.PropertyNumber, note.PropertyBoolean:
 			fmt.Fprintf(&sb, "%s: %v\n", yamlQuote(p.Key), p.Value)

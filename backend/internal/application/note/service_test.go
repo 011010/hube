@@ -583,3 +583,31 @@ func TestService_ExportAgentMarkdown_InvalidList(t *testing.T) {
 		t.Errorf("expected empty markdown on error, got:\n%s", md)
 	}
 }
+
+func TestService_ExportAgentMarkdown_ReservedKey(t *testing.T) {
+	repo := &mockRepo{}
+	svc := NewService(repo)
+
+	// Built directly, bypassing the write path, to simulate a corrupt or
+	// hand-edited row that still reaches the exporter.
+	n := &note.Note{
+		ID:      "1",
+		Title:   "Reserved Key Note",
+		Content: "body",
+		Status:  note.StatusDraft,
+		Properties: []note.Property{
+			{Key: "title", Type: note.PropertyText, Value: "x"},
+		},
+	}
+
+	md, err := svc.ExportAgentMarkdown(context.Background(), n)
+	if err == nil {
+		t.Fatal("expected an error for a reserved property key")
+	}
+	if !strings.Contains(err.Error(), "reserved key") {
+		t.Errorf("expected error to mention reserved key, got: %v", err)
+	}
+	if md != "" {
+		t.Errorf("expected empty markdown on error, got:\n%s", md)
+	}
+}

@@ -24,6 +24,21 @@ const (
 
 var propertyKeyPattern = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,63}$`)
 
+var reservedPropertyKeys = map[string]struct{}{
+	"title":      {},
+	"status":     {},
+	"tags":       {},
+	"created_at": {},
+	"updated_at": {},
+}
+
+// IsReservedPropertyKey reports whether key collides with a fixed field that
+// ExportAgentMarkdown writes to the same YAML frontmatter.
+func IsReservedPropertyKey(key string) bool {
+	_, ok := reservedPropertyKeys[key]
+	return ok
+}
+
 // Property is a typed key-value pair attached to a note. Value must match
 // Type: a string for text, a finite float64 for number (the shape produced by
 // JSON decoding), a YYYY-MM-DD string for date, a bool for boolean, and a
@@ -136,6 +151,9 @@ func ValidateProperties(props []Property) error {
 	seen := make(map[string]struct{}, len(props))
 	for i := range props {
 		props[i].Normalize()
+		if IsReservedPropertyKey(props[i].Key) {
+			return &ValidationError{Field: "properties." + props[i].Key, Message: "reserved property key"}
+		}
 		if err := props[i].Validate(); err != nil {
 			return err
 		}
