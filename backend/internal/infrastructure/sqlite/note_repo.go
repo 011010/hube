@@ -118,30 +118,38 @@ func decodeProperties(rows []propertyRow) ([]note.Property, error) {
 	return props, nil
 }
 
+const propertiesBatchSize = 500
+
 func (r *NoteRepo) loadPropertiesBatch(ctx context.Context, ids []string) (map[string][]note.Property, error) {
 	out := make(map[string][]note.Property, len(ids))
 	if len(ids) == 0 {
 		return out, nil
 	}
-	query, args, err := sqlx.In(
-		`SELECT note_id,key,type,value FROM note_properties WHERE note_id IN (?) ORDER BY note_id, key`, ids)
-	if err != nil {
-		return nil, err
-	}
-	rows := make([]propertyRow, 0)
-	if err := r.db.SelectContext(ctx, &rows, r.db.Rebind(query), args...); err != nil {
-		return nil, err
-	}
-	grouped := make(map[string][]propertyRow)
-	for _, row := range rows {
-		grouped[row.NoteID] = append(grouped[row.NoteID], row)
-	}
-	for id, group := range grouped {
-		props, err := decodeProperties(group)
+	for start := 0; start < len(ids); start += propertiesBatchSize {
+		end := start + propertiesBatchSize
+		if end > len(ids) {
+			end = len(ids)
+		}
+		query, args, err := sqlx.In(
+			`SELECT note_id,key,type,value FROM note_properties WHERE note_id IN (?) ORDER BY note_id, key`, ids[start:end])
 		if err != nil {
 			return nil, err
 		}
-		out[id] = props
+		rows := make([]propertyRow, 0)
+		if err := r.db.SelectContext(ctx, &rows, r.db.Rebind(query), args...); err != nil {
+			return nil, err
+		}
+		grouped := make(map[string][]propertyRow)
+		for _, row := range rows {
+			grouped[row.NoteID] = append(grouped[row.NoteID], row)
+		}
+		for id, group := range grouped {
+			props, err := decodeProperties(group)
+			if err != nil {
+				return nil, err
+			}
+			out[id] = props
+		}
 	}
 	return out, nil
 }
@@ -155,15 +163,18 @@ func withProperties(n *note.Note, props []note.Property) {
 	n.Properties = props
 }
 
+// SetProperties replaces a note's properties without verifying that the note
+// exists: a non-empty set on a missing note fails via the FK, while an empty
+// set is a no-op. Existence checks belong to the service.
 func (r *NoteRepo) SetProperties(ctx context.Context, noteID string, props []note.Property) error {
 	tx, err := r.db.BeginTxx(ctx, nil)
 	if err != nil {
-		return err
+		return fmt.Errorf("begin properties tx: %w", err)
 	}
 	defer tx.Rollback()
 
 	if _, err := tx.ExecContext(ctx, `DELETE FROM note_properties WHERE note_id = ?`, noteID); err != nil {
-		return err
+		return fmt.Errorf("clear properties: %w", err)
 	}
 	for _, p := range props {
 		encoded, err := json.Marshal(p.Value)
@@ -173,10 +184,13 @@ func (r *NoteRepo) SetProperties(ctx context.Context, noteID string, props []not
 		if _, err := tx.ExecContext(ctx,
 			`INSERT INTO note_properties (note_id,key,type,value) VALUES (?,?,?,?)`,
 			noteID, p.Key, p.Type, string(encoded)); err != nil {
-			return err
+			return fmt.Errorf("insert property %q: %w", p.Key, err)
 		}
 	}
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit properties: %w", err)
+	}
+	return nil
 }
 
 func (r *NoteRepo) toNote(ctx context.Context, row noteRow) (note.Note, error) {
@@ -197,6 +211,24 @@ func (r *NoteRepo) toNote(ctx context.Context, row noteRow) (note.Note, error) {
 	}, nil
 }
 
+func (r *NoteRepo) attachProperties(ctx context.Context, notes []note.Note) error {
+	if len(notes) == 0 {
+		return nil
+	}
+	ids := make([]string, len(notes))
+	for i := range notes {
+		ids[i] = notes[i].ID
+	}
+	propsByNote, err := r.loadPropertiesBatch(ctx, ids)
+	if err != nil {
+		return err
+	}
+	for i := range notes {
+		withProperties(&notes[i], propsByNote[notes[i].ID])
+	}
+	return nil
+}
+
 func (r *NoteRepo) FindAll(ctx context.Context, folderID *string) ([]note.Note, error) {
 	rows := make([]noteRow, 0)
 	var err error
@@ -209,21 +241,15 @@ func (r *NoteRepo) FindAll(ctx context.Context, folderID *string) ([]note.Note, 
 		return nil, err
 	}
 	notes := make([]note.Note, 0, len(rows))
-	ids := make([]string, 0, len(rows))
 	for _, row := range rows {
 		n, err := r.toNote(ctx, row)
 		if err != nil {
 			return nil, err
 		}
 		notes = append(notes, n)
-		ids = append(ids, row.ID)
 	}
-	propsByNote, err := r.loadPropertiesBatch(ctx, ids)
-	if err != nil {
+	if err := r.attachProperties(ctx, notes); err != nil {
 		return nil, err
-	}
-	for i := range notes {
-		withProperties(&notes[i], propsByNote[notes[i].ID])
 	}
 	return notes, nil
 }
@@ -266,21 +292,15 @@ func (r *NoteRepo) Search(ctx context.Context, query string) ([]note.Note, error
 		return []note.Note{}, nil
 	}
 	notes := make([]note.Note, 0, len(rows))
-	ids := make([]string, 0, len(rows))
 	for _, row := range rows {
 		n, err := r.toNote(ctx, row)
 		if err != nil {
 			return nil, err
 		}
 		notes = append(notes, n)
-		ids = append(ids, row.ID)
 	}
-	propsByNote, err := r.loadPropertiesBatch(ctx, ids)
-	if err != nil {
+	if err := r.attachProperties(ctx, notes); err != nil {
 		return nil, err
-	}
-	for i := range notes {
-		withProperties(&notes[i], propsByNote[notes[i].ID])
 	}
 	return notes, nil
 }

@@ -3,6 +3,7 @@ package sqlite
 import (
 	"context"
 	"errors"
+	"reflect"
 	"testing"
 
 	"github.com/husari/hube/internal/domain/note"
@@ -213,6 +214,21 @@ func TestNoteRepo_Create_MalformedBlocksReturnsValidationError(t *testing.T) {
 	}
 }
 
+func assertProperties(t *testing.T, got []note.Property, want []note.Property) {
+	t.Helper()
+	if len(got) != len(want) {
+		t.Fatalf("property count = %d, want %d: %+v", len(got), len(want), got)
+	}
+	for i := range want {
+		if got[i].Key != want[i].Key || got[i].Type != want[i].Type {
+			t.Fatalf("property[%d] = {%s,%s}, want {%s,%s}", i, got[i].Key, got[i].Type, want[i].Key, want[i].Type)
+		}
+		if !reflect.DeepEqual(got[i].Value, want[i].Value) {
+			t.Fatalf("property %q value = %#v, want %#v", want[i].Key, got[i].Value, want[i].Value)
+		}
+	}
+}
+
 func TestNoteRepo_Properties(t *testing.T) {
 	db, err := Open(":memory:")
 	if err != nil {
@@ -229,23 +245,29 @@ func TestNoteRepo_Properties(t *testing.T) {
 	}
 
 	props := []note.Property{
+		{Key: "archived", Type: note.PropertyBoolean, Value: true},
+		{Key: "published", Type: note.PropertyDate, Value: "2024-03-11"},
 		{Key: "rating", Type: note.PropertyNumber, Value: float64(8)},
 		{Key: "source", Type: note.PropertyText, Value: "https://example.com"},
+		{Key: "topics", Type: note.PropertyList, Value: []string{"design", "tools"}},
 	}
 	if err := repo.SetProperties(ctx, n.ID, props); err != nil {
 		t.Fatalf("set properties: %v", err)
+	}
+
+	want := []note.Property{
+		{Key: "archived", Type: note.PropertyBoolean, Value: true},
+		{Key: "published", Type: note.PropertyDate, Value: "2024-03-11"},
+		{Key: "rating", Type: note.PropertyNumber, Value: float64(8)},
+		{Key: "source", Type: note.PropertyText, Value: "https://example.com"},
+		{Key: "topics", Type: note.PropertyList, Value: []any{"design", "tools"}},
 	}
 
 	got, err := repo.FindByID(ctx, n.ID)
 	if err != nil {
 		t.Fatalf("find note: %v", err)
 	}
-	if len(got.Properties) != 2 {
-		t.Fatalf("expected 2 properties, got %d: %+v", len(got.Properties), got.Properties)
-	}
-	if got.Properties[0].Key != "rating" || got.Properties[1].Key != "source" {
-		t.Fatalf("unexpected properties: %+v", got.Properties)
-	}
+	assertProperties(t, got.Properties, want)
 
 	// Replace the whole set.
 	if err := repo.SetProperties(ctx, n.ID, []note.Property{
@@ -253,19 +275,38 @@ func TestNoteRepo_Properties(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("replace properties: %v", err)
 	}
-	got, _ = repo.FindByID(ctx, n.ID)
-	if len(got.Properties) != 1 || got.Properties[0].Key != "archived" {
-		t.Fatalf("expected replaced set, got %+v", got.Properties)
+	got, err = repo.FindByID(ctx, n.ID)
+	if err != nil {
+		t.Fatalf("find note after replace: %v", err)
 	}
+	assertProperties(t, got.Properties, []note.Property{
+		{Key: "archived", Type: note.PropertyBoolean, Value: true},
+	})
+
+	// A failed replace must leave the previous set intact.
+	if err := repo.SetProperties(ctx, n.ID, []note.Property{
+		{Key: "dup", Type: note.PropertyText, Value: "one"},
+		{Key: "dup", Type: note.PropertyText, Value: "two"},
+	}); err == nil {
+		t.Fatal("expected duplicate key insert to fail")
+	}
+	got, err = repo.FindByID(ctx, n.ID)
+	if err != nil {
+		t.Fatalf("find note after failed replace: %v", err)
+	}
+	assertProperties(t, got.Properties, []note.Property{
+		{Key: "archived", Type: note.PropertyBoolean, Value: true},
+	})
 
 	// Clearing works.
 	if err := repo.SetProperties(ctx, n.ID, nil); err != nil {
 		t.Fatalf("clear properties: %v", err)
 	}
-	got, _ = repo.FindByID(ctx, n.ID)
-	if len(got.Properties) != 0 {
-		t.Fatalf("expected empty properties, got %+v", got.Properties)
+	got, err = repo.FindByID(ctx, n.ID)
+	if err != nil {
+		t.Fatalf("find note after clear: %v", err)
 	}
+	assertProperties(t, got.Properties, nil)
 
 	// Cascade on note delete.
 	if err := repo.SetProperties(ctx, n.ID, props); err != nil {
@@ -292,6 +333,17 @@ func TestNoteRepo_Properties_ListAndSearch(t *testing.T) {
 
 	repo := NewNoteRepo(db)
 	ctx := context.Background()
+
+	empty, err := repo.FindAll(ctx, nil)
+	if err != nil {
+		t.Fatalf("find all on empty db: %v", err)
+	}
+	if empty == nil {
+		t.Fatal("find all on empty db returned nil, want non-nil empty slice")
+	}
+	if len(empty) != 0 {
+		t.Fatalf("find all on empty db returned %d notes: %+v", len(empty), empty)
+	}
 
 	makeNote := func(title string) *note.Note {
 		n := &note.Note{Title: title, Status: note.StatusDraft}
@@ -331,17 +383,18 @@ func TestNoteRepo_Properties_ListAndSearch(t *testing.T) {
 	if !ok {
 		t.Fatalf("alpha missing from FindAll: %+v", all)
 	}
-	if len(gotAlpha.Properties) != 2 || gotAlpha.Properties[0].Key != "rating" || gotAlpha.Properties[1].Key != "source" {
-		t.Fatalf("alpha properties = %+v, want [rating source]", gotAlpha.Properties)
-	}
+	assertProperties(t, gotAlpha.Properties, []note.Property{
+		{Key: "rating", Type: note.PropertyNumber, Value: float64(8)},
+		{Key: "source", Type: note.PropertyText, Value: "https://example.com"},
+	})
 
 	gotBeta, ok := byTitle["Beta"]
 	if !ok {
 		t.Fatalf("beta missing from FindAll: %+v", all)
 	}
-	if len(gotBeta.Properties) != 1 || gotBeta.Properties[0].Key != "archived" {
-		t.Fatalf("beta properties = %+v, want [archived]", gotBeta.Properties)
-	}
+	assertProperties(t, gotBeta.Properties, []note.Property{
+		{Key: "archived", Type: note.PropertyBoolean, Value: true},
+	})
 
 	gotGamma, ok := byTitle["Gamma"]
 	if !ok {
@@ -361,9 +414,10 @@ func TestNoteRepo_Properties_ListAndSearch(t *testing.T) {
 	if len(found) != 1 || found[0].Title != "Alpha" {
 		t.Fatalf("search alpha = %+v, want one Alpha note", found)
 	}
-	if len(found[0].Properties) != 2 || found[0].Properties[0].Key != "rating" || found[0].Properties[1].Key != "source" {
-		t.Fatalf("search alpha properties = %+v, want [rating source]", found[0].Properties)
-	}
+	assertProperties(t, found[0].Properties, []note.Property{
+		{Key: "rating", Type: note.PropertyNumber, Value: float64(8)},
+		{Key: "source", Type: note.PropertyText, Value: "https://example.com"},
+	})
 
 	found, err = repo.Search(ctx, "Gamma")
 	if err != nil {
