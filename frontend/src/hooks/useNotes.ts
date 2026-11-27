@@ -17,10 +17,11 @@ const notesCrud = createCrudHooks<Note, NoteInput, NoteUpdate>(
   { itemQueryKey: id => ['note', id] },
 )
 
-export function useNotes(folderID?: string) {
+export function useNotes(folderID?: string, enabled = true) {
   return useQuery<Note[]>({
     queryKey: ['notes', folderID ?? 'all'],
     queryFn: () => http.get('/notes', { params: folderID ? { folder_id: folderID } : {} }).then(r => r.data),
+    enabled,
   })
 }
 

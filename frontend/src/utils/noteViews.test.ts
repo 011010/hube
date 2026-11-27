@@ -3,6 +3,8 @@ import {
   parseNoteViews,
   applyNoteView,
   groupNotes,
+  knownPropertyKeys,
+  newViewId,
   MAX_NOTE_VIEWS,
   NO_VALUE_KEY,
 } from './noteViews'
@@ -683,5 +685,54 @@ describe('groupNotes', () => {
   it('returns [] for empty input', () => {
     expect(groupNotes([], 'status')).toEqual([])
     expect(groupNotes([])).toEqual([])
+  })
+})
+
+describe('newViewId', () => {
+  it('returns distinct values on consecutive calls', () => {
+    expect(newViewId()).not.toBe(newViewId())
+  })
+})
+
+describe('knownPropertyKeys', () => {
+  it('returns [] for empty notes', () => {
+    expect(knownPropertyKeys([])).toEqual([])
+  })
+
+  it('collects every key of a single note with its type', () => {
+    const n = note({
+      properties: [prop('rating', 'number', 5), prop('mood', 'text', 'ok')],
+    })
+    expect(knownPropertyKeys([n])).toEqual([
+      { key: 'mood', type: 'text' },
+      { key: 'rating', type: 'number' },
+    ])
+  })
+
+  it('picks the dominant type per key across notes', () => {
+    const notes = [
+      note({ id: 'a', properties: [prop('mood', 'text', 'ok')] }),
+      note({ id: 'b', properties: [prop('mood', 'text', 'meh')] }),
+      note({ id: 'c', properties: [prop('mood', 'number', 3)] }),
+    ]
+    expect(knownPropertyKeys(notes)).toEqual([{ key: 'mood', type: 'text' }])
+  })
+
+  it('breaks count ties alphabetically by type name, independent of note order', () => {
+    const textFirst = [
+      note({ id: 'a', properties: [prop('mood', 'text', 'ok')] }),
+      note({ id: 'b', properties: [prop('mood', 'number', 3)] }),
+    ]
+    expect(knownPropertyKeys(textFirst)).toEqual([{ key: 'mood', type: 'number' }])
+    expect(knownPropertyKeys([...textFirst].reverse())).toEqual([{ key: 'mood', type: 'number' }])
+  })
+
+  it('sorts keys with the module collator (natural numeric order)', () => {
+    const notes = [
+      note({ id: 'a', properties: [prop('b10', 'number', 1)] }),
+      note({ id: 'b', properties: [prop('b2', 'number', 2)] }),
+      note({ id: 'c', properties: [prop('a9', 'text', 'x')] }),
+    ]
+    expect(knownPropertyKeys(notes).map((k) => k.key)).toEqual(['a9', 'b2', 'b10'])
   })
 })

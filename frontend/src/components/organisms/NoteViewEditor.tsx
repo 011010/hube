@@ -1,17 +1,10 @@
-import { useState, type FormEvent } from 'react'
+import { useState, useRef, type FormEvent } from 'react'
 import { Plus, X } from 'lucide-react'
 import { Modal } from '../atoms/Modal'
 import { Button } from '../atoms/Button'
 import { CommaListInput, FIELD_CLASS } from '../molecules/CommaListInput'
 import type { Folder, NoteStatus, PropertyType } from '../../types'
-import type { NoteView, NoteViewCondition, PropertyOp } from '../../utils/noteViews'
-
-// A property key the loaded notes actually have, with the type the editor
-// should assume for it.
-export interface KnownPropertyKey {
-  key: string
-  type: PropertyType
-}
+import { newViewId, type KnownPropertyKey, type NoteView, type NoteViewCondition, type PropertyOp } from '../../utils/noteViews'
 
 interface NoteViewEditorProps {
   // null while creating a brand-new view.
@@ -84,9 +77,11 @@ function valueKindOf(op: PropertyOp): 'text' | 'number' | 'date' | null {
   return 'text'
 }
 
-// A condition as the form edits it: the value is raw field text, coerced
-// (and validated) only on save, so partial input never lands in storage.
+// A condition as the form edits it: a stable local row id (so React keys
+// survive removals), plus the value as raw field text, coerced (and
+// validated) only on save so partial input never lands in storage.
 interface DraftCondition {
+  id: string
   key: string
   op: PropertyOp
   value: string
@@ -94,6 +89,7 @@ interface DraftCondition {
 
 function draftFrom(condition: NoteViewCondition): DraftCondition {
   return {
+    id: newViewId(),
     key: condition.key,
     op: condition.op,
     value: condition.value === undefined ? '' : String(condition.value),
@@ -117,6 +113,11 @@ export function NoteViewEditor({ view, knownKeys, folders, onSave, onDelete, onC
   const [error, setError] = useState<string | null>(null)
 
   const isNew = view === null
+
+  // A fresh view opens with the default name selected, but only until the
+  // name is edited once; later refocuses must place the caret instead of
+  // wiping what the user typed. False from the start for existing views.
+  const canSelectName = useRef(isNew)
   const typeByKey = new Map(knownKeys.map((known) => [known.key, known.type] as const))
 
   const updateCondition = (index: number, patch: Partial<DraftCondition>) => {
@@ -153,7 +154,7 @@ export function NoteViewEditor({ view, knownKeys, folders, onSave, onDelete, onC
     if (!first) return
     setConditions((current) => [
       ...current,
-      { key: first.key, op: TYPE_OPS[first.type][0], value: '' },
+      { id: newViewId(), key: first.key, op: TYPE_OPS[first.type][0], value: '' },
     ])
   }
 
@@ -188,11 +189,11 @@ export function NoteViewEditor({ view, knownKeys, folders, onSave, onDelete, onC
         continue
       }
       if (condition.value.trim() === '') {
-        setError(`Enter a value for condition ${index + 1}.`)
+        setError(`Enter a value for "${condition.key}".`)
         return
       }
       if (kind === 'number' && !Number.isFinite(Number(condition.value))) {
-        setError(`Condition ${index + 1} needs a number value.`)
+        setError(`The "${condition.key}" condition needs a number value.`)
         return
       }
       properties.push({
@@ -203,7 +204,7 @@ export function NoteViewEditor({ view, knownKeys, folders, onSave, onDelete, onC
     }
     setError(null)
     onSave({
-      id: view?.id ?? crypto.randomUUID(),
+      id: view?.id ?? newViewId(),
       name: trimmedName,
       filters: {
         properties,
@@ -260,11 +261,14 @@ export function NoteViewEditor({ view, knownKeys, folders, onSave, onDelete, onC
             id="note-view-name"
             type="text"
             value={name}
-            onChange={(e) => setName(e.target.value)}
-            // A fresh view opens with the default name selected, so typing
-            // replaces it in a single keystroke.
+            onChange={(e) => {
+              canSelectName.current = false
+              setName(e.target.value)
+            }}
             autoFocus={isNew}
-            onFocus={isNew ? (e) => e.currentTarget.select() : undefined}
+            onFocus={(e) => {
+              if (canSelectName.current) e.currentTarget.select()
+            }}
             className={FIELD_CLASS}
           />
         </div>
@@ -343,7 +347,7 @@ export function NoteViewEditor({ view, knownKeys, folders, onSave, onDelete, onC
           )}
 
           {conditions.map((condition, index) => (
-            <div key={index} className="flex flex-col gap-1.5 rounded-lg border border-border p-2">
+            <div key={condition.id} className="flex flex-col gap-1.5 rounded-lg border border-border p-2">
               <div className="flex items-center gap-1.5">
                 <select
                   aria-label={`Condition ${index + 1} property`}

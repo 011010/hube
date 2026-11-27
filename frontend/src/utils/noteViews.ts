@@ -1,4 +1,4 @@
-import type { Note, NoteProperty, NoteStatus } from '../types'
+import type { Note, NoteProperty, NoteStatus, PropertyType } from '../types'
 
 export type PropertyOp =
   | 'contains' | 'not_contains' | 'equals'
@@ -83,6 +83,12 @@ function generateId(): string {
   }
   fallbackIdCounter += 1
   return `view-${Date.now().toString(36)}-${fallbackIdCounter}`
+}
+
+// crypto.randomUUID throws in non-secure contexts (plain-HTTP LAN hosting),
+// so callers that need a fresh view id must use this guarded generator.
+export function newViewId(): string {
+  return generateId()
 }
 
 function isNoteStatus(value: unknown): value is NoteStatus {
@@ -402,4 +408,31 @@ export function groupNotes(notes: Note[], field?: string): NoteGroup[] {
     .map(b => ({ key: b.key, notes: b.notes }))
   if (noValue.length > 0) groups.push({ key: NO_VALUE_KEY, notes: noValue })
   return groups
+}
+
+export interface KnownPropertyKey {
+  key: string
+  type: PropertyType
+}
+
+// Union of property keys across notes, each typed by its dominant type (the
+// most common type across notes). Count ties break alphabetically by type
+// name, so the result never depends on note order. Keys sort with the module
+// collator (natural numeric order).
+export function knownPropertyKeys(notes: Note[]): KnownPropertyKey[] {
+  const countsByType = new Map<string, Map<PropertyType, number>>()
+  for (const note of notes) {
+    for (const property of note.properties) {
+      const counts = countsByType.get(property.key) ?? new Map<PropertyType, number>()
+      counts.set(property.type, (counts.get(property.type) ?? 0) + 1)
+      countsByType.set(property.key, counts)
+    }
+  }
+  return [...countsByType.entries()]
+    .map(([key, counts]) => ({
+      key,
+      type: [...counts.entries()]
+        .sort((a, b) => b[1] - a[1] || collator.compare(a[0], b[0]))[0][0],
+    }))
+    .sort((a, b) => collator.compare(a.key, b.key))
 }

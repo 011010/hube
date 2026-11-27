@@ -9,7 +9,7 @@ import { useNoteViews, type NoteView } from '../../hooks/useNoteViews'
 import { useViewPreference } from '../../hooks/useViewPreference'
 import { useStatusKanbanMove } from '../../hooks/useStatusKanbanMove'
 import { blocksToText } from '../../utils/blocks'
-import { applyNoteView } from '../../utils/noteViews'
+import { applyNoteView, knownPropertyKeys } from '../../utils/noteViews'
 import { statusLabel, statusVariant } from '../../utils/note'
 import { EmptyState } from '../../components/molecules/EmptyState'
 import { PageHeader } from '../../components/molecules/PageHeader'
@@ -23,7 +23,7 @@ import { NoteViewEditor } from '../../components/organisms/NoteViewEditor'
 import { Button } from '../../components/atoms/Button'
 import { Badge } from '../../components/atoms/Badge'
 import { IconButton } from '../../components/atoms/IconButton'
-import type { Note, NoteStatus, PropertyType } from '../../types'
+import type { Note, NoteStatus } from '../../types'
 
 type MainTab = 'editor' | 'graph'
 
@@ -50,8 +50,23 @@ export function NotesPage() {
   // undefined = editor closed, null = brand-new view, a view = editing it.
   const [editingView, setEditingView] = useState<NoteView | null | undefined>(undefined)
 
+  // Derived on purpose: a deleted view (this tab or another) simply stops
+  // resolving, which falls back to "All notes" everywhere it is used, so no
+  // state-reset effect is needed.
+  const activeView = views.find((v) => v.id === activeViewId) ?? null
+  // The editor modal is open (null = a brand-new view being created).
+  const editing = editingView !== undefined
+
   const { data: folders = [] } = useFolders()
-  const { data: notes = [], isLoading } = useNotes(selectedFolder)
+  // A saved view drives its own scope: all notes, with the view's own folder
+  // filter applied inside applyNoteView. Browsing without a view keeps the
+  // folder tree as the scope, exactly as before.
+  const { data: notes = [], isLoading } = useNotes(activeView ? undefined : selectedFolder)
+  // The editor's key/sort/group lists must cover all notes, not the browsed
+  // folder. Gated so it only fetches while the editor is open on a new view;
+  // dedupes with `notes` whenever a view is active (same ['notes','all'] key).
+  const { data: allNotes = [] } = useNotes(undefined, editing && !activeView)
+  const knownNotes = activeView ? notes : editing ? allNotes : notes
   const { data: searchResults } = useSearchNotes(semanticMode ? '' : search)
   const { data: semanticResults } = useSemanticSearch(semanticMode ? search : '')
   const createNote = useCreateNote()
@@ -75,29 +90,9 @@ export function NotesPage() {
     }
   }, [selectedNoteId, resetUpdateNote, resetSetProperties])
 
-  // Derived on purpose: a deleted view (this tab or another) simply stops
-  // resolving, which falls back to "All notes" everywhere it is used, so no
-  // state-reset effect is needed.
-  const activeView = views.find((v) => v.id === activeViewId) ?? null
-
-  // Property keys across all loaded notes, each typed by its most common
-  // type — the op list in the view editor follows this type.
-  const knownKeys = useMemo(() => {
-    const countsByType = new Map<string, Map<PropertyType, number>>()
-    for (const note of notes) {
-      for (const property of note.properties) {
-        const counts = countsByType.get(property.key) ?? new Map<PropertyType, number>()
-        counts.set(property.type, (counts.get(property.type) ?? 0) + 1)
-        countsByType.set(property.key, counts)
-      }
-    }
-    return [...countsByType.entries()]
-      .map(([key, counts]) => ({
-        key,
-        type: [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0],
-      }))
-      .sort((a, b) => a.key.localeCompare(b.key))
-  }, [notes])
+  // Property keys over the notes the editor can see (see knownNotes above);
+  // the op list in the view editor follows each key's dominant type.
+  const knownKeys = useMemo(() => knownPropertyKeys(knownNotes), [knownNotes])
 
   const displayNotes = useMemo(() => {
     const base = search.length > 1
@@ -105,8 +100,9 @@ export function NotesPage() {
         ? (semanticResults ?? []).map((r) => r.note)
         : (searchResults ?? [])
       : notes
-    // The saved view's filters and sort apply on top of the current folder or
-    // search list; "All notes" (null) leaves that list untouched.
+    // With a view active, `notes` is already the full library and the view's
+    // own filters and sort (including its folder filter) apply here; without
+    // one, the folder or search list passes through untouched.
     return applyNoteView(base, activeView)
   }, [search, semanticMode, semanticResults, searchResults, notes, activeView])
 
@@ -347,6 +343,7 @@ export function NotesPage() {
           onClick={() => {
             setSelectedFolder(undefined)
             setSearch('')
+            setActiveViewId(null)
             setPanelOpen(false)
           }}
           className={`text-left px-3 py-2 text-sm transition-colors ${
@@ -388,6 +385,7 @@ export function NotesPage() {
                 onClick={() => {
                   setSelectedFolder(f.id)
                   setSearch('')
+                  setActiveViewId(null)
                   setPanelOpen(false)
                 }}
                 className={`flex-1 text-left px-3 py-1.5 text-sm transition-colors flex items-center gap-2 ${
