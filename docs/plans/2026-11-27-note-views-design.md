@@ -94,7 +94,7 @@ Text comparison is `localeCompare`; numbers and dates compare numerically.
 
 ## Frontend Components
 
-- A view selector in the Notes page header: "Todas las notas" plus each saved
+- A view selector in the Notes page header: "All notes" plus each saved
   view, using a native `<select>` consistent with the rest of the app.
 - A view editor in the existing `atoms/Modal`: name, status chips, tags,
   folder, property condition rows (type-aware inputs reusing the
@@ -122,9 +122,9 @@ Text comparison is `localeCompare`; numbers and dates compare numerically.
 2. Group by a text property; sections render per value, list values appear in
    every matching section, unset notes land in "No value".
 3. A malformed `notes_views` JSON in settings does not break the page; the
-   selector falls back to "Todas las notas".
-4. Deleting a view removes it from the selector; switching to "Todas las
-   notas" restores the full list.
+   selector falls back to "All notes".
+4. Deleting a view removes it from the selector; switching to "All notes"
+   restores the full list.
 
 ## Follow-Ups
 

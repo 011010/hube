@@ -9,7 +9,7 @@ import { useNoteViews, type NoteView } from '../../hooks/useNoteViews'
 import { useViewPreference } from '../../hooks/useViewPreference'
 import { useStatusKanbanMove } from '../../hooks/useStatusKanbanMove'
 import { blocksToText } from '../../utils/blocks'
-import { applyNoteView, groupNotes, knownPropertyKeys } from '../../utils/noteViews'
+import { applyNoteView, groupNotes, knownPropertyKeys, MAX_NOTE_VIEWS } from '../../utils/noteViews'
 import { statusLabel, statusVariant } from '../../utils/note'
 import { EmptyState } from '../../components/molecules/EmptyState'
 import { PageHeader } from '../../components/molecules/PageHeader'
@@ -45,7 +45,7 @@ export function NotesPage() {
   const [view, setView] = useViewPreference('notes_view')
   const [mainTab, setMainTab] = useState<MainTab>('editor')
   const [panelOpen, setPanelOpen] = useState(false)
-  const { views, saveView, deleteView } = useNoteViews()
+  const { views, saveView, deleteView, saveError: viewSaveError } = useNoteViews()
   const [activeViewId, setActiveViewId] = useState<string | null>(null)
   // undefined = editor closed, null = brand-new view, a view = editing it.
   const [editingView, setEditingView] = useState<NoteView | null | undefined>(undefined)
@@ -465,9 +465,16 @@ export function NotesPage() {
                     size="sm"
                     icon={<Plus size={14} />}
                     onClick={() => setEditingView(null)}
+                    disabled={views.length >= MAX_NOTE_VIEWS}
+                    title={views.length >= MAX_NOTE_VIEWS ? `Saved views are limited to ${MAX_NOTE_VIEWS}` : undefined}
                   >
                     New view
                   </Button>
+                  {viewSaveError && (
+                    <p role="alert" className="text-xs text-red-400">
+                      {noteSaveError(viewSaveError)}
+                    </p>
+                  )}
                 </div>
               )}
               <div role="group" aria-label="Notes main view" className="flex items-center bg-surface-elevated border border-border rounded-lg p-0.5">

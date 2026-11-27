@@ -25,7 +25,7 @@ function readLatestViews(queryClient: QueryClient): { latest: Settings; current:
 
 export function useNoteViews() {
   const { data } = useSettings()
-  const { mutate } = useUpdateSettings()
+  const { mutate, isPending, error } = useUpdateSettings()
   const queryClient = useQueryClient()
 
   const views = useMemo(() => parseNoteViews(data?.general.notes_views), [data?.general.notes_views])
@@ -63,5 +63,7 @@ export function useNoteViews() {
     writeViews(latestViews.latest, next)
   }, [queryClient, writeViews])
 
-  return { views, saveView, deleteView }
+  // Surfaced so a failed view save is not silent; the error clears by itself
+  // when the next save starts (react-query resets the mutation on mutate).
+  return { views, saveView, deleteView, saving: isPending, saveError: error }
 }
