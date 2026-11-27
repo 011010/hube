@@ -3,6 +3,7 @@ package sqlite
 import (
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -431,6 +432,66 @@ func TestNoteRepo_Properties_ListAndSearch(t *testing.T) {
 	}
 	if len(found[0].Properties) != 0 {
 		t.Fatalf("search gamma properties = %+v, want empty", found[0].Properties)
+	}
+}
+
+func TestNoteRepo_Properties_BatchChunks(t *testing.T) {
+	db, err := Open(":memory:")
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	defer db.Close()
+
+	repo := NewNoteRepo(db)
+	ctx := context.Background()
+
+	const noteCount = 501
+	wantIdx := make(map[string]int, noteCount)
+	for i := 0; i < noteCount; i++ {
+		title := fmt.Sprintf("Chunk %03d", i)
+		n := &note.Note{Title: title, Status: note.StatusDraft}
+		if err := repo.Create(ctx, n); err != nil {
+			t.Fatalf("create %s: %v", title, err)
+		}
+		if err := repo.SetProperties(ctx, n.ID, []note.Property{
+			{Key: "idx", Type: note.PropertyNumber, Value: float64(i)},
+		}); err != nil {
+			t.Fatalf("set properties for %s: %v", title, err)
+		}
+		wantIdx[title] = i
+	}
+
+	notes, err := repo.FindAll(ctx, nil)
+	if err != nil {
+		t.Fatalf("find all: %v", err)
+	}
+	if len(notes) != noteCount {
+		t.Fatalf("find all returned %d notes, want %d", len(notes), noteCount)
+	}
+
+	seen := make(map[string]bool, noteCount)
+	for _, n := range notes {
+		want, ok := wantIdx[n.Title]
+		if !ok {
+			t.Fatalf("unexpected note title %q", n.Title)
+		}
+		seen[n.Title] = true
+		if len(n.Properties) != 1 || n.Properties[0].Key != "idx" {
+			t.Fatalf("note %q properties = %+v, want single idx property", n.Title, n.Properties)
+		}
+		if n.Properties[0].Type != note.PropertyNumber {
+			t.Fatalf("note %q idx type = %q, want %q", n.Title, n.Properties[0].Type, note.PropertyNumber)
+		}
+		got, ok := n.Properties[0].Value.(float64)
+		if !ok {
+			t.Fatalf("note %q idx value = %#v, want float64", n.Title, n.Properties[0].Value)
+		}
+		if got != float64(want) {
+			t.Fatalf("note %q idx = %v, want %d (cross-note leakage)", n.Title, got, want)
+		}
+	}
+	if len(seen) != noteCount {
+		t.Fatalf("find all returned %d distinct notes, want %d", len(seen), noteCount)
 	}
 }
 
