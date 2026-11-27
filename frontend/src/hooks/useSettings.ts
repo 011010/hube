@@ -4,6 +4,7 @@ import { http } from '../services/api'
 export interface GeneralSettings {
   display_name: string
   view_preferences?: string
+  notes_views?: string
 }
 
 export interface IntegrationSettings {
