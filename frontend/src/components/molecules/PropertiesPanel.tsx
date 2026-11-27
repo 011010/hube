@@ -148,8 +148,9 @@ function NumberInput({
   return (
     <input
       id={id}
-      type="number"
-      step="any"
+      type="text"
+      inputMode="decimal"
+      autoComplete="off"
       value={text}
       aria-label={label}
       onFocus={() => {
@@ -209,7 +210,7 @@ export function PropertiesPanel({
   }
 
   const renderValueInput = (property: NoteProperty) => {
-    const inputID = `note-property-${property.key}`
+    const inputID = `note-property-value-${property.key}`
     const ariaLabel = `Value for property ${property.key}`
 
     switch (property.type) {
@@ -343,7 +344,7 @@ export function PropertiesPanel({
         </span>
 
         {properties.map((property) => {
-          const inputID = `note-property-${property.key}`
+          const inputID = `note-property-value-${property.key}`
           return (
             <div key={property.key} className="flex items-end gap-1.5">
               <div className="flex flex-col gap-1 flex-1 min-w-0">
@@ -372,11 +373,11 @@ export function PropertiesPanel({
 
         <form onSubmit={handleAdd} className="flex flex-wrap items-end gap-2">
           <div className="flex flex-col gap-1 flex-1 min-w-30">
-            <label htmlFor="note-property-key" className={LABEL_CLASS}>
+            <label htmlFor="note-new-property-key" className={LABEL_CLASS}>
               Key
             </label>
             <input
-              id="note-property-key"
+              id="note-new-property-key"
               type="text"
               value={newKey}
               onChange={(e) => {
@@ -392,11 +393,11 @@ export function PropertiesPanel({
           </div>
 
           <div className="flex flex-col gap-1 w-28 shrink-0">
-            <label htmlFor="note-property-type" className={LABEL_CLASS}>
+            <label htmlFor="note-new-property-type" className={LABEL_CLASS}>
               Type
             </label>
             <select
-              id="note-property-type"
+              id="note-new-property-type"
               value={newType}
               onChange={(e) => setNewType(e.target.value as PropertyType)}
               aria-label="New property type"
