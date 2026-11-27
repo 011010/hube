@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { Plus, Trash2, Folder, Sparkles, Search, X, FileText, Network, PanelLeft } from 'lucide-react'
 import {
   useNotes, useNote, useCreateNote, useUpdateNote, useDeleteNote,
@@ -54,6 +54,18 @@ export function NotesPage() {
   const deleteFolder = useDeleteFolder()
   const saveError = noteSaveError(setProperties.error) ?? noteSaveError(updateNote.error)
   const saving = updateNote.isPending || setProperties.isPending
+
+  const resetUpdateNote = updateNote.reset
+  const resetSetProperties = setProperties.reset
+
+  // A new selection starts clean; closing the panel (null) keeps a failed
+  // unmount flush visible in the page-level alert.
+  useEffect(() => {
+    if (selectedNoteId) {
+      resetUpdateNote()
+      resetSetProperties()
+    }
+  }, [selectedNoteId, resetUpdateNote, resetSetProperties])
 
   const displayNotes = useMemo(() => {
     if (search.length > 1) {
@@ -396,6 +408,12 @@ export function NotesPage() {
             </div>
           }
         />
+
+        {saveError && (
+          <p role="alert" className="text-xs text-red-400 pb-2">
+            {saveError}
+          </p>
+        )}
 
         {/* List on the left, selected note on the right */}
         <div className="flex-1 flex min-h-0 gap-6">

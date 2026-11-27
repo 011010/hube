@@ -183,12 +183,6 @@ export function NoteEditorPanel({
         />
       </div>
 
-      {saveError && (
-        <p role="alert" className="text-xs text-red-400 pb-2">
-          {saveError}
-        </p>
-      )}
-
       <div className="flex-1 min-h-0 flex flex-col pt-3 gap-3">
         <div className="shrink-0">
           <PropertiesPanel
