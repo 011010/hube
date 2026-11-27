@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Plus, X } from 'lucide-react'
 import { Button } from '../atoms/Button'
@@ -42,12 +42,18 @@ const KEY_PATTERN = /^[a-z][a-z0-9_-]{0,63}$/
 // These collide with frontmatter fields the backend owns.
 const RESERVED_KEYS = new Set(['title', 'status', 'tags', 'created_at', 'updated_at'])
 
+function todayLocal(): string {
+  const now = new Date()
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
+}
+
 function defaultValueFor(type: PropertyType): NoteProperty['value'] {
   switch (type) {
     case 'number':
       return 0
     case 'date':
-      return new Date().toISOString().slice(0, 10)
+      return todayLocal()
     case 'boolean':
       return false
     case 'list':
@@ -68,6 +74,54 @@ function validateNewKey(rawKey: string, properties: NoteProperty[]): string | nu
     return `"${key}" already exists.`
   }
   return null
+}
+
+function ListInput({
+  id,
+  value,
+  onChange,
+  label,
+}: {
+  id: string
+  value: string[]
+  onChange: (items: string[]) => void
+  label: string
+}) {
+  const [text, setText] = useState(value.join(', '))
+  const editing = useRef(false)
+
+  // Resync only when the field is not being edited, so the parent's parsed
+  // value does not rewrite the text mid-keystroke.
+  useEffect(() => {
+    if (!editing.current) setText(value.join(', '))
+  }, [value])
+
+  return (
+    <input
+      id={id}
+      type="text"
+      value={text}
+      aria-label={label}
+      onFocus={() => {
+        editing.current = true
+      }}
+      onBlur={() => {
+        editing.current = false
+        setText(value.join(', '))
+      }}
+      onChange={(e) => {
+        setText(e.target.value)
+        onChange(
+          e.target.value
+            .split(',')
+            .map((item) => item.trim())
+            .filter(Boolean),
+        )
+      }}
+      placeholder="Comma-separated"
+      className={FIELD_CLASS}
+    />
+  )
 }
 
 export function PropertiesPanel({
@@ -135,7 +189,14 @@ export function PropertiesPanel({
             id={inputID}
             type="date"
             value={typeof property.value === 'string' ? property.value : ''}
-            onChange={(e) => setValue(property.key, e.target.value)}
+            onChange={(e) =>
+              setValue(
+                property.key,
+                e.target.value === ''
+                  ? (typeof property.value === 'string' ? property.value : '')
+                  : e.target.value,
+              )
+            }
             aria-label={ariaLabel}
             className={FIELD_CLASS}
           />
@@ -155,22 +216,11 @@ export function PropertiesPanel({
         )
       case 'list':
         return (
-          <input
+          <ListInput
             id={inputID}
-            type="text"
-            value={Array.isArray(property.value) ? property.value.join(', ') : ''}
-            onChange={(e) =>
-              setValue(
-                property.key,
-                e.target.value
-                  .split(',')
-                  .map((item) => item.trim())
-                  .filter(Boolean),
-              )
-            }
-            placeholder="one, two, three"
-            aria-label={ariaLabel}
-            className={FIELD_CLASS}
+            value={Array.isArray(property.value) ? property.value : []}
+            onChange={(items) => setValue(property.key, items)}
+            label={ariaLabel}
           />
         )
       case 'text':
