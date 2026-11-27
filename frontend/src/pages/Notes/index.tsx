@@ -1,25 +1,29 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
-import { Plus, Trash2, Folder, Sparkles, Search, X, FileText, Network, PanelLeft } from 'lucide-react'
+import { Plus, Trash2, Folder, Sparkles, Search, X, FileText, Network, PanelLeft, Settings2 } from 'lucide-react'
 import {
   useNotes, useNote, useCreateNote, useUpdateNote, useDeleteNote,
   useFolders, useCreateFolder, useDeleteFolder, useSearchNotes, useSemanticSearch,
   useSetNoteProperties,
 } from '../../hooks/useNotes'
+import { useNoteViews, type NoteView } from '../../hooks/useNoteViews'
 import { useViewPreference } from '../../hooks/useViewPreference'
 import { useStatusKanbanMove } from '../../hooks/useStatusKanbanMove'
 import { blocksToText } from '../../utils/blocks'
+import { applyNoteView } from '../../utils/noteViews'
 import { statusLabel, statusVariant } from '../../utils/note'
 import { EmptyState } from '../../components/molecules/EmptyState'
 import { PageHeader } from '../../components/molecules/PageHeader'
 import { ViewToggle } from '../../components/molecules/ViewToggle'
+import { FIELD_CLASS } from '../../components/molecules/CommaListInput'
 import { KanbanBoard } from '../../components/organisms/KanbanBoard'
 import { DataTable } from '../../components/organisms/DataTable'
 import { GraphView } from '../../components/organisms/GraphView'
 import { NoteEditorPanel } from '../../components/organisms/NoteEditorPanel'
+import { NoteViewEditor } from '../../components/organisms/NoteViewEditor'
 import { Button } from '../../components/atoms/Button'
 import { Badge } from '../../components/atoms/Badge'
 import { IconButton } from '../../components/atoms/IconButton'
-import type { Note, NoteStatus } from '../../types'
+import type { Note, NoteStatus, PropertyType } from '../../types'
 
 type MainTab = 'editor' | 'graph'
 
@@ -41,6 +45,10 @@ export function NotesPage() {
   const [view, setView] = useViewPreference('notes_view')
   const [mainTab, setMainTab] = useState<MainTab>('editor')
   const [panelOpen, setPanelOpen] = useState(false)
+  const { views, saveView, deleteView } = useNoteViews()
+  const [activeViewId, setActiveViewId] = useState<string | null>(null)
+  // undefined = editor closed, null = brand-new view, a view = editing it.
+  const [editingView, setEditingView] = useState<NoteView | null | undefined>(undefined)
 
   const { data: folders = [] } = useFolders()
   const { data: notes = [], isLoading } = useNotes(selectedFolder)
@@ -67,14 +75,40 @@ export function NotesPage() {
     }
   }, [selectedNoteId, resetUpdateNote, resetSetProperties])
 
+  // Derived on purpose: a deleted view (this tab or another) simply stops
+  // resolving, which falls back to "All notes" everywhere it is used, so no
+  // state-reset effect is needed.
+  const activeView = views.find((v) => v.id === activeViewId) ?? null
+
+  // Property keys across all loaded notes, each typed by its most common
+  // type — the op list in the view editor follows this type.
+  const knownKeys = useMemo(() => {
+    const countsByType = new Map<string, Map<PropertyType, number>>()
+    for (const note of notes) {
+      for (const property of note.properties) {
+        const counts = countsByType.get(property.key) ?? new Map<PropertyType, number>()
+        counts.set(property.type, (counts.get(property.type) ?? 0) + 1)
+        countsByType.set(property.key, counts)
+      }
+    }
+    return [...countsByType.entries()]
+      .map(([key, counts]) => ({
+        key,
+        type: [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0],
+      }))
+      .sort((a, b) => a.key.localeCompare(b.key))
+  }, [notes])
+
   const displayNotes = useMemo(() => {
-    if (search.length > 1) {
-      return semanticMode
+    const base = search.length > 1
+      ? semanticMode
         ? (semanticResults ?? []).map((r) => r.note)
         : (searchResults ?? [])
-    }
-    return notes
-  }, [search, semanticMode, semanticResults, searchResults, notes])
+      : notes
+    // The saved view's filters and sort apply on top of the current folder or
+    // search list; "All notes" (null) leaves that list untouched.
+    return applyNoteView(base, activeView)
+  }, [search, semanticMode, semanticResults, searchResults, notes, activeView])
 
   // Prefer the list entry so edits render without waiting for a refetch, and
   // fall back to a direct fetch for notes outside the current list (active
@@ -247,6 +281,14 @@ export function NotesPage() {
   }, [handleDelete, selectedNoteId, showEditor])
 
   const folderLabel = selectedFolder ? folders.find((f) => f.id === selectedFolder)?.name : 'All notes'
+  const headerTitle = search
+    ? `Results for "${search}"`
+    : activeView
+      ? activeView.name
+      : folderLabel ?? 'All notes'
+  // A saved view owns its layout (kanban groups by status); the manual toggle
+  // only decides while browsing "All notes".
+  const layout = activeView ? activeView.layout : view
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -372,7 +414,7 @@ export function NotesPage() {
       {/* Main area */}
       <main className="flex-1 flex flex-col min-w-0 bg-surface-base p-6 overflow-hidden">
         <PageHeader
-          title={search ? `Results for "${search}"` : folderLabel ?? 'All notes'}
+          title={headerTitle}
           description={`${displayNotes.length} note${displayNotes.length === 1 ? '' : 's'}`}
           actions={
             <div className="flex items-center gap-2">
@@ -383,6 +425,42 @@ export function NotesPage() {
                 className="md:hidden"
                 onClick={() => setPanelOpen((v) => !v)}
               />
+              {mainTab === 'editor' && (
+                <div role="group" aria-label="Saved views" className="flex items-center gap-1.5">
+                  <div className="w-40 shrink-0">
+                    <select
+                      aria-label="Saved view"
+                      value={activeView?.id ?? ''}
+                      onChange={(e) => setActiveViewId(e.target.value || null)}
+                      className={FIELD_CLASS}
+                    >
+                      <option value="">All notes</option>
+                      {views.map((v) => (
+                        <option key={v.id} value={v.id}>
+                          {v.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {activeView && (
+                    <IconButton
+                      icon={<Settings2 size={16} />}
+                      aria-label="Edit view"
+                      variant="ghost"
+                      onClick={() => setEditingView(activeView)}
+                    />
+                  )}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    icon={<Plus size={14} />}
+                    onClick={() => setEditingView(null)}
+                  >
+                    New view
+                  </Button>
+                </div>
+              )}
               <div role="group" aria-label="Notes main view" className="flex items-center bg-surface-elevated border border-border rounded-lg p-0.5">
                 <IconButton
                   icon={<FileText size={16} />}
@@ -399,7 +477,7 @@ export function NotesPage() {
                   onClick={() => setMainTab('graph')}
                 />
               </div>
-              {mainTab === 'editor' && <ViewToggle value={view} onChange={setView} />}
+              {mainTab === 'editor' && !activeView && <ViewToggle value={view} onChange={setView} />}
               {mainTab === 'editor' && (
                 <Button type="button" onClick={handleNewNote} icon={<Plus size={16} />}>
                   New note
@@ -431,8 +509,14 @@ export function NotesPage() {
                 {!isLoading && displayNotes.length === 0 && (
                   <EmptyState
                     icon={<FileText size={44} />}
-                    title={search ? 'No results' : 'No notes yet'}
-                    description={search ? 'Try a different search term.' : 'Create a note to get started.'}
+                    title={search ? 'No results' : activeView ? 'No notes match this view' : 'No notes yet'}
+                    description={
+                      search
+                        ? 'Try a different search term.'
+                        : activeView
+                          ? 'Adjust the view filters to see more notes.'
+                          : 'Create a note to get started.'
+                    }
                     action={
                       !search ? (
                         <Button type="button" onClick={handleNewNote} icon={<Plus size={16} />}>
@@ -444,7 +528,7 @@ export function NotesPage() {
                 )}
 
                 {!isLoading && displayNotes.length > 0 &&
-                  (view === 'kanban' ? (
+                  (layout === 'kanban' ? (
                     <KanbanBoard
                       columns={columns}
                       getItemId={(note) => note.id}
@@ -482,6 +566,24 @@ export function NotesPage() {
           )}
         </div>
       </main>
+
+      {editingView !== undefined && (
+        <NoteViewEditor
+          view={editingView}
+          knownKeys={knownKeys}
+          folders={folders}
+          onSave={(next) => {
+            saveView(next)
+            // Creating or editing a view makes it the active one.
+            setActiveViewId(next.id)
+          }}
+          onDelete={(id) => {
+            deleteView(id)
+            if (activeViewId === id) setActiveViewId(null)
+          }}
+          onClose={() => setEditingView(undefined)}
+        />
+      )}
     </div>
   )
 }
