@@ -235,8 +235,9 @@ above where they differ.
 
 ### Export
 
-- Property keys are quoted in the YAML frontmatter, and every scalar uses
-  `strconv.Quote`, so newlines and control characters round-trip losslessly.
+- Property keys and string scalars are quoted with `strconv.Quote`, so newlines
+  and control characters round-trip losslessly. Finite numbers and booleans are
+  emitted unquoted.
 - Empty lists emit `key: []`.
 - A reserved key or a non-list value for a list property makes the export fail
   instead of emitting invalid YAML.
@@ -264,4 +265,3 @@ above where they differ.
 - Corrupt property rows from manual database edits make reads and exports fail
   instead of being skipped.
 - The frontend logic has no component tests; backend coverage is the contract.
-
