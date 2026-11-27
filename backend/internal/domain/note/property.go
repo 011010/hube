@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 const (
@@ -45,7 +46,7 @@ func (p *Property) Validate() error {
 		if !ok {
 			return typeError(p.Key, PropertyText)
 		}
-		if len(s) > maxTextLength {
+		if utf8.RuneCountInString(s) > maxTextLength {
 			return &ValidationError{Field: "properties." + p.Key, Message: "value is too long"}
 		}
 	case PropertyNumber:
@@ -73,7 +74,7 @@ func (p *Property) Validate() error {
 			return &ValidationError{Field: "properties." + p.Key, Message: "too many list items"}
 		}
 		for _, item := range items {
-			if len(item) > maxListItemLength {
+			if utf8.RuneCountInString(item) > maxListItemLength {
 				return &ValidationError{Field: "properties." + p.Key, Message: "list item is too long"}
 			}
 		}

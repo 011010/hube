@@ -2,15 +2,17 @@ package note
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 )
 
 func TestValidateProperty(t *testing.T) {
 	tests := []struct {
-		name    string
-		prop    Property
-		wantKey string
-		wantErr bool
+		name     string
+		prop     Property
+		wantKey  string
+		wantType string
+		wantErr  bool
 	}{
 		{name: "text ok", prop: Property{Key: "author", Type: PropertyText, Value: "Kepano"}},
 		{name: "number ok", prop: Property{Key: "rating", Type: PropertyNumber, Value: float64(8)}},
@@ -27,6 +29,12 @@ func TestValidateProperty(t *testing.T) {
 		{name: "bad date", prop: Property{Key: "published", Type: PropertyDate, Value: "11/03/2024"}, wantErr: true},
 		{name: "boolean as string", prop: Property{Key: "archived", Type: PropertyBoolean, Value: "true"}, wantErr: true},
 		{name: "list with non-string", prop: Property{Key: "topics", Type: PropertyList, Value: []any{"a", float64(2)}}, wantErr: true},
+		{name: "text with wrong type", prop: Property{Key: "author", Type: PropertyText, Value: float64(1)}, wantErr: true},
+		{name: "text over limit", prop: Property{Key: "author", Type: PropertyText, Value: strings.Repeat("a", 10_001)}, wantErr: true},
+		{name: "text under limit with multibyte", prop: Property{Key: "author", Type: PropertyText, Value: strings.Repeat("é", 5_001)}},
+		{name: "list over item limit", prop: Property{Key: "topics", Type: PropertyList, Value: repeatList(101, "x")}, wantErr: true},
+		{name: "list item too long", prop: Property{Key: "topics", Type: PropertyList, Value: repeatList(1, strings.Repeat("a", 501))}, wantErr: true},
+		{name: "normalizes type", prop: Property{Key: "rating", Type: " Number ", Value: float64(1)}, wantType: "number"},
 	}
 
 	for _, tt := range tests {
@@ -38,8 +46,19 @@ func TestValidateProperty(t *testing.T) {
 			if tt.wantKey != "" && tt.prop.Key != tt.wantKey {
 				t.Fatalf("key = %q, want %q", tt.prop.Key, tt.wantKey)
 			}
+			if tt.wantType != "" && tt.prop.Type != tt.wantType {
+				t.Fatalf("type = %q, want %q", tt.prop.Type, tt.wantType)
+			}
 		})
 	}
+}
+
+func repeatList(n int, value string) []any {
+	items := make([]any, n)
+	for i := range items {
+		items[i] = value
+	}
+	return items
 }
 
 func TestValidateNotePropertiesLimit(t *testing.T) {
