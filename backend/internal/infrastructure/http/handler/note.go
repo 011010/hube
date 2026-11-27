@@ -30,7 +30,9 @@ func (h *NoteHandler) Routes() func(chi.Router) {
 		r.Post("/", h.create)
 		r.Get("/{id}", h.get)
 		r.Get("/{id}/export", h.exportAgent)
+		r.Get("/{id}/properties", h.getProperties)
 		r.Put("/{id}", h.update)
+		r.Put("/{id}/properties", h.putProperties)
 		r.Delete("/{id}", h.delete)
 	}
 }
@@ -157,11 +159,19 @@ func (h *NoteHandler) update(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, nil)
 		return
 	}
+	// Properties are managed by PUT /notes/{id}/properties, not by this
+	// endpoint. Preserve the stored set so decoding the body cannot echo
+	// unpersisted values back to the client. Clear the field first: the JSON
+	// decoder reuses an existing slice's backing array in place, which would
+	// otherwise mutate storedProps too.
+	storedProps := existing.Properties
+	existing.Properties = nil
 	if err := json.NewDecoder(r.Body).Decode(existing); err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
 	existing.ID = id
+	existing.Properties = storedProps
 	if err := h.svc.Update(r.Context(), existing); err != nil {
 		var valErr *note.ValidationError
 		if errors.As(err, &valErr) {
@@ -175,6 +185,49 @@ func (h *NoteHandler) update(w http.ResponseWriter, r *http.Request) {
 		go h.rag.IndexNote(context.WithoutCancel(r.Context()), existing)
 	}
 	writeJSON(w, http.StatusOK, existing)
+}
+
+func (h *NoteHandler) getProperties(w http.ResponseWriter, r *http.Request) {
+	n, err := h.svc.Get(r.Context(), chi.URLParam(r, "id"))
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	if n == nil {
+		writeError(w, http.StatusNotFound, nil)
+		return
+	}
+	props := n.Properties
+	if props == nil {
+		props = []note.Property{}
+	}
+	writeJSON(w, http.StatusOK, props)
+}
+
+func (h *NoteHandler) putProperties(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Properties []note.Property `json:"properties"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	props, err := h.svc.SetProperties(r.Context(), chi.URLParam(r, "id"), body.Properties)
+	if err != nil {
+		var valErr *note.ValidationError
+		if errors.As(err, &valErr) {
+			writeError(w, http.StatusBadRequest, valErr)
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	if props == nil {
+		writeError(w, http.StatusNotFound, nil)
+		return
+	}
+	writeJSON(w, http.StatusOK, props)
 }
 
 func (h *NoteHandler) delete(w http.ResponseWriter, r *http.Request) {
