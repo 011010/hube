@@ -81,6 +81,14 @@ export interface FinanceSummary {
 
 export type NoteStatus = 'draft' | 'in_progress' | 'published'
 
+export type PropertyType = 'text' | 'number' | 'date' | 'boolean' | 'list'
+
+export interface NoteProperty {
+  key: string
+  type: PropertyType
+  value: string | number | boolean | string[]
+}
+
 export interface Note {
   id: string
   title: string
@@ -89,6 +97,7 @@ export interface Note {
   status: NoteStatus
   folder_id: string | null
   tags: string[]
+  properties: NoteProperty[]
   created_at: string
   updated_at: string
 }

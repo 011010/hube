@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { http } from '../services/api'
 import { createCrudHooks } from './createCrudHooks'
-import type { Note, Folder } from '../types'
+import type { Note, Folder, NoteProperty } from '../types'
 
 export type NoteInput = Partial<Omit<Note, 'id' | 'created_at' | 'updated_at'>>
 export type NoteUpdate = Partial<Note>
@@ -58,6 +58,18 @@ export function useSemanticSearch(query: string) {
 export const useCreateNote = notesCrud.useCreate
 export const useUpdateNote = notesCrud.useUpdate
 export const useDeleteNote = notesCrud.useDelete
+
+export function useSetNoteProperties() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, properties }: { id: string; properties: NoteProperty[] }) =>
+      http.put<NoteProperty[]>(`/notes/${id}/properties`, { properties }).then(r => r.data),
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: ['note', variables.id] })
+      qc.invalidateQueries({ queryKey: ['notes'] })
+    },
+  })
+}
 
 export type GraphNodeType = 'note' | 'task' | 'project'
 export type GraphEdgeType = 'link' | 'task' | 'project'

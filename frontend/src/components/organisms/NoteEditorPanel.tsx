@@ -4,7 +4,7 @@ import { PropertiesPanel } from '../molecules/PropertiesPanel'
 import { BlockEditor } from './BlockEditor'
 import { IconButton } from '../atoms/IconButton'
 import { textToBlocks } from '../../utils/blocks'
-import type { Folder, Note, NoteStatus } from '../../types'
+import type { Folder, Note, NoteProperty, NoteStatus } from '../../types'
 import type { NoteInput } from '../../hooks/useNotes'
 
 const AUTOSAVE_DELAY_MS = 800
@@ -15,6 +15,12 @@ interface NoteDraft {
   status: NoteStatus
   tags: string[]
   folder_id: string | null
+  properties: NoteProperty[]
+}
+
+export interface NoteSavePayload {
+  data: NoteInput
+  properties: NoteProperty[]
 }
 
 function toDraft(note: Note): NoteDraft {
@@ -27,13 +33,14 @@ function toDraft(note: Note): NoteDraft {
     status: note.status,
     tags: note.tags,
     folder_id: note.folder_id,
+    properties: note.properties ?? [],
   }
 }
 
 interface NoteEditorPanelProps {
   note: Note
   folders: Folder[]
-  onSave: (data: NoteInput) => void
+  onSave: (payload: NoteSavePayload) => void
   onDelete: () => void
   onClose: () => void
 }
@@ -43,7 +50,7 @@ export function NoteEditorPanel({ note, folders, onSave, onDelete, onClose }: No
   const [dirty, setDirty] = useState(false)
   const loadedNoteId = useRef(note.id)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const pending = useRef<NoteInput | null>(null)
+  const pending = useRef<NoteSavePayload | null>(null)
   // Kept in a ref so the unmount cleanup can flush without re-subscribing.
   const onSaveRef = useRef(onSave)
   useEffect(() => {
@@ -86,11 +93,14 @@ export function NoteEditorPanel({ note, folders, onSave, onDelete, onClose }: No
     setDraft(next)
     setDirty(true)
     pending.current = {
-      title: next.title.trim() || 'Untitled',
-      blocks: next.blocks,
-      status: next.status,
-      tags: next.tags,
-      folder_id: next.folder_id,
+      data: {
+        title: next.title.trim() || 'Untitled',
+        blocks: next.blocks,
+        status: next.status,
+        tags: next.tags,
+        folder_id: next.folder_id,
+      },
+      properties: next.properties,
     }
     if (saveTimer.current) clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(() => {
@@ -158,6 +168,8 @@ export function NoteEditorPanel({ note, folders, onSave, onDelete, onClose }: No
                 ...(patch.folderId !== undefined && { folder_id: patch.folderId }),
               })
             }
+            properties={draft.properties}
+            onPropertiesChange={(properties) => update({ properties })}
           />
         </div>
 

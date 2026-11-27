@@ -3,6 +3,7 @@ import { Plus, Trash2, Folder, Sparkles, Search, X, FileText, Network, PanelLeft
 import {
   useNotes, useNote, useCreateNote, useUpdateNote, useDeleteNote,
   useFolders, useCreateFolder, useDeleteFolder, useSearchNotes, useSemanticSearch,
+  useSetNoteProperties,
 } from '../../hooks/useNotes'
 import { useViewPreference } from '../../hooks/useViewPreference'
 import { useStatusKanbanMove } from '../../hooks/useStatusKanbanMove'
@@ -42,6 +43,7 @@ export function NotesPage() {
   const createNote = useCreateNote()
   const updateNote = useUpdateNote()
   const deleteNote = useDeleteNote()
+  const setProperties = useSetNoteProperties()
   const createFolder = useCreateFolder()
   const deleteFolder = useDeleteFolder()
 
@@ -441,7 +443,10 @@ export function NotesPage() {
                 key={selectedNote.id}
                 note={selectedNote}
                 folders={folders}
-                onSave={(data) => updateNote.mutate({ id: selectedNote.id, data })}
+                onSave={(payload) => {
+                  updateNote.mutate({ id: selectedNote.id, data: payload.data })
+                  setProperties.mutate({ id: selectedNote.id, properties: payload.properties })
+                }}
                 onDelete={() => handleDelete(selectedNote.id)}
                 onClose={() => setSelectedNoteId(null)}
               />
