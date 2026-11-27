@@ -1,7 +1,7 @@
 # Note Properties Design
 
 Date: 2026-11-27
-Status: Approved
+Status: Implemented on `feat/note-properties`
 
 ## Overview
 
@@ -190,3 +190,78 @@ Types exposed in the UI: text, number, date, boolean, list.
 2. Clip endpoint that writes `source`, `author`, `published`, and `domain`.
 3. Backlinks panel and `[[` autocomplete.
 4. JSON Canvas import/export for the existing diagram feature.
+
+## Implementation Notes (final)
+
+These decisions were made during implementation and supersede the sections
+above where they differ.
+
+### API contract
+
+- `PUT /notes/{id}/properties` requires an explicit JSON array. `[]` clears the
+  set; `{}` and `{"properties":null}` return `400`. This prevents a client typo
+  from silently wiping metadata.
+- `POST /notes` rejects a non-empty `properties` array with `400`; properties
+  are written only through the properties endpoint.
+- `PUT /notes/{id}` ignores `properties` in the body and returns the stored set.
+  It never persists or echoes a property payload.
+- Every note response includes `properties`, always as `[]` rather than `null`.
+
+### Validation
+
+- Keys are trimmed and lowercased, then checked against
+  `^[a-z][a-z0-9_-]{0,63}$`; duplicates are detected after normalization.
+- Reserved keys `title`, `status`, `tags`, `created_at`, and `updated_at` are
+  rejected because they collide with the fixed YAML frontmatter keys.
+- Limits: 50 properties per note, 10,000 runes of text, 100 list items of 500
+  runes each. Number values must be finite `float64`; NaN and ±Inf are rejected.
+- `Property.Validate` has a value receiver. `ValidateProperties` normalizes the
+  caller's slice in place and then validates it.
+
+### Persistence
+
+- The migration file is `013_note_properties_table.sql`; the earlier `009` only
+  adds fixed note columns.
+- Reads use a separate `propertyRow` and decode each JSON value into `any`.
+- `FindAll` and `Search` batch-load properties in chunks of 500 note IDs, one
+  query per chunk.
+- `SetProperties` runs in a transaction: touch `notes.updated_at`, delete the
+  old set, insert the new one. A missing note returns `sql.ErrNoRows`, which the
+  service maps to the same `(nil, nil)` 404 contract. A mid-insert failure rolls
+  back the delete and preserves the previous set.
+- An upgrade test applies migrations 001–012, inserts a note, then runs 013 and
+  asserts that the note survives with an empty property set and that re-running
+  the migrator is a no-op.
+
+### Export
+
+- Property keys are quoted in the YAML frontmatter, and every scalar uses
+  `strconv.Quote`, so newlines and control characters round-trip losslessly.
+- Empty lists emit `key: []`.
+- A reserved key or a non-list value for a list property makes the export fail
+  instead of emitting invalid YAML.
+
+### Frontend
+
+- `PropertiesPanel` keeps status, folder, and tags as first-class controls and
+  adds a typed property editor below them.
+- Comma-separated list and tag inputs keep a local text buffer so commas can be
+  typed; the value is parsed on each keystroke and normalized on blur.
+- The number input uses a text buffer with `inputMode="decimal"` so negative and
+  decimal values can be typed.
+- Autosave writes only the resource that changed: `data` for note fields,
+  `properties` for the property set.
+- Save failures appear in a page-level alert and in the editor indicator; the
+  draft is not discarded.
+
+### Known limitations
+
+- Bulk replace is last-writer-wins; there is no ETag or version check.
+- A failed autosave is surfaced but not retried automatically; the draft keeps
+  the unsaved values until the panel is closed.
+- A stored list item containing a comma cannot be edited faithfully in the
+  comma-separated input.
+- Corrupt property rows from manual database edits make reads and exports fail
+  instead of being skipped.
+- The frontend logic has no component tests; backend coverage is the contract.
+
