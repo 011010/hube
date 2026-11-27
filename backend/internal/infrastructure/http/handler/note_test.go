@@ -68,6 +68,31 @@ func TestNote_Create_Validation_DefaultsApplied(t *testing.T) {
 	assert.Equal(t, "draft", created["status"])
 }
 
+func TestNote_Create_RejectsProperties(t *testing.T) {
+	srv := newTestServer(t)
+	base := srv.URL + "/api/v1/notes"
+
+	resp := mustPost(t, base, `{"title":"Props","properties":[{"key":"rating","type":"number","value":8}]}`)
+	defer resp.Body.Close()
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+
+	var errBody map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&errBody); err != nil {
+		t.Fatalf("decode error body: %v", err)
+	}
+	errMsg, _ := errBody["error"].(string)
+	assert.Contains(t, errMsg, "/notes/{id}/properties")
+
+	resp = mustPost(t, base, `{"title":"No Props"}`)
+	assert.Equal(t, http.StatusCreated, resp.StatusCode)
+	var created map[string]any
+	mustDecode(t, resp, &created)
+	props, ok := created["properties"].([]any)
+	assert.True(t, ok, "expected properties array in create response, got %#v", created["properties"])
+	assert.NotNil(t, props)
+	assert.Empty(t, props)
+}
+
 func TestNote_Update_Validation(t *testing.T) {
 	srv := newTestServer(t)
 	base := srv.URL + "/api/v1/notes"

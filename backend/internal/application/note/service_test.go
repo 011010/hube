@@ -122,6 +122,32 @@ func TestService_Create_EmptyTitle(t *testing.T) {
 	}
 }
 
+func TestService_Create_RejectsProperties(t *testing.T) {
+	repo := &mockRepo{}
+	svc := NewService(repo)
+
+	n := &note.Note{
+		Title: "Test",
+		Properties: []note.Property{
+			{Key: "rating", Type: note.PropertyNumber, Value: float64(8)},
+		},
+	}
+	err := svc.Create(context.Background(), n)
+	if err == nil {
+		t.Fatal("Create expected error for non-empty properties")
+	}
+	var valErr *note.ValidationError
+	if !errors.As(err, &valErr) {
+		t.Fatalf("error type = %T, want *note.ValidationError", err)
+	}
+	if valErr.Field != "properties" {
+		t.Errorf("ValidationError.Field = %q, want %q", valErr.Field, "properties")
+	}
+	if repo.created != nil {
+		t.Error("Create should not persist a note with properties")
+	}
+}
+
 func TestService_Create_EmptyProperties(t *testing.T) {
 	repo := &mockRepo{}
 	svc := NewService(repo)

@@ -29,6 +29,14 @@ func (s *Service) Search(ctx context.Context, query string) ([]note.Note, error)
 }
 
 func (s *Service) Create(ctx context.Context, n *note.Note) error {
+	// Properties are persisted only by SetProperties; accepting them here would
+	// echo values the create path never stores.
+	if len(n.Properties) > 0 {
+		return &note.ValidationError{
+			Field:   "properties",
+			Message: "properties must be set via PUT /notes/{id}/properties",
+		}
+	}
 	n.Normalize()
 	if err := n.Validate(); err != nil {
 		return err
