@@ -16,6 +16,15 @@ func noteColumnCount(t *testing.T, db *sqlx.DB, col string) int {
 	return count
 }
 
+func tableColumnCount(t *testing.T, db *sqlx.DB, table, col string) int {
+	t.Helper()
+	var count int
+	if err := db.Get(&count, `SELECT COUNT(*) FROM pragma_table_info(?) WHERE name = ?`, table, col); err != nil {
+		t.Fatalf("check column %s.%s: %v", table, col, err)
+	}
+	return count
+}
+
 func TestMigrations_NoteProperties(t *testing.T) {
 	db, err := Open(":memory:")
 	if err != nil {
@@ -149,8 +158,14 @@ func TestMigrations_NotePropertiesTable(t *testing.T) {
 	if err := db.Get(&count, `SELECT COUNT(*) FROM pragma_table_info('note_properties')`); err != nil {
 		t.Fatalf("inspect note_properties: %v", err)
 	}
-	if count < 4 {
-		t.Fatalf("expected note_properties columns, got %d", count)
+	if count != 4 {
+		t.Fatalf("expected 4 note_properties columns, got %d", count)
+	}
+
+	for _, col := range []string{"note_id", "key", "type", "value"} {
+		if got := tableColumnCount(t, db, "note_properties", col); got != 1 {
+			t.Fatalf("expected column note_properties.%s, got count %d", col, got)
+		}
 	}
 
 	var index int
@@ -159,5 +174,28 @@ func TestMigrations_NotePropertiesTable(t *testing.T) {
 	}
 	if index != 1 {
 		t.Fatalf("expected idx_note_properties_key, got %d", index)
+	}
+
+	var pk int
+	if err := db.Get(&pk, `SELECT pk FROM pragma_table_info('note_properties') WHERE name = 'key'`); err != nil {
+		t.Fatalf("inspect primary key: %v", err)
+	}
+	if pk != 2 {
+		t.Fatalf("expected key to be second PK column, got ordinal %d", pk)
+	}
+
+	var onDelete string
+	if err := db.Get(&onDelete, `SELECT "on_delete" FROM pragma_foreign_key_list('note_properties') WHERE "from" = 'note_id'`); err != nil {
+		t.Fatalf("inspect foreign key: %v", err)
+	}
+	if onDelete != "CASCADE" {
+		t.Fatalf("note_id on_delete = %q, want CASCADE", onDelete)
+	}
+
+	if _, err := db.Exec(`INSERT INTO notes (id) VALUES ('np-test')`); err != nil {
+		t.Fatalf("insert note: %v", err)
+	}
+	if _, err := db.Exec(`INSERT INTO note_properties (note_id, key, type, value) VALUES ('np-test', 'x', 'widget', '1')`); err == nil {
+		t.Fatal("expected CHECK constraint to reject unknown property type")
 	}
 }

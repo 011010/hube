@@ -1,3 +1,5 @@
+-- Generic typed metadata per note. 009_note_properties only added fixed
+-- note columns; this is the key/value store. value holds JSON.
 CREATE TABLE note_properties (
   note_id TEXT NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
   key     TEXT NOT NULL,
