@@ -137,3 +137,27 @@ func TestMigrations_DropsNoteTaskFieldsFromExistingDB(t *testing.T) {
 		t.Errorf("title = %q, want %q", title, "Keep Me")
 	}
 }
+
+func TestMigrations_NotePropertiesTable(t *testing.T) {
+	db, err := Open(":memory:")
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	defer db.Close()
+
+	var count int
+	if err := db.Get(&count, `SELECT COUNT(*) FROM pragma_table_info('note_properties')`); err != nil {
+		t.Fatalf("inspect note_properties: %v", err)
+	}
+	if count < 4 {
+		t.Fatalf("expected note_properties columns, got %d", count)
+	}
+
+	var index int
+	if err := db.Get(&index, `SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='idx_note_properties_key'`); err != nil {
+		t.Fatalf("inspect index: %v", err)
+	}
+	if index != 1 {
+		t.Fatalf("expected idx_note_properties_key, got %d", index)
+	}
+}

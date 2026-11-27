@@ -44,6 +44,9 @@ var taskProjectNoteIDSQL string
 //go:embed migrations/012_note_drop_task_fields.sql
 var noteDropTaskFieldsSQL string
 
+//go:embed migrations/013_note_properties_table.sql
+var notePropertiesTableSQL string
+
 type migration struct {
 	name string
 	sql  string
@@ -62,6 +65,7 @@ var migrations = []migration{
 	{"010_note_links", noteLinksSQL},
 	{"011_task_project_note_id", taskProjectNoteIDSQL},
 	{"012_note_drop_task_fields", noteDropTaskFieldsSQL},
+	{"013_note_properties_table", notePropertiesTableSQL},
 }
 
 // RunMigrations applies all pending migrations to the provided database.
