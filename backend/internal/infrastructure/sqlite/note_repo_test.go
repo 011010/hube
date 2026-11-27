@@ -2,10 +2,12 @@ package sqlite
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/husari/hube/internal/domain/note"
 )
@@ -322,6 +324,60 @@ func TestNoteRepo_Properties(t *testing.T) {
 	}
 	if count != 0 {
 		t.Fatalf("expected cascade delete, got %d rows", count)
+	}
+}
+
+func TestNoteRepo_Properties_TouchesNote(t *testing.T) {
+	db, err := Open(":memory:")
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	defer db.Close()
+
+	repo := NewNoteRepo(db)
+	ctx := context.Background()
+
+	n := &note.Note{Title: "Touch Note", Status: note.StatusDraft}
+	if err := repo.Create(ctx, n); err != nil {
+		t.Fatalf("create note: %v", err)
+	}
+
+	if _, err := db.ExecContext(ctx,
+		`UPDATE notes SET updated_at = '2000-01-01 00:00:00' WHERE id = ?`, n.ID); err != nil {
+		t.Fatalf("force old updated_at: %v", err)
+	}
+
+	if err := repo.SetProperties(ctx, n.ID, []note.Property{
+		{Key: "rating", Type: note.PropertyNumber, Value: float64(1)},
+	}); err != nil {
+		t.Fatalf("set properties: %v", err)
+	}
+
+	got, err := repo.FindByID(ctx, n.ID)
+	if err != nil {
+		t.Fatalf("find note: %v", err)
+	}
+	if !got.UpdatedAt.After(time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)) {
+		t.Fatalf("UpdatedAt = %v, want after 2000-01-01T00:00:00Z", got.UpdatedAt)
+	}
+}
+
+func TestNoteRepo_Properties_MissingNote(t *testing.T) {
+	db, err := Open(":memory:")
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	defer db.Close()
+
+	repo := NewNoteRepo(db)
+	ctx := context.Background()
+
+	err = repo.SetProperties(ctx, "missing", nil)
+	if err == nil {
+		t.Fatal("expected an error for a missing note")
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		t.Fatalf("expected error to wrap sql.ErrNoRows, got: %v", err)
 	}
 }
 

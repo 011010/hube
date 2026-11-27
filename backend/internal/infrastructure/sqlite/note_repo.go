@@ -163,15 +163,27 @@ func withProperties(n *note.Note, props []note.Property) {
 	n.Properties = props
 }
 
-// SetProperties replaces a note's properties without verifying that the note
-// exists: a non-empty set on a missing note fails via the FK, while an empty
-// set is a no-op. Existence checks belong to the service.
+// SetProperties replaces a note's properties and bumps the note's updated_at
+// in the same transaction. A missing note yields an error wrapping
+// sql.ErrNoRows, so a caller that raced with a delete can answer 404.
 func (r *NoteRepo) SetProperties(ctx context.Context, noteID string, props []note.Property) error {
 	tx, err := r.db.BeginTxx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin properties tx: %w", err)
 	}
 	defer tx.Rollback()
+
+	res, err := tx.ExecContext(ctx, `UPDATE notes SET updated_at = ? WHERE id = ?`, time.Now(), noteID)
+	if err != nil {
+		return fmt.Errorf("touch note: %w", err)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("touch note rows: %w", err)
+	}
+	if affected == 0 {
+		return fmt.Errorf("set properties: %w", sql.ErrNoRows)
+	}
 
 	if _, err := tx.ExecContext(ctx, `DELETE FROM note_properties WHERE note_id = ?`, noteID); err != nil {
 		return fmt.Errorf("clear properties: %w", err)

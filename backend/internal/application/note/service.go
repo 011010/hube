@@ -2,7 +2,10 @@ package note
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -68,6 +71,9 @@ func (s *Service) SetProperties(ctx context.Context, id string, props []note.Pro
 		props = []note.Property{}
 	}
 	if err := s.repo.SetProperties(ctx, id, props); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
 		return nil, err
 	}
 	return props, nil
@@ -98,18 +104,22 @@ func (s *Service) ExportAgentMarkdown(_ context.Context, n *note.Note) (string, 
 	for _, p := range n.Properties {
 		switch p.Type {
 		case note.PropertyNumber, note.PropertyBoolean:
-			fmt.Fprintf(&sb, "%s: %v\n", p.Key, p.Value)
+			fmt.Fprintf(&sb, "%s: %v\n", yamlQuote(p.Key), p.Value)
 		case note.PropertyList:
 			items, ok := note.StringList(p.Value)
 			if !ok {
+				return "", fmt.Errorf("export property %q: value is not a string list (%T)", p.Key, p.Value)
+			}
+			if len(items) == 0 {
+				fmt.Fprintf(&sb, "%s: []\n", yamlQuote(p.Key))
 				continue
 			}
-			sb.WriteString(p.Key + ":\n")
+			fmt.Fprintf(&sb, "%s:\n", yamlQuote(p.Key))
 			for _, item := range items {
 				fmt.Fprintf(&sb, "  - %s\n", yamlQuote(item))
 			}
 		default:
-			fmt.Fprintf(&sb, "%s: %s\n", p.Key, yamlQuote(fmt.Sprint(p.Value)))
+			fmt.Fprintf(&sb, "%s: %s\n", yamlQuote(p.Key), yamlQuote(fmt.Sprint(p.Value)))
 		}
 	}
 	fmt.Fprintf(&sb, "created_at: %s\n", n.CreatedAt.UTC().Format(time.RFC3339))
@@ -121,10 +131,9 @@ func (s *Service) ExportAgentMarkdown(_ context.Context, n *note.Note) (string, 
 	return sb.String(), nil
 }
 
-// yamlQuote wraps a scalar in double quotes and escapes embedded quotes/backslashes
-// so it is safe to emit as a YAML string value regardless of its contents.
+// yamlQuote renders s as a YAML double-quoted scalar. strconv.Quote escapes
+// quotes, backslashes, newlines, and control characters using the same escape
+// sequences YAML double-quoted scalars accept, so the value round-trips exactly.
 func yamlQuote(s string) string {
-	escaped := strings.ReplaceAll(s, `\`, `\\`)
-	escaped = strings.ReplaceAll(escaped, `"`, `\"`)
-	return `"` + escaped + `"`
+	return strconv.Quote(s)
 }
