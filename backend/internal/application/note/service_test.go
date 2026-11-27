@@ -46,6 +46,10 @@ func (m *mockRepo) SetTags(ctx context.Context, noteID string, tags []string) er
 	return nil
 }
 
+func (m *mockRepo) SetProperties(ctx context.Context, noteID string, props []note.Property) error {
+	return nil
+}
+
 func (m *mockRepo) FindAllLinks(ctx context.Context) ([]note.Link, error) {
 	return nil, nil
 }

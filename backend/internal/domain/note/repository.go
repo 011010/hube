@@ -10,6 +10,7 @@ type Repository interface {
 	Update(ctx context.Context, n *Note) error
 	Delete(ctx context.Context, id string) error
 	SetTags(ctx context.Context, noteID string, tags []string) error
+	SetProperties(ctx context.Context, noteID string, props []Property) error
 	FindAllLinks(ctx context.Context) ([]Link, error)
 	Graph(ctx context.Context) (*Graph, error)
 }

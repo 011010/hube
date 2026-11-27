@@ -213,6 +213,76 @@ func TestNoteRepo_Create_MalformedBlocksReturnsValidationError(t *testing.T) {
 	}
 }
 
+func TestNoteRepo_Properties(t *testing.T) {
+	db, err := Open(":memory:")
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	defer db.Close()
+
+	repo := NewNoteRepo(db)
+	ctx := context.Background()
+
+	n := &note.Note{Title: "Property Note", Status: note.StatusDraft}
+	if err := repo.Create(ctx, n); err != nil {
+		t.Fatalf("create note: %v", err)
+	}
+
+	props := []note.Property{
+		{Key: "rating", Type: note.PropertyNumber, Value: float64(8)},
+		{Key: "source", Type: note.PropertyText, Value: "https://example.com"},
+	}
+	if err := repo.SetProperties(ctx, n.ID, props); err != nil {
+		t.Fatalf("set properties: %v", err)
+	}
+
+	got, err := repo.FindByID(ctx, n.ID)
+	if err != nil {
+		t.Fatalf("find note: %v", err)
+	}
+	if len(got.Properties) != 2 {
+		t.Fatalf("expected 2 properties, got %d: %+v", len(got.Properties), got.Properties)
+	}
+	if got.Properties[0].Key != "rating" || got.Properties[1].Key != "source" {
+		t.Fatalf("unexpected properties: %+v", got.Properties)
+	}
+
+	// Replace the whole set.
+	if err := repo.SetProperties(ctx, n.ID, []note.Property{
+		{Key: "archived", Type: note.PropertyBoolean, Value: true},
+	}); err != nil {
+		t.Fatalf("replace properties: %v", err)
+	}
+	got, _ = repo.FindByID(ctx, n.ID)
+	if len(got.Properties) != 1 || got.Properties[0].Key != "archived" {
+		t.Fatalf("expected replaced set, got %+v", got.Properties)
+	}
+
+	// Clearing works.
+	if err := repo.SetProperties(ctx, n.ID, nil); err != nil {
+		t.Fatalf("clear properties: %v", err)
+	}
+	got, _ = repo.FindByID(ctx, n.ID)
+	if len(got.Properties) != 0 {
+		t.Fatalf("expected empty properties, got %+v", got.Properties)
+	}
+
+	// Cascade on note delete.
+	if err := repo.SetProperties(ctx, n.ID, props); err != nil {
+		t.Fatalf("set before delete: %v", err)
+	}
+	if err := repo.Delete(ctx, n.ID); err != nil {
+		t.Fatalf("delete note: %v", err)
+	}
+	var count int
+	if err := db.Get(&count, `SELECT COUNT(*) FROM note_properties WHERE note_id = ?`, n.ID); err != nil {
+		t.Fatalf("count after delete: %v", err)
+	}
+	if count != 0 {
+		t.Fatalf("expected cascade delete, got %d rows", count)
+	}
+}
+
 func TestNoteRepo_Update_MalformedBlocksReturnsValidationError(t *testing.T) {
 	db, err := Open(":memory:")
 	if err != nil {
