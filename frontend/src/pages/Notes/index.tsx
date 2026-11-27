@@ -25,6 +25,12 @@ type MainTab = 'editor' | 'graph'
 
 const VALID_STATUSES: NoteStatus[] = ['draft', 'in_progress', 'published']
 
+function noteSaveError(err: unknown): string | null {
+  if (!err) return null
+  const e = err as { response?: { data?: { error?: string } }; message?: string }
+  return e.response?.data?.error ?? e.message ?? 'Save failed'
+}
+
 export function NotesPage() {
   const [selectedFolder, setSelectedFolder] = useState<string | undefined>(undefined)
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null)
@@ -46,6 +52,8 @@ export function NotesPage() {
   const setProperties = useSetNoteProperties()
   const createFolder = useCreateFolder()
   const deleteFolder = useDeleteFolder()
+  const saveError = noteSaveError(setProperties.error) ?? noteSaveError(updateNote.error)
+  const saving = updateNote.isPending || setProperties.isPending
 
   const displayNotes = useMemo(() => {
     if (search.length > 1) {
@@ -443,9 +451,11 @@ export function NotesPage() {
                 key={selectedNote.id}
                 note={selectedNote}
                 folders={folders}
+                saving={saving}
+                saveError={saveError}
                 onSave={(payload) => {
-                  updateNote.mutate({ id: selectedNote.id, data: payload.data })
-                  setProperties.mutate({ id: selectedNote.id, properties: payload.properties })
+                  if (payload.data) updateNote.mutate({ id: selectedNote.id, data: payload.data })
+                  if (payload.properties) setProperties.mutate({ id: selectedNote.id, properties: payload.properties })
                 }}
                 onDelete={() => handleDelete(selectedNote.id)}
                 onClose={() => setSelectedNoteId(null)}

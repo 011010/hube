@@ -76,16 +76,18 @@ function validateNewKey(rawKey: string, properties: NoteProperty[]): string | nu
   return null
 }
 
-function ListInput({
+function CommaListInput({
   id,
   value,
   onChange,
   label,
+  placeholder,
 }: {
   id: string
   value: string[]
   onChange: (items: string[]) => void
   label: string
+  placeholder: string
 }) {
   const [text, setText] = useState(value.join(', '))
   const editing = useRef(false)
@@ -118,7 +120,50 @@ function ListInput({
             .filter(Boolean),
         )
       }}
-      placeholder="Comma-separated"
+      placeholder={placeholder}
+      className={FIELD_CLASS}
+    />
+  )
+}
+
+function NumberInput({
+  id,
+  value,
+  onChange,
+  label,
+}: {
+  id: string
+  value: number
+  onChange: (value: number) => void
+  label: string
+}) {
+  const [text, setText] = useState(String(value))
+  const editing = useRef(false)
+
+  // Keep partial input (for example "-") in the field while the user types.
+  useEffect(() => {
+    if (!editing.current) setText(String(value))
+  }, [value])
+
+  return (
+    <input
+      id={id}
+      type="number"
+      step="any"
+      value={text}
+      aria-label={label}
+      onFocus={() => {
+        editing.current = true
+      }}
+      onBlur={() => {
+        editing.current = false
+        setText(String(value))
+      }}
+      onChange={(e) => {
+        const raw = e.target.value
+        setText(raw)
+        if (raw !== '' && Number.isFinite(Number(raw))) onChange(Number(raw))
+      }}
       className={FIELD_CLASS}
     />
   )
@@ -170,17 +215,11 @@ export function PropertiesPanel({
     switch (property.type) {
       case 'number':
         return (
-          <input
+          <NumberInput
             id={inputID}
-            type="number"
-            step="any"
             value={typeof property.value === 'number' ? property.value : 0}
-            onChange={(e) => {
-              const parsed = e.target.value === '' ? 0 : Number(e.target.value)
-              setValue(property.key, Number.isNaN(parsed) ? 0 : parsed)
-            }}
-            aria-label={ariaLabel}
-            className={FIELD_CLASS}
+            onChange={(value) => setValue(property.key, value)}
+            label={ariaLabel}
           />
         )
       case 'date':
@@ -216,11 +255,12 @@ export function PropertiesPanel({
         )
       case 'list':
         return (
-          <ListInput
+          <CommaListInput
             id={inputID}
             value={Array.isArray(property.value) ? property.value : []}
             onChange={(items) => setValue(property.key, items)}
             label={ariaLabel}
+            placeholder="Comma-separated"
           />
         )
       case 'text':
@@ -283,20 +323,12 @@ export function PropertiesPanel({
           <label htmlFor="note-tags" className={LABEL_CLASS}>
             Tags
           </label>
-          <input
+          <CommaListInput
             id="note-tags"
-            type="text"
-            value={tags.join(', ')}
-            onChange={(e) =>
-              onChange({
-                tags: e.target.value
-                  .split(',')
-                  .map((t) => t.trim())
-                  .filter(Boolean),
-              })
-            }
+            value={tags}
+            onChange={(tags) => onChange({ tags })}
+            label="Tags"
             placeholder="Add tags…"
-            className={FIELD_CLASS}
           />
         </div>
       </div>
@@ -353,6 +385,8 @@ export function PropertiesPanel({
               }}
               placeholder="e.g. rating"
               aria-label="New property key"
+              aria-invalid={Boolean(keyError)}
+              aria-describedby={keyError ? 'note-new-property-error' : undefined}
               className={FIELD_CLASS}
             />
           </div>
@@ -382,7 +416,7 @@ export function PropertiesPanel({
         </form>
 
         {keyError && (
-          <p role="alert" className="text-xs text-red-400">
+          <p id="note-new-property-error" role="alert" className="text-xs text-red-400">
             {keyError}
           </p>
         )}

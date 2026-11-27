@@ -3,8 +3,8 @@ import { http } from '../services/api'
 import { createCrudHooks } from './createCrudHooks'
 import type { Note, Folder, NoteProperty } from '../types'
 
-export type NoteInput = Partial<Omit<Note, 'id' | 'created_at' | 'updated_at'>>
-export type NoteUpdate = Partial<Note>
+export type NoteInput = Partial<Omit<Note, 'id' | 'created_at' | 'updated_at' | 'properties'>>
+export type NoteUpdate = Partial<Omit<Note, 'properties'>>
 
 const notesCrud = createCrudHooks<Note, NoteInput, NoteUpdate>(
   'notes',

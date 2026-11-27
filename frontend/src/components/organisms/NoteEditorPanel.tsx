@@ -19,8 +19,8 @@ interface NoteDraft {
 }
 
 export interface NoteSavePayload {
-  data: NoteInput
-  properties: NoteProperty[]
+  data?: NoteInput
+  properties?: NoteProperty[]
 }
 
 function toDraft(note: Note): NoteDraft {
@@ -40,17 +40,27 @@ function toDraft(note: Note): NoteDraft {
 interface NoteEditorPanelProps {
   note: Note
   folders: Folder[]
+  saving: boolean
+  saveError: string | null
   onSave: (payload: NoteSavePayload) => void
   onDelete: () => void
   onClose: () => void
 }
 
-export function NoteEditorPanel({ note, folders, onSave, onDelete, onClose }: NoteEditorPanelProps) {
+export function NoteEditorPanel({
+  note,
+  folders,
+  saving,
+  saveError,
+  onSave,
+  onDelete,
+  onClose,
+}: NoteEditorPanelProps) {
   const [draft, setDraft] = useState<NoteDraft>(() => toDraft(note))
   const [dirty, setDirty] = useState(false)
   const loadedNoteId = useRef(note.id)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const pending = useRef<NoteSavePayload | null>(null)
+  const pending = useRef<NoteSavePayload>({})
   // Kept in a ref so the unmount cleanup can flush without re-subscribing.
   const onSaveRef = useRef(onSave)
   useEffect(() => {
@@ -62,9 +72,10 @@ export function NoteEditorPanel({ note, folders, onSave, onDelete, onClose }: No
       clearTimeout(saveTimer.current)
       saveTimer.current = null
     }
-    if (!pending.current) return
-    onSaveRef.current(pending.current)
-    pending.current = null
+    const payload = pending.current
+    if (!payload.data && !payload.properties) return
+    onSaveRef.current(payload)
+    pending.current = {}
   }
 
   // Reload the draft only when a different note is selected, so autosave
@@ -74,7 +85,7 @@ export function NoteEditorPanel({ note, folders, onSave, onDelete, onClose }: No
     loadedNoteId.current = note.id
     if (saveTimer.current) clearTimeout(saveTimer.current)
     saveTimer.current = null
-    pending.current = null
+    pending.current = {}
     setDraft(toDraft(note))
     setDirty(false)
   }, [note])
@@ -84,7 +95,8 @@ export function NoteEditorPanel({ note, folders, onSave, onDelete, onClose }: No
   useEffect(() => {
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current)
-      if (pending.current) onSaveRef.current(pending.current)
+      const payload = pending.current
+      if (payload.data || payload.properties) onSaveRef.current(payload)
     }
   }, [])
 
@@ -92,16 +104,28 @@ export function NoteEditorPanel({ note, folders, onSave, onDelete, onClose }: No
     const next = { ...draft, ...patch }
     setDraft(next)
     setDirty(true)
-    pending.current = {
-      data: {
+
+    const nextPending = { ...pending.current }
+    const touchesNote =
+      'title' in patch ||
+      'blocks' in patch ||
+      'status' in patch ||
+      'tags' in patch ||
+      'folder_id' in patch
+    if (touchesNote) {
+      nextPending.data = {
         title: next.title.trim() || 'Untitled',
         blocks: next.blocks,
         status: next.status,
         tags: next.tags,
         folder_id: next.folder_id,
-      },
-      properties: next.properties,
+      }
     }
+    if ('properties' in patch) {
+      nextPending.properties = next.properties
+    }
+    pending.current = nextPending
+
     if (saveTimer.current) clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(() => {
       flush()
@@ -125,14 +149,19 @@ export function NoteEditorPanel({ note, folders, onSave, onDelete, onClose }: No
         <span
           className="flex items-center gap-1.5 text-xs text-text-muted shrink-0"
           aria-live="polite"
+          title={saveError ?? undefined}
         >
           <span
             aria-hidden="true"
             className={`h-1.5 w-1.5 rounded-full transition-colors ${
-              dirty ? 'bg-accent' : 'bg-text-muted/50'
+              saveError
+                ? 'bg-red-400'
+                : saving || dirty
+                  ? 'bg-accent'
+                  : 'bg-text-muted/50'
             }`}
           />
-          {dirty ? 'Saving…' : 'Saved'}
+          {saveError ? 'Save failed' : saving || dirty ? 'Saving…' : 'Saved'}
         </span>
         <IconButton
           icon={<Trash2 size={16} />}
@@ -142,7 +171,7 @@ export function NoteEditorPanel({ note, folders, onSave, onDelete, onClose }: No
             // Drop the pending autosave so unmount doesn't PUT a deleted note.
             if (saveTimer.current) clearTimeout(saveTimer.current)
             saveTimer.current = null
-            pending.current = null
+            pending.current = {}
             onDelete()
           }}
         />
@@ -153,6 +182,12 @@ export function NoteEditorPanel({ note, folders, onSave, onDelete, onClose }: No
           onClick={onClose}
         />
       </div>
+
+      {saveError && (
+        <p role="alert" className="text-xs text-red-400 pb-2">
+          {saveError}
+        </p>
+      )}
 
       <div className="flex-1 min-h-0 flex flex-col pt-3 gap-3">
         <div className="shrink-0">
