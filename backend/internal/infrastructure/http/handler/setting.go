@@ -22,6 +22,7 @@ type settingsResponse struct {
 type generalSettings struct {
 	DisplayName     string `json:"display_name"`
 	ViewPreferences string `json:"view_preferences,omitempty"`
+	NotesViews      string `json:"notes_views,omitempty"`
 }
 
 type integrationSettingsResponse struct {
@@ -61,6 +62,7 @@ func (h *SettingHandler) Get(w http.ResponseWriter, r *http.Request) {
 		General: generalSettings{
 			DisplayName:     all["general.display_name"],
 			ViewPreferences: all["general.view_preferences"],
+			NotesViews:      all["general.notes_views"],
 		},
 		Integrations: integrationSettingsResponse{
 			MonkeyAPIURL:     monkeyURL,
@@ -83,6 +85,7 @@ func (h *SettingHandler) Put(w http.ResponseWriter, r *http.Request) {
 	pairs := map[string]string{
 		"general.display_name":      payload.General.DisplayName,
 		"general.view_preferences":  payload.General.ViewPreferences,
+		"general.notes_views":       payload.General.NotesViews,
 		"integration.monkeyapi_url": payload.Integrations.MonkeyAPIURL,
 		"integration.paypinga_url":  payload.Integrations.PayPingaURL,
 	}
