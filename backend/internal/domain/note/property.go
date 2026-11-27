@@ -2,6 +2,7 @@ package note
 
 import (
 	"fmt"
+	"math"
 	"regexp"
 	"strings"
 	"time"
@@ -23,21 +24,28 @@ const (
 
 var propertyKeyPattern = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,63}$`)
 
+// Property is a typed key-value pair attached to a note. Value must match
+// Type: a string for text, a finite float64 for number (the shape produced by
+// JSON decoding), a YYYY-MM-DD string for date, a bool for boolean, and a
+// []string or []any of strings for list.
 type Property struct {
 	Key   string `json:"key"`
 	Type  string `json:"type"`
 	Value any    `json:"value"`
 }
 
+// Normalize lowercases and trims Key and Type.
 func (p *Property) Normalize() {
 	p.Key = strings.ToLower(strings.TrimSpace(p.Key))
 	p.Type = strings.ToLower(strings.TrimSpace(p.Type))
 }
 
-func (p *Property) Validate() error {
+// Validate normalizes a copy of p and reports whether its key, type, and value
+// are valid. It does not mutate the receiver.
+func (p Property) Validate() error {
 	p.Normalize()
 	if !propertyKeyPattern.MatchString(p.Key) {
-		return &ValidationError{Field: "properties", Message: fmt.Sprintf("invalid property key: %q", p.Key)}
+		return &ValidationError{Field: "properties", Message: fmt.Sprintf("invalid property key: %q", truncateRunes(p.Key, 64))}
 	}
 
 	switch p.Type {
@@ -50,7 +58,8 @@ func (p *Property) Validate() error {
 			return &ValidationError{Field: "properties." + p.Key, Message: "value is too long"}
 		}
 	case PropertyNumber:
-		if _, ok := p.Value.(float64); !ok {
+		n, ok := p.Value.(float64)
+		if !ok || math.IsNaN(n) || math.IsInf(n, 0) {
 			return typeError(p.Key, PropertyNumber)
 		}
 	case PropertyDate:
@@ -79,17 +88,26 @@ func (p *Property) Validate() error {
 			}
 		}
 	default:
-		return &ValidationError{Field: "properties." + p.Key, Message: "unknown property type: " + p.Type}
+		return &ValidationError{Field: "properties." + p.Key, Message: fmt.Sprintf("unknown property type: %q", truncateRunes(p.Type, 64))}
 	}
 	return nil
+}
+
+func truncateRunes(s string, max int) string {
+	r := []rune(s)
+	if len(r) <= max {
+		return s
+	}
+	return string(r[:max]) + "…"
 }
 
 func typeError(key, typ string) error {
 	return &ValidationError{Field: "properties." + key, Message: "value does not match type " + typ}
 }
 
-// StringList accepts the two shapes the API can produce: []any after JSON
-// decoding and []string when properties are built in Go.
+// StringList converts a list property value into []string. It accepts []string
+// and []any containing only strings, the latter being the shape produced by
+// JSON decoding.
 func StringList(v any) ([]string, bool) {
 	switch items := v.(type) {
 	case []string:
@@ -109,12 +127,15 @@ func StringList(v any) ([]string, bool) {
 	}
 }
 
+// ValidateProperties checks the count, keys, and values of props. It normalizes
+// props in place before validating.
 func ValidateProperties(props []Property) error {
 	if len(props) > maxProperties {
 		return &ValidationError{Field: "properties", Message: "too many properties"}
 	}
 	seen := make(map[string]struct{}, len(props))
 	for i := range props {
+		props[i].Normalize()
 		if err := props[i].Validate(); err != nil {
 			return err
 		}
