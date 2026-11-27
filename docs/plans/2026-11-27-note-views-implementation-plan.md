@@ -131,7 +131,7 @@ Expected: FAIL — module does not exist.
 Export from `frontend/src/utils/noteViews.ts`:
 
 ```ts
-export type PropertyOp =
+export type PropertyOp =  // 18 ops
   | 'contains' | 'not_contains' | 'equals'
   | 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte'
   | 'before' | 'on' | 'after'
