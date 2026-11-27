@@ -9,7 +9,7 @@ import { useNoteViews, type NoteView } from '../../hooks/useNoteViews'
 import { useViewPreference } from '../../hooks/useViewPreference'
 import { useStatusKanbanMove } from '../../hooks/useStatusKanbanMove'
 import { blocksToText } from '../../utils/blocks'
-import { applyNoteView, knownPropertyKeys } from '../../utils/noteViews'
+import { applyNoteView, groupNotes, knownPropertyKeys } from '../../utils/noteViews'
 import { statusLabel, statusVariant } from '../../utils/note'
 import { EmptyState } from '../../components/molecules/EmptyState'
 import { PageHeader } from '../../components/molecules/PageHeader'
@@ -105,6 +105,17 @@ export function NotesPage() {
     // one, the folder or search list passes through untouched.
     return applyNoteView(base, activeView)
   }, [search, semanticMode, semanticResults, searchResults, notes, activeView])
+
+  // Grouped sections are a saved table view's rendering concern only. The
+  // engine never emits an empty group, so search filtering just makes
+  // sections disappear instead of leaving empty skeletons behind.
+  const groups = useMemo(
+    () =>
+      activeView?.layout === 'table' && activeView.groupBy
+        ? groupNotes(displayNotes, activeView.groupBy)
+        : null,
+    [displayNotes, activeView],
+  )
 
   // Prefer the list entry so edits render without waiting for a refetch, and
   // fall back to a direct fetch for notes outside the current list (active
@@ -533,6 +544,22 @@ export function NotesPage() {
                       renderCard={renderCard}
                       onMove={handleMove}
                     />
+                  ) : groups ? (
+                    <div className="space-y-4">
+                      {groups.map((group) => (
+                        <div key={group.key}>
+                          <div className="pb-2 text-[11px] font-medium uppercase tracking-wide text-text-muted">
+                            {group.key} ({group.notes.length})
+                          </div>
+                          <DataTable
+                            columns={tableColumns}
+                            data={group.notes}
+                            getRowKey={(note) => note.id}
+                            fitContainer={showEditor}
+                          />
+                        </div>
+                      ))}
+                    </div>
                   ) : (
                     <DataTable
                       columns={tableColumns}
