@@ -4,6 +4,7 @@ import {
   applyNoteView,
   groupNotes,
   MAX_NOTE_VIEWS,
+  NO_VALUE_KEY,
 } from './noteViews'
 import type { NoteView, NoteViewCondition, PropertyOp } from './noteViews'
 import type { Note, NoteProperty } from '../types'
@@ -129,6 +130,31 @@ describe('parseNoteViews', () => {
     expect(parsed[MAX_NOTE_VIEWS - 1].name).toBe('V19')
   })
 
+  it('invalid entries do not consume truncate slots', () => {
+    const entries: unknown[] = []
+    for (let i = 0; i < MAX_NOTE_VIEWS + 1; i++) {
+      entries.push({ noNameHere: true })
+      entries.push({ name: `V${i}`, filters: { properties: [] } })
+    }
+    const parsed = parseNoteViews(JSON.stringify(entries))
+    // 21 valid views interleaved with 21 invalid ones: the cap must be
+    // reached by valid views only, and the 21st valid view must be dropped.
+    expect(parsed).toHaveLength(MAX_NOTE_VIEWS)
+    expect(parsed.every(v => v.name.startsWith('V'))).toBe(true)
+    expect(parsed[MAX_NOTE_VIEWS - 1].name).toBe('V19')
+  })
+
+  it('deduplicates stored ids, keeping the first occurrence', () => {
+    const raw = JSON.stringify([
+      { id: 'dup', name: 'First', filters: { properties: [] } },
+      { id: 'dup', name: 'Second', filters: { properties: [] } },
+      { id: 'unique', name: 'Third', filters: { properties: [] } },
+    ])
+    const parsed = parseNoteViews(raw)
+    expect(parsed.map(v => v.name)).toEqual(['First', 'Third'])
+    expect(parsed.map(v => v.id)).toEqual(['dup', 'unique'])
+  })
+
   it('trims names and caps them at 100 characters', () => {
     const raw = JSON.stringify([
       {
@@ -223,6 +249,15 @@ describe('applyNoteView filtering', () => {
     ]
     const v = view({ filters: { status: ['draft', 'published'], properties: [] } })
     expect(ids(applyNoteView(notes, v))).toEqual(['a', 'c'])
+  })
+
+  it('treats an empty status array as no filter', () => {
+    const notes = [
+      note({ id: 'a', status: 'draft' }),
+      note({ id: 'b', status: 'published' }),
+    ]
+    const v = view({ filters: { status: [], properties: [] } })
+    expect(ids(applyNoteView(notes, v))).toEqual(['a', 'b'])
   })
 
   it('matches tags case-insensitively', () => {
@@ -431,6 +466,39 @@ describe('applyNoteView sorting', () => {
     expect(ids(applyNoteView(notes, asc))).toEqual(['b', 'c', 'a'])
   })
 
+  it('sorts titles with natural numeric ordering', () => {
+    const notes = [
+      note({ id: 'a', title: 'Note 10' }),
+      note({ id: 'b', title: 'Note 2' }),
+      note({ id: 'c', title: 'Note 1' }),
+    ]
+    const asc = view({ sort: { field: 'title', direction: 'asc' } })
+    expect(ids(applyNoteView(notes, asc))).toEqual(['c', 'b', 'a'])
+  })
+
+  it('sorts timestamps of mixed precision chronologically', () => {
+    const notes = [
+      note({ id: 'a', created_at: '2026-01-01T00:00:00.5Z' }),
+      note({ id: 'b', created_at: '2026-01-01T00:00:00Z' }),
+      note({ id: 'c', created_at: '2026-01-01T00:00:01Z' }),
+    ]
+    const asc = view({ sort: { field: 'created_at', direction: 'asc' } })
+    expect(ids(applyNoteView(notes, asc))).toEqual(['b', 'a', 'c'])
+  })
+
+  it('does not mutate the input array when sorting', () => {
+    const notes = [
+      note({ id: 'b', updated_at: '2026-02-01T00:00:00Z' }),
+      note({ id: 'a', updated_at: '2026-01-01T00:00:00Z' }),
+      note({ id: 'c', updated_at: '2026-03-01T00:00:00Z' }),
+    ]
+    const before = ids(notes)
+    const result = applyNoteView(notes, view({ sort: { field: 'updated_at', direction: 'desc' } }))
+    expect(ids(result)).toEqual(['c', 'b', 'a'])
+    expect(result).not.toBe(notes)
+    expect(ids(notes)).toEqual(before)
+  })
+
   it('sorts by status: draft < in_progress < published', () => {
     const notes = [
       note({ id: 'a', status: 'published' }),
@@ -594,6 +662,16 @@ describe('groupNotes', () => {
     const groups = groupNotes(notes, 'topics')
     expect(groups.map(g => g.key)).toEqual(['Design', 'No value'])
     expect(groups[1].notes.map(n => n.id)).toEqual(['b'])
+  })
+
+  it('exports NO_VALUE_KEY and uses it for the no-value section', () => {
+    expect(NO_VALUE_KEY).toBe('No value')
+    const notes = [
+      note({ id: 'a', properties: [prop('topic', 'text', 'x')] }),
+      note({ id: 'b', properties: [] }),
+    ]
+    const groups = groupNotes(notes, 'topic')
+    expect(groups[groups.length - 1].key).toBe(NO_VALUE_KEY)
   })
 
   it('returns a single group when no field is given', () => {

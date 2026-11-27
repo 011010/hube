@@ -39,7 +39,10 @@ export const MAX_NOTE_VIEWS = 20
 
 const MAX_VIEW_NAME_LENGTH = 100
 
-const NO_VALUE_KEY = 'No value'
+export const NO_VALUE_KEY = 'No value'
+
+// Shared collator: numeric: true gives natural ordering ("Note 2" < "Note 10").
+const collator = new Intl.Collator(undefined, { numeric: true })
 
 const NOTE_STATUSES: NoteStatus[] = ['draft', 'in_progress', 'published']
 
@@ -158,10 +161,15 @@ export function parseNoteViews(raw: string | undefined): NoteView[] {
   }
   if (!Array.isArray(parsed)) return []
   const views: NoteView[] = []
+  const seenIds = new Set<string>()
   for (const entry of parsed) {
     if (views.length >= MAX_NOTE_VIEWS) break
     const view = normalizeView(entry)
-    if (view) views.push(view)
+    if (!view) continue
+    // Duplicate stored ids would collide as React keys; keep the first.
+    if (seenIds.has(view.id)) continue
+    seenIds.add(view.id)
+    views.push(view)
   }
   return views
 }
@@ -228,7 +236,8 @@ function matchCondition(note: Note, condition: NoteViewCondition): boolean {
 }
 
 function matchesFilters(note: Note, filters: NoteViewFilters): boolean {
-  if (filters.status && !filters.status.includes(note.status)) return false
+  const status = filters.status
+  if (status && status.length > 0 && !status.includes(note.status)) return false
   if (filters.tags) {
     const present = new Set(note.tags.map(t => t.toLowerCase()))
     if (!filters.tags.every(t => present.has(t.toLowerCase()))) return false
@@ -280,12 +289,18 @@ function fieldComparable(note: Note, field: string): SortComparable | undefined 
 
 function compareComparable(a: SortComparable, b: SortComparable): number {
   if (a.kind === 'number' && b.kind === 'number') return a.value - b.value
-  if (a.kind === 'text' && b.kind === 'text') return a.value.localeCompare(b.value)
+  if (a.kind === 'text' && b.kind === 'text') return collator.compare(a.value, b.value)
   if (a.kind === 'date' && b.kind === 'date') {
+    // created_at/updated_at can mix "...T00:00:00Z" with "...T00:00:00.5Z",
+    // which plain string comparison misorders ("." < "Z"). Compare as epochs
+    // when both sides parse; property dates ("YYYY-MM-DD") parse too.
+    const ta = Date.parse(a.value)
+    const tb = Date.parse(b.value)
+    if (Number.isFinite(ta) && Number.isFinite(tb)) return ta - tb
     return a.value < b.value ? -1 : a.value > b.value ? 1 : 0
   }
   // Mixed types on the same key: keep the order total and deterministic.
-  return a.kind.localeCompare(b.kind) || String(a.value).localeCompare(String(b.value))
+  return collator.compare(a.kind, b.kind) || collator.compare(String(a.value), String(b.value))
 }
 
 function sortNotes(notes: Note[], sort: NoteView['sort']): Note[] {
@@ -349,7 +364,7 @@ function compareBuckets(a: GroupBucket, b: GroupBucket): number {
   if (a.type === 'date' && b.type === 'date') {
     return a.key < b.key ? -1 : a.key > b.key ? 1 : 0
   }
-  return a.key.localeCompare(b.key)
+  return collator.compare(a.key, b.key)
 }
 
 export function groupNotes(notes: Note[], field?: string): NoteGroup[] {
