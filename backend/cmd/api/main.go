@@ -108,6 +108,11 @@ func main() {
 	if clipScript == "" {
 		clipScript = "tools/clip/dist/clip.cjs"
 	}
+	// Non-fatal: the endpoint still boots, and per-request errors surface
+	// as designed; this just tells the operator why clips fail.
+	if _, err := os.Stat(clipScript); err != nil {
+		log.Printf("clip: script not found at %s — run 'make build-clip' to enable web clipping", clipScript)
+	}
 	clipSvc := appnote.NewClipService(noteRepo, defuddleAdapter{external.NewDefuddleClipper(clipScript)})
 
 	// Integration clients always exist; they read their configuration from

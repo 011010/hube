@@ -665,6 +665,15 @@ func TestNote_Clip_InvalidURL(t *testing.T) {
 	resp = mustPost(t, clipURL, `{"url":"https://user:pass@example.com"}`)
 	defer resp.Body.Close()
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+
+	// The redirect guard chains both sentinels — ErrClipFetch wrapping
+	// ErrClipInvalidURL — so both classifier branches match. The invalid
+	// URL branch must win: a redirect pointing at an invalid URL is a
+	// client input problem (400), not a transport failure (502).
+	clipFake.err = fmt.Errorf("clip: %w", fmt.Errorf("%w: redirect rejected: %w", external.ErrClipFetch, external.ErrClipInvalidURL))
+	resp = mustPost(t, clipURL, `{"url":"https://example.com/redir"}`)
+	defer resp.Body.Close()
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
 
 func TestNote_Clip_Duplicate(t *testing.T) {

@@ -53,7 +53,9 @@ func (f *fakeExtractor) Extract(_ context.Context, _ string) (*appnote.Extracted
 
 // clipFake is the instance behind the most recent test server. newTestServer
 // replaces it on every call, so each test starts from a clean fake and reads
-// its fields through the package variable.
+// its fields through the package variable. Safe only because this package's
+// tests run sequentially (no t.Parallel) — a future parallel test must switch
+// to per-server fake instances instead of the shared package variable.
 var clipFake *fakeExtractor
 
 func newTestServer(t *testing.T) *httptest.Server {
