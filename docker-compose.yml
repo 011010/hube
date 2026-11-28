@@ -1,6 +1,10 @@
 services:
   api:
-    build: ./backend
+    # Root context: backend/Dockerfile copies backend/ and tools/clip/ (the
+    # root .dockerignore keeps the context to just those two).
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
     restart: unless-stopped
     environment:
       PORT: "8090"

@@ -159,7 +159,9 @@ jobs:
       - name: Build and push API image
         uses: docker/build-push-action@v6
         with:
-          context: ./backend
+          # Root context: the Dockerfile copies backend/ and tools/clip/.
+          context: .
+          file: backend/Dockerfile
           push: true
           tags: ${{ steps.meta-api.outputs.tags }}
           labels: ${{ steps.meta-api.outputs.labels }}
