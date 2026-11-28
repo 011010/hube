@@ -1,6 +1,6 @@
 export PATH := /opt/homebrew/bin:$(PATH)
 
-.PHONY: dev-api dev-ui dev build install-cli docker-build docker-up docker-down
+.PHONY: dev-api dev-ui dev build install-cli build-clip docker-build docker-up docker-down
 
 dev-api:
 	cd backend && go run ./cmd/api
@@ -17,6 +17,9 @@ build:
 
 install-cli:
 	cd backend && go install ./cmd/cli
+
+build-clip:
+	cd tools/clip && npm install && node build.mjs
 
 docker-build:
 	docker compose build

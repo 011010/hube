@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Understanding SQLite WAL Mode</title>
+  <meta name="author" content="Jane Doe">
+  <meta property="og:site_name" content="Hube Engineering">
+  <meta name="description" content="How write-ahead logging changes SQLite concurrency.">
+</head>
+<body>
+  <header>
+    <nav><a href="/">Home</a> | <a href="/blog">Blog</a></nav>
+  </header>
+  <article>
+    <h1>Understanding SQLite WAL Mode</h1>
+    <p>Published <time datetime="2024-03-11">March 11, 2024</time></p>
+    <p>
+      By default SQLite uses a rollback journal: every write first copies the
+      original pages to the journal, then modifies the database file in place.
+      Write-ahead logging inverts that. Changes are appended to a separate
+      <strong>wal file</strong> first, and readers keep working against the
+      original database while writers commit. See the
+      <a href="https://www.sqlite.org/wal.html">official WAL documentation</a>
+      for the full details. You can enable it with the inline pragma
+      <code>PRAGMA journal_mode=WAL</code> on any open connection.
+    </p>
+    <h2>How checkpoints work</h2>
+    <p>
+      A checkpoint moves committed frames from the wal file back into the
+      main database. It runs automatically once the log grows past a
+      threshold, and it never blocks readers.
+    </p>
+    <ul>
+      <li>Readers never block writers, and writers never block readers.
+        <ul>
+          <li>Even long-running read transactions keep a consistent snapshot.</li>
+        </ul>
+      </li>
+      <li>Checkpointing can run concurrently with ongoing reads.</li>
+      <li>All processes accessing the database must be on the same host.</li>
+    </ul>
+    <blockquote>
+      <p>
+        WAL mode is safe for concurrent access by multiple processes on the
+        same host, which is exactly the deployment hube targets.
+      </p>
+    </blockquote>
+    <p>
+      For an embedded server workload, the trade is straightforward: slightly
+      more disk usage for the log, in exchange for readers that never wait.
+    </p>
+  </article>
+  <footer>
+    <p>&copy; Hube Engineering. All rights reserved.</p>
+  </footer>
+</body>
+</html>

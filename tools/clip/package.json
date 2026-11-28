@@ -1,0 +1,18 @@
+{
+  "name": "hube-clip",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "HTML article extraction for the hube web clip feature (Go execs dist/clip.cjs).",
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node --test clip.test.mjs"
+  },
+  "dependencies": {
+    "defuddle": "^0.19.0",
+    "linkedom": "^0.18.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0"
+  }
+}
