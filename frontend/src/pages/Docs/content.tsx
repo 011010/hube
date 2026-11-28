@@ -218,6 +218,7 @@ GET /api/v1/tasks?project_id={id}`,
                 ['content', 'string', 'Markdown'],
                 ['folder_id', 'string', 'Optional — links to a folder'],
                 ['tags', 'string[]', 'Array of tag strings'],
+                ['properties', 'NoteProperty[]', 'Typed key/value metadata. Read-only in note payloads; write it through the properties endpoint.'],
               ],
             },
           },
@@ -231,6 +232,9 @@ GET /api/v1/tasks?project_id={id}`,
               <>Filter by folder: <Code>GET /api/v1/notes?folder_id=&#123;id&#125;</Code></>,
               <>Full-text search (FTS5): <Code>GET /api/v1/notes/search?q=keyword</Code> — searches title + content.</>,
               <>Semantic search (RAG): <Code>POST /api/v1/notes/semantic-search</Code> — requires <Code>OPENAI_API_KEY</Code> and <Code>OPENAI_EMBEDDING_MODEL</Code>. Returns the most semantically similar notes.</>,
+              <><Code>GET /api/v1/notes/&#123;id&#125;/properties</Code> — returns the typed set.</>,
+              <><Code>PUT /api/v1/notes/&#123;id&#125;/properties</Code> with <Code>&#123;"properties":[...]&#125;</Code> — replaces the set; <Code>[]</Code> clears it; <Code>&#123;&#125;</Code> and <Code>null</Code> are rejected.</>,
+              'Types: text, number, date (YYYY-MM-DD), boolean, list (array of strings). Reserved keys: title, status, tags, created_at, updated_at.',
               'When a note is created or updated and RAG is configured, embedding indexing runs in the background — it doesn\'t block the response.',
             ],
           },
@@ -255,6 +259,19 @@ GET /api/v1/notes/search?q=architecture
 # Semantic search (requires embeddings configured)
 POST /api/v1/notes/semantic-search
 { "q": "ideas about product design", "top_k": 5 }`,
+          },
+          {
+            code: `# Replace typed properties (an empty array clears the set)
+PUT /api/v1/notes/{id}/properties
+{
+  "properties": [
+    { "key": "rating", "type": "number", "value": 8 },
+    { "key": "keywords", "type": "list", "value": ["alpha", "beta"] }
+  ]
+}
+
+# POST /api/v1/notes rejects a non-empty "properties" array;
+# create the note first, then set its properties here.`,
           },
         ],
       },

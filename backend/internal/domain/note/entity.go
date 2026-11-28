@@ -22,15 +22,16 @@ func (e *ValidationError) Error() string {
 }
 
 type Note struct {
-	ID        string    `json:"id" db:"id"`
-	Title     string    `json:"title" db:"title"`
-	Content   string    `json:"content" db:"content"`
-	Blocks    string    `json:"blocks" db:"blocks"`
-	Status    string    `json:"status" db:"status"`
-	FolderID  *string   `json:"folder_id" db:"folder_id"`
-	Tags      []string  `json:"tags"`
-	CreatedAt time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
+	ID         string     `json:"id" db:"id"`
+	Title      string     `json:"title" db:"title"`
+	Content    string     `json:"content" db:"content"`
+	Blocks     string     `json:"blocks" db:"blocks"`
+	Status     string     `json:"status" db:"status"`
+	FolderID   *string    `json:"folder_id" db:"folder_id"`
+	Tags       []string   `json:"tags"`
+	Properties []Property `json:"properties"`
+	CreatedAt  time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt  time.Time  `json:"updated_at" db:"updated_at"`
 }
 
 func (n *Note) Normalize() {

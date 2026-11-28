@@ -2,8 +2,12 @@ package sqlite
 
 import (
 	"context"
+	"database/sql"
 	"errors"
+	"fmt"
+	"reflect"
 	"testing"
+	"time"
 
 	"github.com/husari/hube/internal/domain/note"
 )
@@ -210,6 +214,340 @@ func TestNoteRepo_Create_MalformedBlocksReturnsValidationError(t *testing.T) {
 	var valErr *note.ValidationError
 	if !errors.As(err, &valErr) {
 		t.Fatalf("expected error to be (or wrap) a *note.ValidationError so the HTTP handler returns 400, got: %T: %v", err, err)
+	}
+}
+
+func assertProperties(t *testing.T, got []note.Property, want []note.Property) {
+	t.Helper()
+	if len(got) != len(want) {
+		t.Fatalf("property count = %d, want %d: %+v", len(got), len(want), got)
+	}
+	for i := range want {
+		if got[i].Key != want[i].Key || got[i].Type != want[i].Type {
+			t.Fatalf("property[%d] = {%s,%s}, want {%s,%s}", i, got[i].Key, got[i].Type, want[i].Key, want[i].Type)
+		}
+		if !reflect.DeepEqual(got[i].Value, want[i].Value) {
+			t.Fatalf("property %q value = %#v, want %#v", want[i].Key, got[i].Value, want[i].Value)
+		}
+	}
+}
+
+func TestNoteRepo_Properties(t *testing.T) {
+	db, err := Open(":memory:")
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	defer db.Close()
+
+	repo := NewNoteRepo(db)
+	ctx := context.Background()
+
+	n := &note.Note{Title: "Property Note", Status: note.StatusDraft}
+	if err := repo.Create(ctx, n); err != nil {
+		t.Fatalf("create note: %v", err)
+	}
+
+	props := []note.Property{
+		{Key: "archived", Type: note.PropertyBoolean, Value: true},
+		{Key: "published", Type: note.PropertyDate, Value: "2024-03-11"},
+		{Key: "rating", Type: note.PropertyNumber, Value: float64(8)},
+		{Key: "source", Type: note.PropertyText, Value: "https://example.com"},
+		{Key: "topics", Type: note.PropertyList, Value: []string{"design", "tools"}},
+	}
+	if err := repo.SetProperties(ctx, n.ID, props); err != nil {
+		t.Fatalf("set properties: %v", err)
+	}
+
+	want := []note.Property{
+		{Key: "archived", Type: note.PropertyBoolean, Value: true},
+		{Key: "published", Type: note.PropertyDate, Value: "2024-03-11"},
+		{Key: "rating", Type: note.PropertyNumber, Value: float64(8)},
+		{Key: "source", Type: note.PropertyText, Value: "https://example.com"},
+		{Key: "topics", Type: note.PropertyList, Value: []any{"design", "tools"}},
+	}
+
+	got, err := repo.FindByID(ctx, n.ID)
+	if err != nil {
+		t.Fatalf("find note: %v", err)
+	}
+	assertProperties(t, got.Properties, want)
+
+	// Replace the whole set.
+	if err := repo.SetProperties(ctx, n.ID, []note.Property{
+		{Key: "archived", Type: note.PropertyBoolean, Value: true},
+	}); err != nil {
+		t.Fatalf("replace properties: %v", err)
+	}
+	got, err = repo.FindByID(ctx, n.ID)
+	if err != nil {
+		t.Fatalf("find note after replace: %v", err)
+	}
+	assertProperties(t, got.Properties, []note.Property{
+		{Key: "archived", Type: note.PropertyBoolean, Value: true},
+	})
+
+	// A failed replace must leave the previous set intact.
+	if err := repo.SetProperties(ctx, n.ID, []note.Property{
+		{Key: "dup", Type: note.PropertyText, Value: "one"},
+		{Key: "dup", Type: note.PropertyText, Value: "two"},
+	}); err == nil {
+		t.Fatal("expected duplicate key insert to fail")
+	}
+	got, err = repo.FindByID(ctx, n.ID)
+	if err != nil {
+		t.Fatalf("find note after failed replace: %v", err)
+	}
+	assertProperties(t, got.Properties, []note.Property{
+		{Key: "archived", Type: note.PropertyBoolean, Value: true},
+	})
+
+	// Clearing works.
+	if err := repo.SetProperties(ctx, n.ID, nil); err != nil {
+		t.Fatalf("clear properties: %v", err)
+	}
+	got, err = repo.FindByID(ctx, n.ID)
+	if err != nil {
+		t.Fatalf("find note after clear: %v", err)
+	}
+	assertProperties(t, got.Properties, nil)
+
+	// Cascade on note delete.
+	if err := repo.SetProperties(ctx, n.ID, props); err != nil {
+		t.Fatalf("set before delete: %v", err)
+	}
+	if err := repo.Delete(ctx, n.ID); err != nil {
+		t.Fatalf("delete note: %v", err)
+	}
+	var count int
+	if err := db.Get(&count, `SELECT COUNT(*) FROM note_properties WHERE note_id = ?`, n.ID); err != nil {
+		t.Fatalf("count after delete: %v", err)
+	}
+	if count != 0 {
+		t.Fatalf("expected cascade delete, got %d rows", count)
+	}
+}
+
+func TestNoteRepo_Properties_TouchesNote(t *testing.T) {
+	db, err := Open(":memory:")
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	defer db.Close()
+
+	repo := NewNoteRepo(db)
+	ctx := context.Background()
+
+	n := &note.Note{Title: "Touch Note", Status: note.StatusDraft}
+	if err := repo.Create(ctx, n); err != nil {
+		t.Fatalf("create note: %v", err)
+	}
+
+	if _, err := db.ExecContext(ctx,
+		`UPDATE notes SET updated_at = '2000-01-01 00:00:00' WHERE id = ?`, n.ID); err != nil {
+		t.Fatalf("force old updated_at: %v", err)
+	}
+
+	if err := repo.SetProperties(ctx, n.ID, []note.Property{
+		{Key: "rating", Type: note.PropertyNumber, Value: float64(1)},
+	}); err != nil {
+		t.Fatalf("set properties: %v", err)
+	}
+
+	got, err := repo.FindByID(ctx, n.ID)
+	if err != nil {
+		t.Fatalf("find note: %v", err)
+	}
+	if !got.UpdatedAt.After(time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)) {
+		t.Fatalf("UpdatedAt = %v, want after 2000-01-01T00:00:00Z", got.UpdatedAt)
+	}
+}
+
+func TestNoteRepo_Properties_MissingNote(t *testing.T) {
+	db, err := Open(":memory:")
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	defer db.Close()
+
+	repo := NewNoteRepo(db)
+	ctx := context.Background()
+
+	err = repo.SetProperties(ctx, "missing", nil)
+	if err == nil {
+		t.Fatal("expected an error for a missing note")
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		t.Fatalf("expected error to wrap sql.ErrNoRows, got: %v", err)
+	}
+}
+
+func TestNoteRepo_Properties_ListAndSearch(t *testing.T) {
+	db, err := Open(":memory:")
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	defer db.Close()
+
+	repo := NewNoteRepo(db)
+	ctx := context.Background()
+
+	empty, err := repo.FindAll(ctx, nil)
+	if err != nil {
+		t.Fatalf("find all on empty db: %v", err)
+	}
+	if empty == nil {
+		t.Fatal("find all on empty db returned nil, want non-nil empty slice")
+	}
+	if len(empty) != 0 {
+		t.Fatalf("find all on empty db returned %d notes: %+v", len(empty), empty)
+	}
+
+	makeNote := func(title string) *note.Note {
+		n := &note.Note{Title: title, Status: note.StatusDraft}
+		if err := repo.Create(ctx, n); err != nil {
+			t.Fatalf("create %s: %v", title, err)
+		}
+		return n
+	}
+
+	alpha := makeNote("Alpha")
+	beta := makeNote("Beta")
+	makeNote("Gamma")
+
+	alphaProps := []note.Property{
+		{Key: "rating", Type: note.PropertyNumber, Value: float64(8)},
+		{Key: "source", Type: note.PropertyText, Value: "https://example.com"},
+	}
+	if err := repo.SetProperties(ctx, alpha.ID, alphaProps); err != nil {
+		t.Fatalf("set alpha properties: %v", err)
+	}
+	if err := repo.SetProperties(ctx, beta.ID, []note.Property{
+		{Key: "archived", Type: note.PropertyBoolean, Value: true},
+	}); err != nil {
+		t.Fatalf("set beta properties: %v", err)
+	}
+
+	all, err := repo.FindAll(ctx, nil)
+	if err != nil {
+		t.Fatalf("find all: %v", err)
+	}
+	byTitle := make(map[string]note.Note, len(all))
+	for _, n := range all {
+		byTitle[n.Title] = n
+	}
+
+	gotAlpha, ok := byTitle["Alpha"]
+	if !ok {
+		t.Fatalf("alpha missing from FindAll: %+v", all)
+	}
+	assertProperties(t, gotAlpha.Properties, []note.Property{
+		{Key: "rating", Type: note.PropertyNumber, Value: float64(8)},
+		{Key: "source", Type: note.PropertyText, Value: "https://example.com"},
+	})
+
+	gotBeta, ok := byTitle["Beta"]
+	if !ok {
+		t.Fatalf("beta missing from FindAll: %+v", all)
+	}
+	assertProperties(t, gotBeta.Properties, []note.Property{
+		{Key: "archived", Type: note.PropertyBoolean, Value: true},
+	})
+
+	gotGamma, ok := byTitle["Gamma"]
+	if !ok {
+		t.Fatalf("gamma missing from FindAll: %+v", all)
+	}
+	if gotGamma.Properties == nil {
+		t.Fatal("gamma properties is nil, want non-nil empty slice")
+	}
+	if len(gotGamma.Properties) != 0 {
+		t.Fatalf("gamma properties = %+v, want empty", gotGamma.Properties)
+	}
+
+	found, err := repo.Search(ctx, "Alpha")
+	if err != nil {
+		t.Fatalf("search alpha: %v", err)
+	}
+	if len(found) != 1 || found[0].Title != "Alpha" {
+		t.Fatalf("search alpha = %+v, want one Alpha note", found)
+	}
+	assertProperties(t, found[0].Properties, []note.Property{
+		{Key: "rating", Type: note.PropertyNumber, Value: float64(8)},
+		{Key: "source", Type: note.PropertyText, Value: "https://example.com"},
+	})
+
+	found, err = repo.Search(ctx, "Gamma")
+	if err != nil {
+		t.Fatalf("search gamma: %v", err)
+	}
+	if len(found) != 1 || found[0].Title != "Gamma" {
+		t.Fatalf("search gamma = %+v, want one Gamma note", found)
+	}
+	if found[0].Properties == nil {
+		t.Fatal("search gamma properties is nil, want non-nil empty slice")
+	}
+	if len(found[0].Properties) != 0 {
+		t.Fatalf("search gamma properties = %+v, want empty", found[0].Properties)
+	}
+}
+
+func TestNoteRepo_Properties_BatchChunks(t *testing.T) {
+	db, err := Open(":memory:")
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	defer db.Close()
+
+	repo := NewNoteRepo(db)
+	ctx := context.Background()
+
+	const noteCount = 501
+	wantIdx := make(map[string]int, noteCount)
+	for i := 0; i < noteCount; i++ {
+		title := fmt.Sprintf("Chunk %03d", i)
+		n := &note.Note{Title: title, Status: note.StatusDraft}
+		if err := repo.Create(ctx, n); err != nil {
+			t.Fatalf("create %s: %v", title, err)
+		}
+		if err := repo.SetProperties(ctx, n.ID, []note.Property{
+			{Key: "idx", Type: note.PropertyNumber, Value: float64(i)},
+		}); err != nil {
+			t.Fatalf("set properties for %s: %v", title, err)
+		}
+		wantIdx[title] = i
+	}
+
+	notes, err := repo.FindAll(ctx, nil)
+	if err != nil {
+		t.Fatalf("find all: %v", err)
+	}
+	if len(notes) != noteCount {
+		t.Fatalf("find all returned %d notes, want %d", len(notes), noteCount)
+	}
+
+	seen := make(map[string]bool, noteCount)
+	for _, n := range notes {
+		want, ok := wantIdx[n.Title]
+		if !ok {
+			t.Fatalf("unexpected note title %q", n.Title)
+		}
+		seen[n.Title] = true
+		if len(n.Properties) != 1 || n.Properties[0].Key != "idx" {
+			t.Fatalf("note %q properties = %+v, want single idx property", n.Title, n.Properties)
+		}
+		if n.Properties[0].Type != note.PropertyNumber {
+			t.Fatalf("note %q idx type = %q, want %q", n.Title, n.Properties[0].Type, note.PropertyNumber)
+		}
+		got, ok := n.Properties[0].Value.(float64)
+		if !ok {
+			t.Fatalf("note %q idx value = %#v, want float64", n.Title, n.Properties[0].Value)
+		}
+		if got != float64(want) {
+			t.Fatalf("note %q idx = %v, want %d (cross-note leakage)", n.Title, got, want)
+		}
+	}
+	if len(seen) != noteCount {
+		t.Fatalf("find all returned %d distinct notes, want %d", len(seen), noteCount)
 	}
 }
 

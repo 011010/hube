@@ -1,8 +1,9 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { Plus, Trash2, Folder, Sparkles, Search, X, FileText, Network, PanelLeft } from 'lucide-react'
 import {
   useNotes, useNote, useCreateNote, useUpdateNote, useDeleteNote,
   useFolders, useCreateFolder, useDeleteFolder, useSearchNotes, useSemanticSearch,
+  useSetNoteProperties,
 } from '../../hooks/useNotes'
 import { useViewPreference } from '../../hooks/useViewPreference'
 import { useStatusKanbanMove } from '../../hooks/useStatusKanbanMove'
@@ -24,6 +25,12 @@ type MainTab = 'editor' | 'graph'
 
 const VALID_STATUSES: NoteStatus[] = ['draft', 'in_progress', 'published']
 
+function noteSaveError(err: unknown): string | null {
+  if (!err) return null
+  const e = err as { response?: { data?: { error?: string } }; message?: string }
+  return e.response?.data?.error ?? e.message ?? 'Save failed'
+}
+
 export function NotesPage() {
   const [selectedFolder, setSelectedFolder] = useState<string | undefined>(undefined)
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null)
@@ -42,8 +49,23 @@ export function NotesPage() {
   const createNote = useCreateNote()
   const updateNote = useUpdateNote()
   const deleteNote = useDeleteNote()
+  const setProperties = useSetNoteProperties()
   const createFolder = useCreateFolder()
   const deleteFolder = useDeleteFolder()
+  const saveError = noteSaveError(setProperties.error) ?? noteSaveError(updateNote.error)
+  const saving = updateNote.isPending || setProperties.isPending
+
+  const resetUpdateNote = updateNote.reset
+  const resetSetProperties = setProperties.reset
+
+  // A new selection starts clean; closing the panel (null) keeps a failed
+  // unmount flush visible in the page-level alert.
+  useEffect(() => {
+    if (selectedNoteId) {
+      resetUpdateNote()
+      resetSetProperties()
+    }
+  }, [selectedNoteId, resetUpdateNote, resetSetProperties])
 
   const displayNotes = useMemo(() => {
     if (search.length > 1) {
@@ -387,6 +409,12 @@ export function NotesPage() {
           }
         />
 
+        {saveError && (
+          <p role="alert" className="text-xs text-red-400 pb-2">
+            {saveError}
+          </p>
+        )}
+
         {/* List on the left, selected note on the right */}
         <div className="flex-1 flex min-h-0 gap-6">
           <div
@@ -441,7 +469,12 @@ export function NotesPage() {
                 key={selectedNote.id}
                 note={selectedNote}
                 folders={folders}
-                onSave={(data) => updateNote.mutate({ id: selectedNote.id, data })}
+                saving={saving}
+                saveError={saveError}
+                onSave={(payload) => {
+                  if (payload.data) updateNote.mutate({ id: selectedNote.id, data: payload.data })
+                  if (payload.properties) setProperties.mutate({ id: selectedNote.id, properties: payload.properties })
+                }}
                 onDelete={() => handleDelete(selectedNote.id)}
                 onClose={() => setSelectedNoteId(null)}
               />
