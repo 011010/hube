@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/url"
 	"strings"
 	"unicode/utf8"
@@ -65,13 +66,17 @@ func NewClipService(repo note.Repository, extractor PageExtractor) *ClipService 
 }
 
 // Clip turns in.URL into a note: dedupe against previously clipped sources,
-// extract the page, convert the article to TipTap blocks, create the note,
-// then attach the extracted metadata as properties.
+// extract the page, convert the article to TipTap blocks, validate the note
+// and its metadata, create the note, then attach the extracted metadata as
+// properties.
 //
 // Extractor errors are wrapped only with a "clip:" prefix and their chain
 // is left intact, so the HTTP layer can classify them via the
 // infrastructure sentinels (ErrClipFetch, ErrClipExtraction, ...). This
 // package deliberately does not import infrastructure to branch on them.
+// Property validation failures get the same wrap and keep their
+// *note.ValidationError in the chain, so the HTTP layer can classify them
+// as a 400-class request failure.
 func (s *ClipService) Clip(ctx context.Context, in ClipInput) (*note.Note, error) {
 	if err := validateClipURL(in.URL); err != nil {
 		return nil, err
@@ -100,7 +105,7 @@ func (s *ClipService) Clip(ctx context.Context, in ClipInput) (*note.Note, error
 		return nil, fmt.Errorf("clip: extractor returned no page")
 	}
 
-	blocks, err := clipBlocks(page.ContentMarkdown)
+	blocks, err := clipBlocks(page.ContentMarkdown, clipLogLabel(page, in.URL))
 	if err != nil {
 		return nil, err
 	}
@@ -114,16 +119,22 @@ func (s *ClipService) Clip(ctx context.Context, in ClipInput) (*note.Note, error
 	if err := n.Validate(); err != nil {
 		return nil, err
 	}
+
+	// Metadata is validated before anything is persisted: a hostile page
+	// (non-ISO published date, oversized text) must fail the clip outright
+	// rather than leave a bare note row behind — invisible to dedupe, so a
+	// retry would create a second note.
+	props := clipProperties(in.URL, page)
+	if err := note.ValidateProperties(props); err != nil {
+		return nil, fmt.Errorf("clip: validate properties: %w", err)
+	}
+
 	// The create path rejects property payloads by design, so the note is
 	// created bare and the metadata is written right after.
 	if err := s.repo.Create(ctx, n); err != nil {
 		return nil, fmt.Errorf("clip: create note: %w", err)
 	}
 
-	props := clipProperties(in.URL, page)
-	if err := note.ValidateProperties(props); err != nil {
-		return nil, err
-	}
 	if err := s.repo.SetProperties(ctx, n.ID, props); err != nil {
 		return nil, fmt.Errorf("clip: set properties: %w", err)
 	}
@@ -167,16 +178,33 @@ func clipTitle(page *ExtractedPage) string {
 	return page.Domain
 }
 
+// clipLogLabel picks what the clip logs identify a page by: its title,
+// falling back to the URL, capped at maxClipTitleRunes so a hostile page
+// cannot flood the log.
+func clipLogLabel(page *ExtractedPage, rawURL string) string {
+	label := strings.TrimSpace(page.Title)
+	if label == "" {
+		label = rawURL
+	}
+	if utf8.RuneCountInString(label) > maxClipTitleRunes {
+		label = string([]rune(label)[:maxClipTitleRunes])
+	}
+	return label
+}
+
 // clipBlocks converts the extracted markdown into TipTap blocks. When the
 // converter fails — its json.Marshal step exhausts the encoder's depth
 // limit somewhere around 2500 list-nesting levels — the clip still keeps
 // its content: the same single-paragraph doc MarkdownToBlocks builds for
-// empty input, holding the raw markdown as one plain-text paragraph.
-func clipBlocks(md string) (string, error) {
+// empty input, holding the raw markdown as one plain-text paragraph. The
+// fallback logs label (page title or URL) so operators can see which pages
+// lost their formatting.
+func clipBlocks(md, label string) (string, error) {
 	blocks, err := MarkdownToBlocks(md)
 	if err == nil {
 		return blocks, nil
 	}
+	log.Printf("clip: convert markdown %s: %v", label, err)
 	fallback, err := json.Marshal(docNode{
 		Type: "doc",
 		Content: []docNode{{

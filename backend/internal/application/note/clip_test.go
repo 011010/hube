@@ -172,8 +172,53 @@ func TestClipService_Clip_NilPageFromExtractor(t *testing.T) {
 	if err == nil {
 		t.Fatal("Clip expected an error when the extractor returns no page")
 	}
+	if !strings.Contains(err.Error(), "no page") {
+		t.Errorf("error = %q, want it to mention %q", err.Error(), "no page")
+	}
 	if repo.created != nil {
 		t.Error("no note should be created without an extracted page")
+	}
+}
+
+func TestClipService_Clip_InvalidExtractedMetadataRejectedBeforeCreate(t *testing.T) {
+	// A hostile page can feed the extractor garbage metadata. Property
+	// validation must fire before Create: failing after would leave a bare
+	// note row behind — invisible to dedupe, so a retry would create a
+	// second note.
+	repo := &mockRepo{}
+	extractor := &fakeExtractor{page: &ExtractedPage{
+		ContentMarkdown: "Body.\n",
+		Title:           "Hostile Page",
+		Published:       "March 11, 2024",
+		Domain:          "example.com",
+	}}
+	svc := NewClipService(repo, extractor)
+
+	_, err := svc.Clip(context.Background(), ClipInput{URL: "https://example.com/hostile"})
+	if err == nil {
+		t.Fatal("Clip expected a validation error for a non-ISO published date")
+	}
+	if !strings.HasPrefix(err.Error(), "clip: ") {
+		t.Errorf("error = %q, want a %q prefix", err.Error(), "clip: ")
+	}
+	if !strings.Contains(err.Error(), "published") {
+		t.Errorf("error = %q, want it to mention the published property", err.Error())
+	}
+	var valErr *note.ValidationError
+	if !errors.As(err, &valErr) {
+		t.Fatalf("error type = %T, want *note.ValidationError in the chain", err)
+	}
+	if valErr.Field != "properties.published" {
+		t.Errorf("ValidationError.Field = %q, want %q", valErr.Field, "properties.published")
+	}
+	if extractor.calls != 1 {
+		t.Errorf("extractor was called %d times, want 1", extractor.calls)
+	}
+	if repo.created != nil {
+		t.Error("no note should be created when property validation fails")
+	}
+	if repo.savedProperties != nil {
+		t.Error("SetProperties should not run when property validation fails")
 	}
 }
 
