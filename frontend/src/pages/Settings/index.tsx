@@ -196,12 +196,13 @@ export function SettingsPage() {
 
   function handleSave() {
     if (!form) return
-    // Re-sync view_preferences from the latest react-query cache before submitting:
-    // useViewPreference performs its own PUT whenever a view is toggled, and `form`
-    // was only seeded once at mount, so it can otherwise revert a fresher preference.
+    // Re-sync view_preferences and notes_views from the latest react-query cache
+    // before submitting: useViewPreference and useNoteViews perform their own
+    // PUTs, and `form` was only seeded once at mount, so it can otherwise revert
+    // or erase fresher data.
     const payload: SettingsUpdatePayload = {
       general: data
-        ? { ...form.general, view_preferences: data.general.view_preferences }
+        ? { ...form.general, view_preferences: data.general.view_preferences, notes_views: data.general.notes_views }
         : form.general,
       integrations: {
         monkeyapi_url: form.integrations.monkeyapi_url,

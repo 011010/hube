@@ -3,6 +3,7 @@ package handler
 import (
 	"io"
 	"net/http"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -61,6 +62,36 @@ func TestSettings_ViewPreferences_OmittedOnPut(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, "NoPrefs", general["display_name"])
 	assert.Nil(t, general["view_preferences"], "view_preferences should be erased after PUT without it")
+}
+
+func TestSettings_NoteViewsRoundTrip(t *testing.T) {
+	srv := newTestServer(t)
+	base := srv.URL + "/api/v1/settings"
+
+	views := `[{"id":"v1","name":"Rating alto","filters":{"properties":[{"key":"rating","op":"gte","value":7}]},"sort":{"field":"rating","direction":"desc"},"layout":"table"}]`
+	body := `{"general":{"notes_views":` + strconv.Quote(views) + `}}`
+
+	put := mustPut(t, base, body)
+	assert.Equal(t, http.StatusOK, put.StatusCode)
+	var got map[string]any
+	mustDecode(t, put, &got)
+	general := got["general"].(map[string]any)
+	assert.Equal(t, views, general["notes_views"])
+
+	get := mustGet(t, base)
+	var current map[string]any
+	mustDecode(t, get, &current)
+	g := current["general"].(map[string]any)
+	assert.Equal(t, views, g["notes_views"])
+
+	// Full replacement: PUT without the field clears it.
+	put2 := mustPut(t, base, `{"general":{"display_name":"Hube"}}`)
+	assert.Equal(t, http.StatusOK, put2.StatusCode)
+	get2 := mustGet(t, base)
+	var cleared map[string]any
+	mustDecode(t, get2, &cleared)
+	g2 := cleared["general"].(map[string]any)
+	assert.Nil(t, g2["notes_views"])
 }
 
 func TestSettings_KeysNeverReturned(t *testing.T) {
