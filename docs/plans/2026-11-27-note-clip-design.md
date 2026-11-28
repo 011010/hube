@@ -109,7 +109,6 @@ POST /api/v1/notes/clip
 - `502` → blocked target, upstream fetch failure, timeout, non-2xx, or oversized body
 - `409` → already clipped, with `existing_id`
 - `422` → extraction failed
-- `502` → upstream fetch error (timeout, status ≥ 400, size cap)
 
 ## Frontend
 
@@ -145,7 +144,7 @@ pattern.
    content with real bold/italic/code/link marks, the `clipping` tag, and
    `source`/`author`/`published`/`domain` properties in the requested folder.
 2. Clip the same URL again → `409` with the existing note's id.
-3. `http://localhost/x` and a private-IP target → `400`, nothing fetched.
+3. `http://localhost/x` and a private-IP target → `502`, nothing fetched.
 4. A page with no extractable article → `422`, no note created.
 5. The Clip modal creates and opens the note; a duplicate offers to open the
    existing one.

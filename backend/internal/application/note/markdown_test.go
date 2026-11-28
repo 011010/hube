@@ -474,6 +474,41 @@ func TestMarkdownToBlocks(t *testing.T) {
 			)},
 		},
 		{
+			// Real Turndown output: hrefs with parentheses escape them
+			// as \( and \). The destination scanner must skip escape
+			// pairs, or the href truncates at the first \) and the
+			// debris corrupts every later link in the paragraph.
+			"escaped parens in link destinations",
+			`A wiki link to [the article](https://en.wikipedia.org/wiki/Write-ahead_logging_\(databases\)) and a nested [balanced parens](https://example.com/a\(b\)c).`,
+			[]docNode{para(
+				textNode("A wiki link to "),
+				textNode("the article", link("https://en.wikipedia.org/wiki/Write-ahead_logging_(databases)")),
+				textNode(" and a nested "),
+				textNode("balanced parens", link("https://example.com/a(b)c")),
+				textNode("."),
+			)},
+		},
+		{
+			// Text escaping is separate from destination scanning: \)
+			// inside the text unescapes through the inline pass.
+			"escaped close paren in link text",
+			`A [sm\)ile](https://example.com/wal) link`,
+			[]docNode{para(
+				textNode("A "),
+				textNode("sm)ile", link("https://example.com/wal")),
+				textNode(" link"),
+			)},
+		},
+		{
+			// An odd trailing \( with nothing that closes the
+			// destination leaves the span unmatched, so it falls back to
+			// literal text per the existing rules — and the inline pass
+			// then unescapes \( to a plain ( in the text run.
+			"unclosed destination with trailing escaped open paren stays literal",
+			`odd [wiki](https://en.wikipedia.org/wiki/Write-ahead_logging_\(databases`,
+			[]docNode{para(textNode("odd [wiki](https://en.wikipedia.org/wiki/Write-ahead_logging_(databases"))},
+		},
+		{
 			"empty link text stays literal",
 			// "[]()" is not a link: scanLink rejects empty text so the
 			// span is never consumed and no text vanishes.
@@ -491,6 +526,14 @@ func TestMarkdownToBlocks(t *testing.T) {
 			// empty alt and keeps the whole span verbatim.
 			"before ![](https://x/y.png) after",
 			[]docNode{para(textNode("before ![](https://x/y.png) after"))},
+		},
+		{
+			// scanLinkSpan shares the destination scanner: escaped
+			// parens in an image URL no longer truncate the span at the
+			// first \), so the whole span stays verbatim.
+			"image with escaped parens stays whole",
+			`![wal](https://example.com/diagrams_\(wal\).svg) tail`,
+			[]docNode{para(textNode(`![wal](https://example.com/diagrams_\(wal\).svg) tail`))},
 		},
 		{
 			"backslash escapes remove markers",
@@ -694,7 +737,7 @@ func collectText(node map[string]any, out *[]string) {
 func TestMarkdownToBlocks_MalformedInputStaysValid(t *testing.T) {
 	inputs := []string{
 		"\\", "trailing backslash\\", "!", "![", "![alt](", "[", "[](", "[]()",
-		"[a](u", "**", "****", "***x***", "*", "~~", "~~~~x", "`", "``", "`x",
+		"[a](u", "[a](u\\(", "**", "****", "***x***", "*", "~~", "~~~~x", "`", "``", "`x",
 		"- ", "1. ", "1.", ">", ">>", "#", "######", "#######", "```", "```go\n```",
 		"- a\n    - b\n  - c\n- d", "C:\\Users\\path", "🎉 **bold** 🎉", "  \r\n\t\r\n  ",
 	}

@@ -149,12 +149,30 @@ func (s *ClipService) Clip(ctx context.Context, in ClipInput) (*note.Note, error
 func validateClipURL(rawURL string) error {
 	u, err := url.Parse(rawURL)
 	if err != nil {
-		return fmt.Errorf("%w: %v", ErrClipInvalidURL, err)
+		return fmt.Errorf("%w: %s", ErrClipInvalidURL, boundedClipURLDetail(err))
 	}
 	if (u.Scheme != "http" && u.Scheme != "https") || u.Hostname() == "" {
 		return ErrClipInvalidURL
 	}
 	return nil
+}
+
+// maxClipURLDetailRunes bounds the url.Parse error text wrapped into
+// ErrClipInvalidURL: parse errors echo the raw URL, so a hostile input
+// can inflate the message. 300 matches the infrastructure layer's cap
+// for upstream detail.
+const maxClipURLDetailRunes = 300
+
+// boundedClipURLDetail collapses whitespace and truncates the url.Parse
+// error text so a hostile URL cannot use the wrap as an amplification
+// channel — the same discipline the infrastructure clipper applies to
+// upstream errors, kept local because this package does not import it.
+func boundedClipURLDetail(err error) string {
+	detail := strings.Join(strings.Fields(err.Error()), " ")
+	if r := []rune(detail); len(r) > maxClipURLDetailRunes {
+		return string(r[:maxClipURLDetailRunes]) + "..."
+	}
+	return detail
 }
 
 // clipTitle picks the note title: the page title trimmed of surrounding

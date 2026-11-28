@@ -32,6 +32,7 @@ const apiModules: [string, string][] = [
 const apiSpecialRows: (string | React.ReactNode)[][] = [
   ['GET', '/api/v1/notes/search?q=', 'FTS5 full-text search'],
   ['POST', '/api/v1/notes/semantic-search', 'RAG search — body: { q, top_k }'],
+  ['POST', '/api/v1/notes/clip', 'Clip a web article into a note — body: { url, folder_id? }'],
   ['GET', '/api/v1/events?from=&to=', 'Filter events by RFC3339 range'],
   ['GET', '/api/v1/tasks?project_id=', 'Filter tasks by project'],
   ['GET', '/api/v1/notes?folder_id=', 'Filter notes by folder'],
@@ -236,6 +237,8 @@ GET /api/v1/tasks?project_id={id}`,
               <><Code>PUT /api/v1/notes/&#123;id&#125;/properties</Code> with <Code>&#123;"properties":[...]&#125;</Code> — replaces the set; <Code>[]</Code> clears it; <Code>&#123;&#125;</Code> and <Code>null</Code> are rejected.</>,
               'Types: text, number, date (YYYY-MM-DD), boolean, list (array of strings). Reserved keys: title, status, tags, created_at, updated_at.',
               'When a note is created or updated and RAG is configured, embedding indexing runs in the background — it doesn\'t block the response.',
+              <>Web clip: <Code>POST /api/v1/notes/clip</Code> with <Code>&#123;"url","folder_id"?&#125;</Code> — extracts the article into a note with the <Code>clipping</Code> tag and <Code>source</Code>/<Code>author</Code>/<Code>published</Code>/<Code>domain</Code> properties; <Code>409</Code> when the URL was already clipped.</>,
+              <>Clipping shells out to the Node bundle at <Code>CLIP_SCRIPT</Code> (default <Code>tools/clip/dist/clip.cjs</Code> — build it with <Code>make build-clip</Code>); <Code>CLIP_ALLOW_PRIVATE=1</Code> permits private/loopback targets for dev and tests only.</>,
             ],
           },
         ],
@@ -272,6 +275,24 @@ PUT /api/v1/notes/{id}/properties
 
 # POST /api/v1/notes rejects a non-empty "properties" array;
 # create the note first, then set its properties here.`,
+          },
+          {
+            code: `# Clip a web article into a note (folder_id optional)
+POST /api/v1/notes/clip
+{ "url": "https://example.com/post", "folder_id": "folder-uuid" }`,
+          },
+          {
+            table: {
+              headers: ['Status', 'Response'],
+              rows: [
+                ['201', 'Created — the note with the clipping tag and clipped properties'],
+                ['400', '"url is required" / "invalid clip url"'],
+                ['409', '"already clipped" — includes existing_id of the earlier note'],
+                ['422', '"could not extract content" — the page yielded no article'],
+                ['502', '"fetch failed" — blocked target, timeout, non-2xx, or oversized page'],
+                ['503', '"clip not configured"'],
+              ],
+            },
           },
         ],
       },

@@ -102,6 +102,21 @@ func TestClipService_Clip_InvalidURL(t *testing.T) {
 	}
 }
 
+func TestValidateClipURL_HostileParseErrorBounded(t *testing.T) {
+	// url.Parse echoes the raw URL in its error text (a control byte
+	// trips it), so a hostile input can inflate the wrapped message.
+	// The wrap must stay bounded, like the infrastructure layer's
+	// hostile redirect detail.
+	hostile := "https://example.com/" + strings.Repeat("a", 20000) + "\x7f"
+	err := validateClipURL(hostile)
+	if !errors.Is(err, ErrClipInvalidURL) {
+		t.Fatalf("validateClipURL() = %v; want ErrClipInvalidURL", err)
+	}
+	if n := utf8.RuneCountInString(err.Error()); n > 400 {
+		t.Fatalf("error is %d runes; hostile URL detail must stay bounded (< ~400)", n)
+	}
+}
+
 func TestClipService_Clip_Duplicate(t *testing.T) {
 	// The ampersand pins the stored form: the dedupe lookup must pass the
 	// JSON encoding SetProperties writes (json.Marshal HTML-escapes & as

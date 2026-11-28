@@ -299,13 +299,9 @@ func parseInline(s string, marks []markNode) []docNode {
 			// CommonMark escapes: a backslash escapes only ASCII
 			// punctuation; before anything else it stays literal, so
 			// raw LaTeX ($e^{i \pi}$) and Windows paths round-trip.
-			if i+1 < len(s) && isEscapablePunct(s[i+1]) {
-				buf.WriteByte(s[i+1])
-				i += 2
-			} else {
-				buf.WriteByte('\\')
-				i++
-			}
+			ch, step := unescapeAt(s, i)
+			buf.WriteByte(ch)
+			i += step
 		case c == '`':
 			if end := strings.IndexByte(s[i+1:], '`'); end > 0 {
 				flush()
@@ -397,35 +393,57 @@ func parseInline(s string, marks []markNode) []docNode {
 }
 
 // scanLink finds "[text](href)" starting at open. Empty link text is not
-// a link; it stays literal.
+// a link; it stays literal. Destinations may carry backslash escapes —
+// Turndown writes Wikipedia-style hrefs with \( and \) — so the span
+// closes at the first literal ')' and the extracted href is unescaped
+// with the same rule the inline parser applies to text.
 func scanLink(s string, open int) (inner, href string, end int, ok bool) {
 	j := strings.Index(s[open+1:], "](")
 	if j <= 0 {
 		return "", "", 0, false
 	}
 	hrefStart := open + 1 + j + 2
-	k := strings.IndexByte(s[hrefStart:], ')')
-	if k < 0 {
+	k, closed := scanDestinationEnd(s, hrefStart)
+	if !closed {
 		return "", "", 0, false
 	}
-	return s[open+1 : open+1+j], s[hrefStart : hrefStart+k], hrefStart + k + 1, true
+	return s[open+1 : open+1+j], unescapeBackslashes(s[hrefStart:k]), k + 1, true
 }
 
 // scanLinkSpan reports the index just past a "[..](..)" span starting at
 // open, without extracting its parts. Unlike scanLink, empty text is
 // accepted here: the dominant <img> form is ![](url), and rejecting the
-// empty alt would break images.
+// empty alt would break images. The span itself keeps its escapes
+// verbatim; only the closing-paren scan is shared with scanLink.
 func scanLinkSpan(s string, open int) (int, bool) {
 	j := strings.Index(s[open+1:], "](")
 	if j < 0 {
 		return 0, false
 	}
 	hrefStart := open + 1 + j + 2
-	k := strings.IndexByte(s[hrefStart:], ')')
-	if k < 0 {
+	k, closed := scanDestinationEnd(s, hrefStart)
+	if !closed {
 		return 0, false
 	}
-	return hrefStart + k + 1, true
+	return k + 1, true
+}
+
+// scanDestinationEnd finds the index of the literal ')' closing a link
+// destination that starts at from. A backslash escapes whatever follows
+// it, so escape pairs like \( and \) are skipped and only an unescaped
+// ')' ends the destination. Without this, a Turndown-escaped href would
+// truncate at the first \) and corrupt every later span in the
+// paragraph.
+func scanDestinationEnd(s string, from int) (int, bool) {
+	for i := from; i < len(s); i++ {
+		switch s[i] {
+		case '\\':
+			i++ // step over the escaped byte; a trailing '\' ends the loop
+		case ')':
+			return i, true
+		}
+	}
+	return 0, false
 }
 
 // scanSpan finds the closing delimiter for a mark span starting just after
@@ -443,6 +461,35 @@ func scanSpan(s string, from int, delim string) (string, int, bool) {
 // escapes; before any other character the backslash stays literal.
 func isEscapablePunct(c byte) bool {
 	return strings.IndexByte("!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~", c) >= 0
+}
+
+// unescapeAt decodes one backslash escape at s[i] per CommonMark: a
+// backslash before ASCII punctuation collapses to that punctuation and
+// consumes both bytes; before anything else the backslash is literal and
+// consumes one. Sharing the rule keeps inline text and link destinations
+// unescaping identically.
+func unescapeAt(s string, i int) (byte, int) {
+	if s[i] == '\\' && i+1 < len(s) && isEscapablePunct(s[i+1]) {
+		return s[i+1], 2
+	}
+	return s[i], 1
+}
+
+// unescapeBackslashes applies the CommonMark escape rule to a whole span.
+// Link destinations are the caller: Turndown escapes '(' and ')' in
+// hrefs as \( and \), and the href must land in the link mark unescaped.
+func unescapeBackslashes(s string) string {
+	if !strings.Contains(s, `\`) {
+		return s
+	}
+	var b strings.Builder
+	b.Grow(len(s))
+	for i := 0; i < len(s); {
+		ch, step := unescapeAt(s, i)
+		b.WriteByte(ch)
+		i += step
+	}
+	return b.String()
 }
 
 // precededByAlnum reports whether offset i in s follows a letter or digit
