@@ -93,7 +93,11 @@ func parseBlocks(md string) []docNode {
 				inner = append(inner, strings.TrimPrefix(body, " "))
 				i++
 			}
-			blocks = append(blocks, docNode{Type: "blockquote", Content: quoteParagraphs(inner)})
+			// Symmetric with the paragraph path: a quote holding no
+			// paragraphs produces no node, not a content-less one.
+			if paras := quoteParagraphs(inner); len(paras) > 0 {
+				blocks = append(blocks, docNode{Type: "blockquote", Content: paras})
+			}
 		case isItemLine(line):
 			var items []itemLine
 			for i < len(lines) {
@@ -177,12 +181,15 @@ func parseItemLine(line string) (itemLine, bool) {
 }
 
 // buildLists turns a run of item lines into list nodes, splitting runs by
-// root indent and marker type.
+// root indent and marker type. Runs left with no items produce no node,
+// mirroring the paragraph path's content guard.
 func buildLists(items []itemLine) []docNode {
 	var out []docNode
 	for len(items) > 0 {
 		node, consumed := buildOneList(items)
-		out = append(out, node)
+		if len(node.Content) > 0 {
+			out = append(out, node)
+		}
 		items = items[consumed:]
 	}
 	return out
@@ -199,10 +206,13 @@ func buildOneList(items []itemLine) (docNode, int) {
 	}
 	i := 0
 	for i < len(items) && items[i].indent == base && items[i].ordered == ordered {
-		item := docNode{Type: "listItem", Content: []docNode{{
-			Type:    "paragraph",
-			Content: parseInline(items[i].text, nil),
-		}}}
+		item := docNode{Type: "listItem"}
+		// Symmetric with the paragraph path: no inline content means
+		// no paragraph node, and an item left with nothing at all —
+		// no text and no nested list — is dropped entirely.
+		if content := parseInline(items[i].text, nil); len(content) > 0 {
+			item.Content = append(item.Content, docNode{Type: "paragraph", Content: content})
+		}
 		i++
 		j := i
 		for j < len(items) && items[j].indent > base {
@@ -212,7 +222,9 @@ func buildOneList(items []itemLine) (docNode, int) {
 			item.Content = append(item.Content, buildLists(items[i:j])...)
 			i = j
 		}
-		node.Content = append(node.Content, item)
+		if len(item.Content) > 0 {
+			node.Content = append(node.Content, item)
+		}
 	}
 	return node, i
 }
@@ -400,7 +412,9 @@ func scanLink(s string, open int) (inner, href string, end int, ok bool) {
 }
 
 // scanLinkSpan reports the index just past a "[..](..)" span starting at
-// open, without extracting its parts.
+// open, without extracting its parts. Unlike scanLink, empty text is
+// accepted here: the dominant <img> form is ![](url), and rejecting the
+// empty alt would break images.
 func scanLinkSpan(s string, open int) (int, bool) {
 	j := strings.Index(s[open+1:], "](")
 	if j < 0 {

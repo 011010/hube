@@ -253,6 +253,13 @@ func TestMarkdownToBlocks(t *testing.T) {
 			},
 		},
 		{
+			"empty list item produces no node",
+			// An item with no text produces no paragraph, no item, and
+			// no list; the MarkdownToBlocks fallback keeps the raw text.
+			"- ",
+			[]docNode{para(textNode("- "))},
+		},
+		{
 			"blockquote single line",
 			"> quoted",
 			[]docNode{blockquote(para(textNode("quoted")))},
@@ -277,6 +284,13 @@ func TestMarkdownToBlocks(t *testing.T) {
 				textNode("note", bold),
 				textNode(": careful"),
 			))},
+		},
+		{
+			"empty blockquote produces no node",
+			// A bare ">" has no paragraphs, so no blockquote node is
+			// emitted; the MarkdownToBlocks fallback keeps the raw text.
+			">",
+			[]docNode{para(textNode(">"))},
 		},
 		{
 			"horizontal rule with dashes",
@@ -355,6 +369,19 @@ func TestMarkdownToBlocks(t *testing.T) {
 				textNode(" and em-strong: "),
 				textNode("loud em", bold, italic),
 				textNode("."),
+			)},
+		},
+		{
+			// Known non-CommonMark limitation, pinned: overlapping
+			// delimiters are not resolved. Turndown emits this from
+			// <strong>Rating: <em>4/5</em></strong>; the bold span closes
+			// at the first ** and the leftover asterisks stay literal,
+			// with no italic mark.
+			"overlapping strong and em is bold with literal asterisks",
+			"**Rating: *4/5***",
+			[]docNode{para(
+				textNode("Rating: *4/5", bold),
+				textNode("*"),
 			)},
 		},
 		{
@@ -447,9 +474,23 @@ func TestMarkdownToBlocks(t *testing.T) {
 			)},
 		},
 		{
+			"empty link text stays literal",
+			// "[]()" is not a link: scanLink rejects empty text so the
+			// span is never consumed and no text vanishes.
+			"see []() here",
+			[]docNode{para(textNode("see []() here"))},
+		},
+		{
 			"image stays literal text",
 			"before ![a photo](https://x/y.png) after",
 			[]docNode{para(textNode("before ![a photo](https://x/y.png) after"))},
+		},
+		{
+			"empty-alt image stays literal",
+			// Turndown's dominant <img> form: scanLinkSpan accepts the
+			// empty alt and keeps the whole span verbatim.
+			"before ![](https://x/y.png) after",
+			[]docNode{para(textNode("before ![](https://x/y.png) after"))},
 		},
 		{
 			"backslash escapes remove markers",
