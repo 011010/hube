@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -11,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -59,6 +61,8 @@ func TestValidateClipURL(t *testing.T) {
 		{"missing scheme", "example.com/posts/wal", true},
 		{"ftp scheme", "ftp://example.com/pub", true},
 		{"userinfo credentials", "https://user:pass@example.com/", true},
+		{"fragment", "https://example.com/posts/wal#section", true},
+		{"bare hash carries no fragment", "https://example.com/posts/wal#", false},
 		{"empty host", "http:///posts/wal", true},
 	}
 	for _, tt := range tests {
@@ -92,6 +96,9 @@ func TestValidateClipHost(t *testing.T) {
 		{"fd12:3456::1", true},
 		{"224.0.0.1", true},
 		{"0.0.0.0", true},
+		{"fe80::1", true},
+		{"ff02::1", true},
+		{"::", true},
 		// Public destinations pass.
 		{"1.1.1.1", false},
 		{"93.184.216.34", false},
@@ -240,6 +247,240 @@ func TestFetchPage_RedirectsRejected(t *testing.T) {
 			t.Fatalf("checkClipRedirect() = %v; want nil under allow-private", err)
 		}
 	})
+}
+
+func TestFetchPage_Non2xx(t *testing.T) {
+	t.Setenv("CLIP_ALLOW_PRIVATE", "1")
+
+	tests := []struct {
+		name   string
+		status int
+	}{
+		// 301 without a Location header is terminal: the client returns
+		// the response instead of following anything.
+		{"301 without location is terminal", http.StatusMovedPermanently},
+		{"404 not found", http.StatusNotFound},
+		{"500 server error", http.StatusInternalServerError},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(tt.status)
+			}))
+			defer srv.Close()
+
+			c := NewDefuddleClipper("")
+			_, err := c.fetchPage(context.Background(), srv.URL)
+			if !errors.Is(err, ErrClipFetch) {
+				t.Fatalf("fetchPage() with status %d = %v; want ErrClipFetch", tt.status, err)
+			}
+		})
+	}
+}
+
+func TestFetchPage_SizeBoundary(t *testing.T) {
+	// Pins the exact cap: maxClipBodyBytes bytes succeed, one more fails.
+	t.Setenv("CLIP_ALLOW_PRIVATE", "1")
+
+	tests := []struct {
+		name    string
+		size    int
+		wantErr bool
+	}{
+		{"exactly the cap succeeds", maxClipBodyBytes, false},
+		{"one byte over the cap fails", maxClipBodyBytes + 1, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				chunk := make([]byte, 128<<10)
+				for remaining := tt.size; remaining > 0; {
+					n := min(len(chunk), remaining)
+					if _, err := w.Write(chunk[:n]); err != nil {
+						return // client hung up: cap tripped, expected
+					}
+					remaining -= n
+				}
+			}))
+			defer srv.Close()
+
+			c := NewDefuddleClipper("")
+			body, err := c.fetchPage(context.Background(), srv.URL)
+			if tt.wantErr {
+				if !errors.Is(err, ErrClipFetch) {
+					t.Fatalf("fetchPage(%d bytes) = %v; want ErrClipFetch", tt.size, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("fetchPage(%d bytes) = %v; want nil", tt.size, err)
+			}
+			if len(body) != maxClipBodyBytes {
+				t.Fatalf("body length = %d; want exactly the %d byte cap", len(body), maxClipBodyBytes)
+			}
+		})
+	}
+}
+
+func TestFetchPage_RedirectChainLimit(t *testing.T) {
+	// End-to-end: an endless chain must die at the redirect cap. The cap
+	// counts requests (original plus followed redirects), so a chain that
+	// would need a 6th request must never get one.
+	t.Setenv("CLIP_ALLOW_PRIVATE", "1")
+
+	var hits atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits.Add(1)
+		http.Redirect(w, r, "/hop/next", http.StatusFound)
+	}))
+	defer srv.Close()
+
+	c := NewDefuddleClipper("")
+	_, err := c.fetchPage(context.Background(), srv.URL)
+	if !errors.Is(err, ErrClipFetch) {
+		t.Fatalf("fetchPage() = %v; want ErrClipFetch", err)
+	}
+	if got := hits.Load(); got != maxClipRedirects {
+		t.Fatalf("server saw %d requests; want exactly %d (original + %d redirects) before the client refused the next hop",
+			got, maxClipRedirects, maxClipRedirects-1)
+	}
+}
+
+func TestFetchPage_HostileRedirectLocation(t *testing.T) {
+	// Regression: a 302 whose Location is too malformed to parse makes
+	// the stdlib client echo the entire header in its error text (a 20k
+	// rune Location measured at 40k runes end to end). The clipper must
+	// bound whatever it wraps.
+	t.Setenv("CLIP_ALLOW_PRIVATE", "1")
+
+	hostile := "http://example.com/" + strings.Repeat("a", 20000) + "%zz"
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Header set directly: a hostile origin writes whatever it wants.
+		w.Header().Set("Location", hostile)
+		w.WriteHeader(http.StatusFound)
+	}))
+	defer srv.Close()
+
+	c := NewDefuddleClipper("")
+	_, err := c.fetchPage(context.Background(), srv.URL)
+	if !errors.Is(err, ErrClipFetch) {
+		t.Fatalf("fetchPage() = %v; want ErrClipFetch", err)
+	}
+	if n := len([]rune(err.Error())); n > 400 {
+		t.Fatalf("fetch error is %d runes; hostile redirect detail must stay bounded (< ~400)", n)
+	}
+}
+
+func TestFetchPage_NoConnectionReuse(t *testing.T) {
+	// A pooled connection to the same host would skip the guarded dial on
+	// the second request. Every clip fetch must dial fresh so the dial
+	// guard runs per request.
+	t.Setenv("CLIP_ALLOW_PRIVATE", "1")
+
+	var conns atomic.Int32
+	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("ok"))
+	}))
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	srv.Listener = &countingListener{Listener: ln, conns: &conns}
+	srv.Start()
+	defer srv.Close()
+
+	c := NewDefuddleClipper("")
+	for i := 0; i < 2; i++ {
+		if _, err := c.fetchPage(context.Background(), srv.URL); err != nil {
+			t.Fatalf("fetch %d: %v", i+1, err)
+		}
+	}
+	if got := conns.Load(); got != 2 {
+		t.Fatalf("server accepted %d connections for 2 fetches; want 2 (each request must dial through the guard)", got)
+	}
+}
+
+func TestBoundedClipDetail(t *testing.T) {
+	hostile := strings.Repeat("x", 20000)
+	got := boundedClipDetail(hostile)
+	if n := len([]rune(got)); n > maxClipDetailRunes+len("...") {
+		t.Fatalf("boundedClipDetail() = %d runes; want at most %d plus an ellipsis", n, maxClipDetailRunes)
+	}
+	if !strings.HasSuffix(got, "...") {
+		t.Fatalf("boundedClipDetail() = %q; want a trailing ellipsis on truncation", got)
+	}
+	if got := boundedClipDetail(" a\n\t b\r\n "); got != "a b" {
+		t.Fatalf("boundedClipDetail() = %q; want whitespace collapsed", got)
+	}
+}
+
+func TestRunScript_HostileErrorsBounded(t *testing.T) {
+	if _, err := exec.LookPath("node"); err != nil {
+		t.Skipf("node not found in PATH (script failure tests need node): %v", err)
+	}
+
+	// Fake extractor scripts in a temp dir exercise the failure paths of
+	// runScript without the real bundle: hostile {"error":...} stdout and
+	// hostile stderr, alone and combined.
+	tests := []struct {
+		name            string
+		script          string
+		wantStderr      bool
+		wantMaxErrRunes int
+	}{
+		{
+			name:            "hostile extractor error",
+			script:          `process.stdout.write(JSON.stringify({error: "E" + "x".repeat(20000)}))`,
+			wantMaxErrRunes: 400,
+		},
+		{
+			name:            "hostile stderr excerpt",
+			script:          `process.stderr.write("S" + "y".repeat(20000)); process.exit(3)`,
+			wantStderr:      true,
+			wantMaxErrRunes: 400,
+		},
+		{
+			name:            "hostile error and stderr together",
+			script:          `process.stdout.write(JSON.stringify({error: "E" + "x".repeat(20000)})); process.stderr.write("S" + "y".repeat(20000)); process.exit(1)`,
+			wantStderr:      true,
+			wantMaxErrRunes: 700, // both excerpts are capped, but two caps add up
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "clip.cjs")
+			if err := os.WriteFile(path, []byte(tt.script), 0o644); err != nil {
+				t.Fatalf("write fake script: %v", err)
+			}
+
+			c := NewDefuddleClipper(path)
+			_, err := c.runScript(context.Background(), "https://example.com/a", []byte("<html></html>"))
+			if !errors.Is(err, ErrClipExtraction) {
+				t.Fatalf("runScript() = %v; want ErrClipExtraction", err)
+			}
+			if n := len([]rune(err.Error())); n > tt.wantMaxErrRunes {
+				t.Fatalf("error is %d runes; hostile extractor detail must stay bounded (< %d)", n, tt.wantMaxErrRunes)
+			}
+			if tt.wantStderr && !strings.Contains(err.Error(), "(stderr: ") {
+				t.Fatalf("error = %q; want a bounded stderr excerpt", err)
+			}
+		})
+	}
+}
+
+// countingListener wraps a listener to count accepted connections, used
+// to prove each clip fetch dials fresh instead of reusing a pooled one.
+type countingListener struct {
+	net.Listener
+	conns *atomic.Int32
+}
+
+func (l *countingListener) Accept() (net.Conn, error) {
+	conn, err := l.Listener.Accept()
+	if err == nil {
+		l.conns.Add(1)
+	}
+	return conn, err
 }
 
 func TestDefuddleClipper_Extract(t *testing.T) {

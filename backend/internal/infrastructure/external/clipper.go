@@ -37,7 +37,9 @@ const (
 	// so an oversized page never fully transits.
 	maxClipBodyBytes = 5 << 20 // 5 MB
 
-	// maxClipRedirects bounds the redirect chain the client follows.
+	// maxClipRedirects bounds the requests a redirect chain may make: the
+	// original plus the redirects followed. The hop that would exceed it
+	// is refused inside CheckRedirect.
 	maxClipRedirects = 5
 
 	// maxClipDetailRunes bounds upstream detail (extractor and transport
@@ -83,6 +85,11 @@ type DefuddleClipper struct {
 	scriptPath   string
 	fetchTimeout time.Duration
 	execTimeout  time.Duration
+	// transport is the guarded dial path shared by every fetch. It is
+	// built once per clipper: http.Transport is safe for concurrent use,
+	// keep-alives are disabled so it pools nothing, and the guard reads
+	// CLIP_ALLOW_PRIVATE at dial time — no per-request rebuild needed.
+	transport *http.Transport
 }
 
 // NewDefuddleClipper builds a clipper around the bundled extraction script.
@@ -91,7 +98,66 @@ func NewDefuddleClipper(scriptPath string) *DefuddleClipper {
 		scriptPath:   scriptPath,
 		fetchTimeout: 10 * time.Second,
 		execTimeout:  15 * time.Second,
+		transport:    newClipTransport(),
 	}
+}
+
+// newClipTransport builds the fetch transport. The default transport is
+// unusable here: it pools connections (a pooled connection skips the
+// guarded dial on reuse), it honors environment proxies (which resolve
+// targets themselves, out of reach of every guard), and it resolves hosts
+// without validating the address actually connected to.
+func newClipTransport() *http.Transport {
+	return &http.Transport{
+		DialContext: dialClipGuarded,
+		// A pooled connection to the same host would skip DialContext —
+		// and with it the address guard — on every reuse.
+		DisableKeepAlives: true,
+		// Environment proxies resolve and connect on their own, beyond
+		// the guards. Clip fetches always dial directly.
+		Proxy: nil,
+	}
+}
+
+// dialClipGuarded closes the DNS rebinding window: it resolves the host
+// once, picks a single answer, validates that address with the same rules
+// as the pre-flight guard, and connects to that exact address. DNS can
+// change between the pre-flight check and this dial; only here is the
+// address actually connected to guaranteed validated. It runs inside the
+// client's timeout, so DNS burns the same 10s budget as the rest of the
+// fetch.
+func dialClipGuarded(ctx context.Context, network, addr string) (net.Conn, error) {
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return nil, fmt.Errorf("%w: dial: %s", ErrClipFetch, boundedClipDetail(err.Error()))
+	}
+	var d net.Dialer
+	if allowPrivateIPs() {
+		// Dev/test bypass: the address guards are explicitly off.
+		return d.DialContext(ctx, network, addr)
+	}
+	if net.ParseIP(host) != nil {
+		// IP literal: validate, then connect to it as written. No
+		// resolution window at all.
+		if err := validateClipHost(host); err != nil {
+			return nil, fmt.Errorf("%w: %w", ErrClipFetch, err)
+		}
+		return d.DialContext(ctx, network, addr)
+	}
+	addrs, err := net.DefaultResolver.LookupIPAddr(ctx, host)
+	if err != nil {
+		return nil, fmt.Errorf("%w: resolve: %s", ErrClipFetch, boundedClipDetail(err.Error()))
+	}
+	for _, a := range addrs {
+		// Pick the first answer that passes the same IP rules and
+		// connect to that address itself. If DNS flipped every answer
+		// hostile since the pre-flight check, nothing is dialed.
+		if err := validateClipHost(a.IP.String()); err != nil {
+			continue
+		}
+		return d.DialContext(ctx, network, net.JoinHostPort(a.IP.String(), port))
+	}
+	return nil, fmt.Errorf("%w: %s resolves to no public address", ErrClipFetch, boundedClipDetail(host))
 }
 
 // Extract clips rawURL: validate the URL, fetch the page under the SSRF
@@ -108,7 +174,8 @@ func (c *DefuddleClipper) Extract(ctx context.Context, rawURL string) (*Extracte
 }
 
 // validateClipURL enforces the clip URL shape: http or https only, no
-// embedded userinfo, non-empty host. It is pure — no DNS, no environment.
+// embedded userinfo, no fragments, non-empty host. It is pure — no DNS,
+// no environment.
 func validateClipURL(rawURL string) error {
 	u, err := url.Parse(rawURL)
 	if err != nil {
@@ -119,6 +186,9 @@ func validateClipURL(rawURL string) error {
 	}
 	if u.User != nil {
 		return fmt.Errorf("%w: userinfo not allowed", ErrClipInvalidURL)
+	}
+	if u.Fragment != "" {
+		return fmt.Errorf("%w: fragments not allowed", ErrClipInvalidURL)
 	}
 	if u.Hostname() == "" {
 		return fmt.Errorf("%w: empty host", ErrClipInvalidURL)
@@ -178,7 +248,10 @@ func checkClipHost(ctx context.Context, host string) error {
 // fetch into a private network or a non-HTTP scheme.
 func checkClipRedirect(ctx context.Context, req *http.Request, via []*http.Request) error {
 	if len(via) >= maxClipRedirects {
-		return fmt.Errorf("%w: stopped after %d redirects", ErrClipFetch, maxClipRedirects)
+		// via holds the requests already made (the original plus the
+		// redirects followed); the hop that would make request
+		// maxClipRedirects+1 is refused here.
+		return fmt.Errorf("%w: stopped after %d requests", ErrClipFetch, len(via))
 	}
 	if err := validateClipURL(req.URL.String()); err != nil {
 		return fmt.Errorf("%w: redirect rejected: %w", ErrClipFetch, err)
@@ -189,17 +262,16 @@ func checkClipRedirect(ctx context.Context, req *http.Request, via []*http.Reque
 	return nil
 }
 
-// fetchPage validates rawURL, guards against SSRF targets, and downloads
-// the page as a browser would: at most maxClipRedirects hops, each
-// re-validated; at most maxClipBodyBytes read, cut mid-stream rather than
-// drained; non-2xx statuses rejected.
+// fetchPage downloads the page behind rawURL, which must already have
+// passed validateClipURL (Extract enforces it). The host guard runs twice
+// by design: checkClipHost rejects before any network work, and the
+// guarded dial re-validates at connect time — the dial is the security
+// boundary, the pre-flight is a fast-fail optimization. Redirects are
+// re-validated per hop; the read stops one byte past maxClipBodyBytes
+// instead of draining; non-2xx statuses are rejected.
 func (c *DefuddleClipper) fetchPage(ctx context.Context, rawURL string) ([]byte, error) {
-	if err := validateClipURL(rawURL); err != nil {
-		return nil, err
-	}
 	u, err := url.Parse(rawURL)
 	if err != nil {
-		// Unreachable after validateClipURL; kept defensive.
 		return nil, fmt.Errorf("%w: %s", ErrClipInvalidURL, boundedClipDetail(err.Error()))
 	}
 	if err := checkClipHost(ctx, u.Hostname()); err != nil {
@@ -214,7 +286,8 @@ func (c *DefuddleClipper) fetchPage(ctx context.Context, rawURL string) ([]byte,
 	req.Header.Set("Accept", "text/html,application/xhtml+xml")
 
 	client := &http.Client{
-		Timeout: c.fetchTimeout,
+		Timeout:   c.fetchTimeout, // covers DNS, dial, TLS, and body
+		Transport: c.transport,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			return checkClipRedirect(ctx, req, via)
 		},
@@ -228,9 +301,15 @@ func (c *DefuddleClipper) fetchPage(ctx context.Context, rawURL string) ([]byte,
 			err = uerr.Err
 		}
 		if errors.Is(err, ErrClipFetch) {
-			return nil, err // redirect guard: already wrapped and bounded
+			// Redirect guard or guarded dial: already wrapped and bounded.
+			// The passthrough also preserves chained sentinels, e.g.
+			// ErrClipInvalidURL from redirect re-validation.
+			return nil, err
 		}
-		return nil, fmt.Errorf("%w: %w", ErrClipFetch, err)
+		// Bound the wrap: the raw transport error can echo attacker
+		// text (a hostile 302 Location reaches this path measured at
+		// 40k runes).
+		return nil, fmt.Errorf("%w: %s", ErrClipFetch, boundedClipDetail(err.Error()))
 	}
 	defer resp.Body.Close()
 
@@ -269,7 +348,16 @@ func (c *DefuddleClipper) runScript(ctx context.Context, pageURL string, html []
 			}
 			return nil, fmt.Errorf("%w: node exceeded %s", ErrClipExtraction, c.execTimeout)
 		}
-		return nil, fmt.Errorf("%w: %s", ErrClipExtraction, boundedClipDetail(scriptDetail(out, err)))
+		detail := boundedClipDetail(scriptDetail(out, err))
+		// cmd.Output captures failed-run stderr on the ExitError; a
+		// bounded excerpt beats a bare "exit status N" for debugging
+		// without giving the script a channel to inflate our messages.
+		var ee *exec.ExitError
+		if errors.As(err, &ee) && len(ee.Stderr) > 0 {
+			return nil, fmt.Errorf("%w: %s (stderr: %s)",
+				ErrClipExtraction, detail, boundedClipDetail(string(ee.Stderr)))
+		}
+		return nil, fmt.Errorf("%w: %s", ErrClipExtraction, detail)
 	}
 
 	var res clipScriptResult
