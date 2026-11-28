@@ -59,10 +59,15 @@ var ErrClipInvalidURL = errors.New("invalid clip url")
 type ClipService struct {
 	repo      note.Repository
 	extractor PageExtractor
+	// markdownToBlocks is the converter seam. It defaults to MarkdownToBlocks;
+	// tests swap it to exercise the fallback without depending on the stdlib's
+	// version-specific depth limits (the reason this seam exists — see the
+	// converter-fallback test).
+	markdownToBlocks func(string) (string, error)
 }
 
 func NewClipService(repo note.Repository, extractor PageExtractor) *ClipService {
-	return &ClipService{repo: repo, extractor: extractor}
+	return &ClipService{repo: repo, extractor: extractor, markdownToBlocks: MarkdownToBlocks}
 }
 
 // Clip turns in.URL into a note: dedupe against previously clipped sources,
@@ -105,7 +110,7 @@ func (s *ClipService) Clip(ctx context.Context, in ClipInput) (*note.Note, error
 		return nil, fmt.Errorf("clip: extractor returned no page")
 	}
 
-	blocks, err := clipBlocks(page.ContentMarkdown, clipLogLabel(page, in.URL))
+	blocks, err := s.clipBlocks(page.ContentMarkdown, clipLogLabel(page, in.URL))
 	if err != nil {
 		return nil, err
 	}
@@ -210,15 +215,16 @@ func clipLogLabel(page *ExtractedPage, rawURL string) string {
 	return label
 }
 
-// clipBlocks converts the extracted markdown into TipTap blocks. When the
-// converter fails — its json.Marshal step exhausts the encoder's depth
-// limit somewhere around 2500 list-nesting levels — the clip still keeps
-// its content: the same single-paragraph doc MarkdownToBlocks builds for
-// empty input, holding the raw markdown as one plain-text paragraph. The
-// fallback logs label (page title or URL) so operators can see which pages
-// lost their formatting.
-func clipBlocks(md, label string) (string, error) {
-	blocks, err := MarkdownToBlocks(md)
+// clipBlocks converts the extracted markdown into TipTap blocks, through
+// the service's converter seam. When the converter fails — its json.Marshal
+// step exhausts the encoder's depth limit somewhere around 2500
+// list-nesting levels — the clip still keeps its content: the same
+// single-paragraph doc MarkdownToBlocks builds for empty input, holding
+// the raw markdown as one plain-text paragraph. The fallback logs label
+// (page title or URL) so operators can see which pages lost their
+// formatting.
+func (s *ClipService) clipBlocks(md, label string) (string, error) {
+	blocks, err := s.markdownToBlocks(md)
 	if err == nil {
 		return blocks, nil
 	}

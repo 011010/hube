@@ -410,30 +410,23 @@ func TestClipService_Clip_TitleCappedAt200Runes(t *testing.T) {
 }
 
 func TestClipService_Clip_ConverterFailureFallsBackToParagraph(t *testing.T) {
-	// ~2500 nesting levels is where MarkdownToBlocks really fails: the
-	// json.Marshal inside exhausts the encoder's depth limit (2400
-	// converts fine; 2500 errors with "exceeded max depth"). Building the
-	// pathological input — instead of injecting a converter error — pins
-	// the fallback against the failure production can actually hit.
-	var md strings.Builder
-	for i := 0; i < 2500; i++ {
-		md.WriteString(strings.Repeat(" ", 2*i))
-		md.WriteString("- item\n")
-	}
-	raw := md.String()
-	if _, err := MarkdownToBlocks(raw); err == nil {
-		t.Fatal("fixture stopped triggering the converter depth failure; raise the nesting level")
-	}
-
+	// The real converter's failure mode is json.Marshal's depth limit, whose
+	// threshold moves between Go versions (calibrating a fixture against it
+	// broke CI on go1.26.4 after passing on go1.27.1). The fallback contract
+	// is "converter errors → note still created with the raw markdown as one
+	// paragraph", which this test pins through the seam without depending on
+	// any stdlib limit.
+	md := "# Not converted\n\n**bold** body"
 	repo := &mockRepo{}
 	extractor := &fakeExtractor{page: &ExtractedPage{
-		ContentMarkdown: raw,
-		Title:           "Deeply Nested",
+		ContentMarkdown: md,
+		Title:           "Converter Boom",
 		Domain:          "example.com",
 	}}
 	svc := NewClipService(repo, extractor)
+	svc.markdownToBlocks = func(string) (string, error) { return "", errors.New("converter exploded") }
 
-	n, err := svc.Clip(context.Background(), ClipInput{URL: "https://example.com/nested"})
+	n, err := svc.Clip(context.Background(), ClipInput{URL: "https://example.com/boom"})
 	if err != nil {
 		t.Fatalf("Clip returned unexpected error: %v", err)
 	}
@@ -442,10 +435,17 @@ func TestClipService_Clip_ConverterFailureFallsBackToParagraph(t *testing.T) {
 		t.Fatalf("fallback blocks hold %d blocks, want a single paragraph", len(doc.Content))
 	}
 	texts := doc.Content[0].Content
-	if len(texts) != 1 || texts[0].Text == nil || *texts[0].Text != raw {
+	if len(texts) != 1 || texts[0].Text == nil || *texts[0].Text != md {
 		t.Error("fallback paragraph does not hold the raw markdown as plain text")
 	}
-	// The clip still completes: properties were written.
+	// The clip still completes: the note was created with the clipping tag
+	// and properties were written.
+	if repo.created != n {
+		t.Fatal("Clip did not persist the note after the converter fallback")
+	}
+	if len(n.Tags) != 1 || n.Tags[0] != "clipping" {
+		t.Errorf("Tags = %#v, want [clipping]", n.Tags)
+	}
 	if repo.savedProperties == nil {
 		t.Error("SetProperties was not called after the converter fallback")
 	}
