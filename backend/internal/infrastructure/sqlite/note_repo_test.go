@@ -551,6 +551,101 @@ func TestNoteRepo_Properties_BatchChunks(t *testing.T) {
 	}
 }
 
+func TestNoteRepo_FindNoteIDByProperty(t *testing.T) {
+	db, err := Open(":memory:")
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	defer db.Close()
+
+	repo := NewNoteRepo(db)
+	ctx := context.Background()
+
+	alpha := &note.Note{Title: "Alpha", Status: note.StatusDraft}
+	if err := repo.Create(ctx, alpha); err != nil {
+		t.Fatalf("create alpha: %v", err)
+	}
+	beta := &note.Note{Title: "Beta", Status: note.StatusDraft}
+	if err := repo.Create(ctx, beta); err != nil {
+		t.Fatalf("create beta: %v", err)
+	}
+
+	if err := repo.SetProperties(ctx, alpha.ID, []note.Property{
+		{Key: "source", Type: note.PropertyText, Value: "https://example.com/alpha"},
+	}); err != nil {
+		t.Fatalf("set alpha properties: %v", err)
+	}
+	if err := repo.SetProperties(ctx, beta.ID, []note.Property{
+		{Key: "source", Type: note.PropertyText, Value: "https://example.com/beta"},
+		{Key: "rating", Type: note.PropertyNumber, Value: float64(8)},
+	}); err != nil {
+		t.Fatalf("set beta properties: %v", err)
+	}
+
+	// Exact key plus JSON-encoded value returns the note holding it.
+	got, err := repo.FindNoteIDByProperty(ctx, "source", `"https://example.com/alpha"`)
+	if err != nil {
+		t.Fatalf("find by alpha source: %v", err)
+	}
+	if got != alpha.ID {
+		t.Fatalf("find by alpha source = %q, want alpha id %q", got, alpha.ID)
+	}
+
+	got, err = repo.FindNoteIDByProperty(ctx, "source", `"https://example.com/beta"`)
+	if err != nil {
+		t.Fatalf("find by beta source: %v", err)
+	}
+	if got != beta.ID {
+		t.Fatalf("find by beta source = %q, want beta id %q", got, beta.ID)
+	}
+
+	// Non-text values are stored as their JSON form too.
+	got, err = repo.FindNoteIDByProperty(ctx, "rating", "8")
+	if err != nil {
+		t.Fatalf("find by rating: %v", err)
+	}
+	if got != beta.ID {
+		t.Fatalf("find by rating = %q, want beta id %q", got, beta.ID)
+	}
+
+	// The same value stored under a different key misses.
+	got, err = repo.FindNoteIDByProperty(ctx, "rating", `"https://example.com/alpha"`)
+	if err != nil {
+		t.Fatalf("find by wrong key: %v", err)
+	}
+	if got != "" {
+		t.Fatalf("find by wrong key = %q, want empty", got)
+	}
+
+	// The stored form of a text value is the JSON string: the raw,
+	// unencoded text must not match.
+	got, err = repo.FindNoteIDByProperty(ctx, "source", "https://example.com/alpha")
+	if err != nil {
+		t.Fatalf("find by raw value: %v", err)
+	}
+	if got != "" {
+		t.Fatalf("find by raw value = %q, want empty (stored form is JSON-encoded)", got)
+	}
+
+	// A missing key misses without error.
+	got, err = repo.FindNoteIDByProperty(ctx, "missing", `"https://example.com/alpha"`)
+	if err != nil {
+		t.Fatalf("find by missing key: %v", err)
+	}
+	if got != "" {
+		t.Fatalf("find by missing key = %q, want empty", got)
+	}
+
+	// A missing value under an existing key misses without error.
+	got, err = repo.FindNoteIDByProperty(ctx, "source", `"https://example.com/nowhere"`)
+	if err != nil {
+		t.Fatalf("find by missing value: %v", err)
+	}
+	if got != "" {
+		t.Fatalf("find by missing value = %q, want empty", got)
+	}
+}
+
 func TestNoteRepo_Update_MalformedBlocksReturnsValidationError(t *testing.T) {
 	db, err := Open(":memory:")
 	if err != nil {

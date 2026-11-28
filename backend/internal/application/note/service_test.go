@@ -18,6 +18,7 @@ type mockRepo struct {
 	note             *note.Note
 	savedProperties  []note.Property
 	setPropertiesErr error
+	findByProperty   string
 }
 
 func (m *mockRepo) FindAll(ctx context.Context, folderID *string) ([]note.Note, error) {
@@ -53,6 +54,10 @@ func (m *mockRepo) SetTags(ctx context.Context, noteID string, tags []string) er
 func (m *mockRepo) SetProperties(ctx context.Context, noteID string, props []note.Property) error {
 	m.savedProperties = props
 	return m.setPropertiesErr
+}
+
+func (m *mockRepo) FindNoteIDByProperty(ctx context.Context, key, value string) (string, error) {
+	return m.findByProperty, nil
 }
 
 func (m *mockRepo) FindAllLinks(ctx context.Context) ([]note.Link, error) {

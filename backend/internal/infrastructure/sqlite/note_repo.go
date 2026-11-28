@@ -205,6 +205,22 @@ func (r *NoteRepo) SetProperties(ctx context.Context, noteID string, props []not
 	return nil
 }
 
+// FindNoteIDByProperty returns the id of the first note holding the exact
+// property value, or "" when none does. value is the JSON-encoded stored form.
+func (r *NoteRepo) FindNoteIDByProperty(ctx context.Context, key, value string) (string, error) {
+	var noteID string
+	err := r.db.GetContext(ctx, &noteID,
+		`SELECT note_id FROM note_properties WHERE key = ? AND value = ? ORDER BY note_id LIMIT 1`,
+		key, value)
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("find note by property %q: %w", key, err)
+	}
+	return noteID, nil
+}
+
 func (r *NoteRepo) toNote(ctx context.Context, row noteRow) (note.Note, error) {
 	tags, err := r.loadTags(ctx, row.ID)
 	if err != nil {
