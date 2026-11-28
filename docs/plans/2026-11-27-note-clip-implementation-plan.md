@@ -257,7 +257,8 @@ type ErrClipFetch struct{ Err error }          // wraps; Error(): "fetch failed"
 
 **Mapping:**
 
-- `400` invalid/missing URL (service `ErrClipInvalidURL` or decode failure)
+- `400` invalid/missing URL (service `ErrClipInvalidURL`, the extractor's `ErrClipInvalidURL` in the chain, property validation, or decode failure)
+- `502` blocked target or upstream fetch failure (`ErrClipFetch`: SSRF rejection, timeout, non-2xx, size cap)
 - `409` `{"error":"already clipped","existing_id":"<id>"}` from `ErrDuplicateClip`
 - `422` `{"error":"could not extract content"}` from `ErrClipExtraction` (fetch-class cause → `502` `{"error":"fetch failed"}`)
 - `201` the created note JSON (properties included — the service populated them)

@@ -105,7 +105,8 @@ POST /api/v1/notes/clip
 ```
 
 - `201` → the created note (with properties)
-- `400` → invalid URL, blocked target, or oversized body
+- `400` → invalid or missing URL (malformed scheme, userinfo, empty host)
+- `502` → blocked target, upstream fetch failure, timeout, non-2xx, or oversized body
 - `409` → already clipped, with `existing_id`
 - `422` → extraction failed
 - `502` → upstream fetch error (timeout, status ≥ 400, size cap)
