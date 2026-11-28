@@ -10,15 +10,17 @@ import (
 	"github.com/go-chi/chi/v5"
 	appnote "github.com/husari/hube/internal/application/note"
 	"github.com/husari/hube/internal/domain/note"
+	"github.com/husari/hube/internal/infrastructure/external"
 )
 
 type NoteHandler struct {
-	svc *appnote.Service
-	rag *appnote.RAGService
+	svc     *appnote.Service
+	rag     *appnote.RAGService
+	clipSvc *appnote.ClipService
 }
 
-func NewNoteHandler(svc *appnote.Service, rag *appnote.RAGService) *NoteHandler {
-	return &NoteHandler{svc: svc, rag: rag}
+func NewNoteHandler(svc *appnote.Service, rag *appnote.RAGService, clipSvc *appnote.ClipService) *NoteHandler {
+	return &NoteHandler{svc: svc, rag: rag, clipSvc: clipSvc}
 }
 
 func (h *NoteHandler) Routes() func(chi.Router) {
@@ -27,6 +29,7 @@ func (h *NoteHandler) Routes() func(chi.Router) {
 		r.Get("/search", h.search)
 		r.Get("/graph", h.graph)
 		r.Post("/semantic-search", h.semanticSearch)
+		r.Post("/clip", h.clip)
 		r.Post("/", h.create)
 		r.Get("/{id}", h.get)
 		r.Get("/{id}/export", h.exportAgent)
@@ -128,6 +131,72 @@ func (h *NoteHandler) semanticSearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, results)
+}
+
+func (h *NoteHandler) clip(w http.ResponseWriter, r *http.Request) {
+	if h.clipSvc == nil {
+		// Like the RAG nil pattern: the route exists, the feature is not
+		// wired. writeJSON because writeError hides messages at 500+.
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "clip not configured"})
+		return
+	}
+	var body struct {
+		URL      string  `json:"url"`
+		FolderID *string `json:"folder_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.URL == "" {
+		writeError(w, http.StatusBadRequest, errors.New("url is required"))
+		return
+	}
+	n, err := h.clipSvc.Clip(r.Context(), appnote.ClipInput{URL: body.URL, FolderID: body.FolderID})
+	if err != nil {
+		classifyClipError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, n)
+}
+
+// classifyClipError maps a ClipService error onto its HTTP response, checking
+// the branches in order. The 409/502/422 bodies are fixed literals, bounded
+// by construction: the raw chain carries upstream detail (hostile page text,
+// transport messages) that must never reach the client at those statuses.
+func classifyClipError(w http.ResponseWriter, err error) {
+	// Already clipped: a conflict that points the caller at the existing
+	// note instead of a generic error.
+	var dup *appnote.ErrDuplicateClip
+	if errors.As(err, &dup) {
+		writeJSON(w, http.StatusConflict, map[string]string{
+			"error":       "already clipped",
+			"existing_id": dup.NoteID,
+		})
+		return
+	}
+	// Request-shape failures: the service's URL guard, the real
+	// extractor's URL guard (surfacing through the propagated chain),
+	// and property validation errors. writeError passes the message
+	// below 500, which is what these bounded messages are for.
+	var valErr *note.ValidationError
+	if errors.Is(err, appnote.ErrClipInvalidURL) ||
+		errors.Is(err, external.ErrClipInvalidURL) ||
+		errors.As(err, &valErr) {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	// Transport failures: unreachable, refused, or oversized upstream.
+	// Fixed literal — writeError would collapse it to a generic 500-class
+	// message, and the chain itself is not client-safe.
+	if errors.Is(err, external.ErrClipFetch) {
+		writeJSON(w, http.StatusBadGateway, map[string]string{"error": "fetch failed"})
+		return
+	}
+	// Extraction failures: the page came back but yielded no article.
+	if errors.Is(err, external.ErrClipExtraction) {
+		writeJSON(w, http.StatusUnprocessableEntity, map[string]string{"error": "could not extract content"})
+		return
+	}
+	// Everything else is a server-side fault: repo failures and the
+	// like. writeError hides the message at 500.
+	writeError(w, http.StatusInternalServerError, err)
 }
 
 func (h *NoteHandler) create(w http.ResponseWriter, r *http.Request) {

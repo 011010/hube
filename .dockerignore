@@ -1,0 +1,15 @@
+# The api image builds from the repo root (backend/Dockerfile), so keep the
+# context to exactly what its stages copy: backend/ and tools/clip/.
+*
+!backend/
+!tools/clip/
+
+# Never ship local artifacts, build output, or secrets into any stage.
+**/node_modules/
+**/dist/
+**/.DS_Store
+**/*.db
+**/*.db-shm
+**/*.db-wal
+**/.env
+**/.env.*

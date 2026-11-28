@@ -11,6 +11,9 @@ type Repository interface {
 	Delete(ctx context.Context, id string) error
 	SetTags(ctx context.Context, noteID string, tags []string) error
 	SetProperties(ctx context.Context, noteID string, props []Property) error
+	// FindNoteIDByProperty returns the id of the first note holding the exact
+	// property value, or "" when none does. value is the JSON-encoded stored form.
+	FindNoteIDByProperty(ctx context.Context, key, value string) (string, error)
 	FindAllLinks(ctx context.Context) ([]Link, error)
 	Graph(ctx context.Context) (*Graph, error)
 }

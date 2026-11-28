@@ -13,11 +13,15 @@ import (
 )
 
 type mockRepo struct {
-	created          *note.Note
-	updated          *note.Note
-	note             *note.Note
-	savedProperties  []note.Property
-	setPropertiesErr error
+	created              *note.Note
+	createdPropertyCount int
+	updated              *note.Note
+	note                 *note.Note
+	savedProperties      []note.Property
+	setPropertiesErr     error
+	findByProperty       string
+	findByPropertyKey    string
+	findByPropertyValue  string
 }
 
 func (m *mockRepo) FindAll(ctx context.Context, folderID *string) ([]note.Note, error) {
@@ -34,6 +38,7 @@ func (m *mockRepo) Search(ctx context.Context, query string) ([]note.Note, error
 
 func (m *mockRepo) Create(ctx context.Context, n *note.Note) error {
 	m.created = n
+	m.createdPropertyCount = len(n.Properties)
 	return nil
 }
 
@@ -53,6 +58,12 @@ func (m *mockRepo) SetTags(ctx context.Context, noteID string, tags []string) er
 func (m *mockRepo) SetProperties(ctx context.Context, noteID string, props []note.Property) error {
 	m.savedProperties = props
 	return m.setPropertiesErr
+}
+
+func (m *mockRepo) FindNoteIDByProperty(ctx context.Context, key, value string) (string, error) {
+	m.findByPropertyKey = key
+	m.findByPropertyValue = value
+	return m.findByProperty, nil
 }
 
 func (m *mockRepo) FindAllLinks(ctx context.Context) ([]note.Link, error) {

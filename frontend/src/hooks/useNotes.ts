@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { http } from '../services/api'
 import { createCrudHooks } from './createCrudHooks'
-import type { Note, Folder, NoteProperty } from '../types'
+import type { Note, Folder, NoteProperty, ClipInput } from '../types'
 
 export type NoteInput = Partial<Omit<Note, 'id' | 'created_at' | 'updated_at' | 'properties'>>
 export type NoteUpdate = Partial<Omit<Note, 'properties'>>
@@ -68,6 +68,21 @@ export function useSetNoteProperties() {
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: ['note', variables.id] })
       qc.invalidateQueries({ queryKey: ['notes'] })
+    },
+  })
+}
+
+// Clips a web page into a new note. A 409 means the URL was clipped before
+// and the error body carries `existing_id`; the caller decides what to do
+// with it. Invalidations cover both the list and the single-note queries so
+// a just-clipped note renders without waiting for a refetch.
+export function useClipNote() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (input: ClipInput) => http.post<Note>('/notes/clip', input).then(r => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['notes'] })
+      qc.invalidateQueries({ queryKey: ['note'] })
     },
   })
 }

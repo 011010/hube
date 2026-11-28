@@ -2,6 +2,7 @@ package handler
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -28,6 +29,35 @@ import (
 // attach it to every request, mirroring the production auth middleware.
 const testToken = "test-token"
 
+// fakeExtractor is the appnote.PageExtractor wired into every test server's
+// clip service. Tests configure page or err after newTestServer returns;
+// calls counts invocations so tests can assert whether the service reached
+// the extractor at all. The zero value extracts a fixed valid page.
+type fakeExtractor struct {
+	page  *appnote.ExtractedPage
+	err   error
+	calls int
+}
+
+func (f *fakeExtractor) Extract(_ context.Context, _ string) (*appnote.ExtractedPage, error) {
+	f.calls++
+	if f.err != nil {
+		return nil, f.err
+	}
+	if f.page != nil {
+		page := *f.page
+		return &page, nil
+	}
+	return &appnote.ExtractedPage{Title: "Faked page", ContentMarkdown: "Hello *world*."}, nil
+}
+
+// clipFake is the instance behind the most recent test server. newTestServer
+// replaces it on every call, so each test starts from a clean fake and reads
+// its fields through the package variable. Safe only because this package's
+// tests run sequentially (no t.Parallel) — a future parallel test must switch
+// to per-server fake instances instead of the shared package variable.
+var clipFake *fakeExtractor
+
 func newTestServer(t *testing.T) *httptest.Server {
 	t.Helper()
 
@@ -50,6 +80,8 @@ func newTestServer(t *testing.T) *httptest.Server {
 	eventSvc := appevent.NewService(eventRepo)
 	appSvc := appapp.NewService(appRepo)
 	noteSvc := appnote.NewService(noteRepo)
+	clipFake = &fakeExtractor{}
+	clipSvc := appnote.NewClipService(noteRepo, clipFake)
 	folderSvc := appfolder.NewService(folderRepo)
 	projectSvc := appproject.NewService(projectRepo)
 	wishlistSvc := appwishlist.NewService(wishlistRepo)
@@ -70,7 +102,7 @@ func newTestServer(t *testing.T) *httptest.Server {
 		r.Route("/tasks", NewTaskHandler(taskSvc).Routes())
 		r.Route("/events", NewEventHandler(eventSvc).Routes())
 		r.Route("/apps", NewAppHandler(appSvc).Routes())
-		r.Route("/notes", NewNoteHandler(noteSvc, nil).Routes())
+		r.Route("/notes", NewNoteHandler(noteSvc, nil, clipSvc).Routes())
 		r.Route("/folders", NewFolderHandler(folderSvc).Routes())
 		r.Route("/projects", NewProjectHandler(projectSvc).Routes())
 		r.Route("/wishlist", NewWishlistHandler(wishlistSvc).Routes())

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strconv"
 	"testing"
 	"time"
 
@@ -548,6 +549,149 @@ func TestNoteRepo_Properties_BatchChunks(t *testing.T) {
 	}
 	if len(seen) != noteCount {
 		t.Fatalf("find all returned %d distinct notes, want %d", len(seen), noteCount)
+	}
+}
+
+func TestNoteRepo_FindNoteIDByProperty(t *testing.T) {
+	db, err := Open(":memory:")
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	defer db.Close()
+
+	repo := NewNoteRepo(db)
+	ctx := context.Background()
+
+	alpha := &note.Note{Title: "Alpha", Status: note.StatusDraft}
+	if err := repo.Create(ctx, alpha); err != nil {
+		t.Fatalf("create alpha: %v", err)
+	}
+	beta := &note.Note{Title: "Beta", Status: note.StatusDraft}
+	if err := repo.Create(ctx, beta); err != nil {
+		t.Fatalf("create beta: %v", err)
+	}
+
+	if err := repo.SetProperties(ctx, alpha.ID, []note.Property{
+		{Key: "source", Type: note.PropertyText, Value: "https://example.com/alpha"},
+	}); err != nil {
+		t.Fatalf("set alpha properties: %v", err)
+	}
+	if err := repo.SetProperties(ctx, beta.ID, []note.Property{
+		{Key: "source", Type: note.PropertyText, Value: "https://example.com/beta"},
+		{Key: "rating", Type: note.PropertyNumber, Value: float64(8)},
+	}); err != nil {
+		t.Fatalf("set beta properties: %v", err)
+	}
+
+	// Exact key plus JSON-encoded value returns the note holding it.
+	got, err := repo.FindNoteIDByProperty(ctx, "source", `"https://example.com/alpha"`)
+	if err != nil {
+		t.Fatalf("find by alpha source: %v", err)
+	}
+	if got != alpha.ID {
+		t.Fatalf("find by alpha source = %q, want alpha id %q", got, alpha.ID)
+	}
+
+	got, err = repo.FindNoteIDByProperty(ctx, "source", `"https://example.com/beta"`)
+	if err != nil {
+		t.Fatalf("find by beta source: %v", err)
+	}
+	if got != beta.ID {
+		t.Fatalf("find by beta source = %q, want beta id %q", got, beta.ID)
+	}
+
+	// Non-text values are stored as their JSON form too.
+	got, err = repo.FindNoteIDByProperty(ctx, "rating", "8")
+	if err != nil {
+		t.Fatalf("find by rating: %v", err)
+	}
+	if got != beta.ID {
+		t.Fatalf("find by rating = %q, want beta id %q", got, beta.ID)
+	}
+
+	// The same value stored under a different key misses.
+	got, err = repo.FindNoteIDByProperty(ctx, "rating", `"https://example.com/alpha"`)
+	if err != nil {
+		t.Fatalf("find by wrong key: %v", err)
+	}
+	if got != "" {
+		t.Fatalf("find by wrong key = %q, want empty", got)
+	}
+
+	// The stored form of a text value is the JSON string: the raw,
+	// unencoded text must not match.
+	got, err = repo.FindNoteIDByProperty(ctx, "source", "https://example.com/alpha")
+	if err != nil {
+		t.Fatalf("find by raw value: %v", err)
+	}
+	if got != "" {
+		t.Fatalf("find by raw value = %q, want empty (stored form is JSON-encoded)", got)
+	}
+
+	// A missing key misses without error.
+	got, err = repo.FindNoteIDByProperty(ctx, "missing", `"https://example.com/alpha"`)
+	if err != nil {
+		t.Fatalf("find by missing key: %v", err)
+	}
+	if got != "" {
+		t.Fatalf("find by missing key = %q, want empty", got)
+	}
+
+	// A missing value under an existing key misses without error.
+	got, err = repo.FindNoteIDByProperty(ctx, "source", `"https://example.com/nowhere"`)
+	if err != nil {
+		t.Fatalf("find by missing value: %v", err)
+	}
+	if got != "" {
+		t.Fatalf("find by missing value = %q, want empty", got)
+	}
+}
+
+// FindNoteIDByProperty must stay deterministic when two notes hold the
+// exact same (key, value): "first" means the lexicographically smallest
+// note id — stable by id, not whichever matching row a scan happens to
+// visit first.
+func TestNoteRepo_FindNoteIDByProperty_TieBreak(t *testing.T) {
+	db, err := Open(":memory:")
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	defer db.Close()
+
+	repo := NewNoteRepo(db)
+	ctx := context.Background()
+
+	// Like a page clipped twice: two notes can carry the same source URL.
+	const url = "https://example.com/clipped-twice"
+	one := &note.Note{Title: "Clipped Once", Status: note.StatusDraft}
+	if err := repo.Create(ctx, one); err != nil {
+		t.Fatalf("create first note: %v", err)
+	}
+	two := &note.Note{Title: "Clipped Again", Status: note.StatusDraft}
+	if err := repo.Create(ctx, two); err != nil {
+		t.Fatalf("create second note: %v", err)
+	}
+
+	// Both notes hold source = url. Store the larger id's row first:
+	// without the ORDER BY, SQLite returns matching rows in insertion
+	// order, so the expected id only wins through the id ordering, not
+	// through storage luck.
+	want := min(one.ID, two.ID)
+	for _, id := range []string{max(one.ID, two.ID), want} {
+		if err := repo.SetProperties(ctx, id, []note.Property{
+			{Key: "source", Type: note.PropertyText, Value: url},
+		}); err != nil {
+			t.Fatalf("set source on %s: %v", id, err)
+		}
+	}
+
+	// The value is the JSON-encoded stored form of the text.
+	got, err := repo.FindNoteIDByProperty(ctx, "source", strconv.Quote(url))
+	if err != nil {
+		t.Fatalf("find by shared source: %v", err)
+	}
+	if got != want {
+		t.Fatalf("find by shared source = %q, want lexicographically smaller id %q", got, want)
 	}
 }
 

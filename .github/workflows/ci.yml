@@ -26,6 +26,27 @@ jobs:
           go-version-file: backend/go.mod
           cache-dependency-path: backend/go.sum
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: tools/clip/package-lock.json
+
+      - name: Build & test clip extractor
+        working-directory: tools/clip
+        run: |
+          npm ci
+          node build.mjs
+          npm test
+
+      - name: Build clip bundle
+        # The same target the extractor tests tell developers to run.
+        # Leaves tools/clip/dist/clip.cjs in place — clipper_test.go
+        # resolves the bundle relative to the repo root — so the Go
+        # golden tests run instead of skipping.
+        working-directory: .
+        run: make build-clip
+
       - name: Build
         run: go build ./...
 
@@ -159,7 +180,9 @@ jobs:
       - name: Build and push API image
         uses: docker/build-push-action@v6
         with:
-          context: ./backend
+          # Root context: the Dockerfile copies backend/ and tools/clip/.
+          context: .
+          file: backend/Dockerfile
           push: true
           tags: ${{ steps.meta-api.outputs.tags }}
           labels: ${{ steps.meta-api.outputs.labels }}

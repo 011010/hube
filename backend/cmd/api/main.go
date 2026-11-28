@@ -100,6 +100,21 @@ func main() {
 		log.Printf("RAG semantic search enabled")
 	}
 
+	// The clip service runs against the real Defuddle clipper. The adapter
+	// lives here, at the wiring edge, translating the infrastructure
+	// ExtractedPage into the application shape so neither the handler nor
+	// the service knows both types exist.
+	clipScript := os.Getenv("CLIP_SCRIPT")
+	if clipScript == "" {
+		clipScript = "tools/clip/dist/clip.cjs"
+	}
+	// Non-fatal: the endpoint still boots, and per-request errors surface
+	// as designed; this just tells the operator why clips fail.
+	if _, err := os.Stat(clipScript); err != nil {
+		log.Printf("clip: script not found at %s — run 'make build-clip' to enable web clipping", clipScript)
+	}
+	clipSvc := appnote.NewClipService(noteRepo, defuddleAdapter{external.NewDefuddleClipper(clipScript)})
+
 	// Integration clients always exist; they read their configuration from
 	// the settings service on every request.
 	moneyMonkey := external.NewMoneyMonkeyClient(settingSvc)
@@ -134,7 +149,7 @@ func main() {
 		origins = append(origins, "https://"+domain, "http://"+domain)
 	}
 
-	router := hubehttp.NewRouter(taskSvc, eventSvc, appSvc, noteSvc, folderSvc, projectSvc, settingSvc, wishlistSvc, diagramSvc, ragSvc, emailSvc, moneyMonkey, payPinga, claudeClient, openaiClient, hubExecutor, backupSvc, exportSvc, origins, apiToken)
+	router := hubehttp.NewRouter(taskSvc, eventSvc, appSvc, noteSvc, folderSvc, projectSvc, settingSvc, wishlistSvc, diagramSvc, ragSvc, clipSvc, emailSvc, moneyMonkey, payPinga, claudeClient, openaiClient, hubExecutor, backupSvc, exportSvc, origins, apiToken)
 
 	addr := fmt.Sprintf(":%s", port)
 	log.Printf("hube API running on %s", addr)
@@ -180,4 +195,25 @@ func logBootIntegrations(ctx context.Context, svc *appsetting.Service) {
 func hasIntegrationKeyBool(ctx context.Context, svc *appsetting.Service, key string) bool {
 	ok, _ := hasIntegrationKey(ctx, svc, key)
 	return ok
+}
+
+// defuddleAdapter converts the infrastructure clipper's ExtractedPage into
+// the application layer's ExtractedPage. It exists only at the wiring edge
+// so the HTTP and application layers never depend on both shapes.
+type defuddleAdapter struct{ c *external.DefuddleClipper }
+
+func (a defuddleAdapter) Extract(ctx context.Context, url string) (*appnote.ExtractedPage, error) {
+	page, err := a.c.Extract(ctx, url)
+	if err != nil {
+		return nil, err
+	}
+	return &appnote.ExtractedPage{
+		ContentMarkdown: page.ContentMarkdown,
+		Title:           page.Title,
+		Byline:          page.Byline,
+		Published:       page.Published,
+		SiteName:        page.SiteName,
+		Domain:          page.Domain,
+		WordCount:       page.WordCount,
+	}, nil
 }

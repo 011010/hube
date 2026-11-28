@@ -5,6 +5,8 @@ bin/
 backend/vendor/
 frontend/node_modules/
 frontend/dist/
+tools/clip/node_modules/
+tools/clip/dist/
 .env
 .env.local
 .env.tailscale
