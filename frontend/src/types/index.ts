@@ -110,6 +110,13 @@ export interface Folder {
   updated_at: string
 }
 
+// Payload for POST /notes/clip: the page URL to clip into a note, plus the
+// optional destination folder.
+export interface ClipInput {
+  url: string
+  folder_id?: string | null
+}
+
 export interface App {
   id: string
   name: string

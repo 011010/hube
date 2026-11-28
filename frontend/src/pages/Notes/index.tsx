@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
-import { Plus, Trash2, Folder, Sparkles, Search, X, FileText, Network, PanelLeft, Settings2 } from 'lucide-react'
+import { Plus, Trash2, Folder, Sparkles, Search, X, FileText, Network, PanelLeft, Settings2, Link2 } from 'lucide-react'
 import {
   useNotes, useNote, useCreateNote, useUpdateNote, useDeleteNote,
   useFolders, useCreateFolder, useDeleteFolder, useSearchNotes, useSemanticSearch,
@@ -20,6 +20,7 @@ import { DataTable } from '../../components/organisms/DataTable'
 import { GraphView } from '../../components/organisms/GraphView'
 import { NoteEditorPanel } from '../../components/organisms/NoteEditorPanel'
 import { NoteViewEditor } from '../../components/organisms/NoteViewEditor'
+import { ClipUrlModal } from '../../components/organisms/ClipUrlModal'
 import { Button } from '../../components/atoms/Button'
 import { Badge } from '../../components/atoms/Badge'
 import { IconButton } from '../../components/atoms/IconButton'
@@ -45,6 +46,7 @@ export function NotesPage() {
   const [view, setView] = useViewPreference('notes_view')
   const [mainTab, setMainTab] = useState<MainTab>('editor')
   const [panelOpen, setPanelOpen] = useState(false)
+  const [clipOpen, setClipOpen] = useState(false)
   const { views, saveView, deleteView, saveError: viewSaveError } = useNoteViews()
   const [activeViewId, setActiveViewId] = useState<string | null>(null)
   // undefined = editor closed, null = brand-new view, a view = editing it.
@@ -288,6 +290,8 @@ export function NotesPage() {
   }, [handleDelete, selectedNoteId, showEditor])
 
   const folderLabel = selectedFolder ? folders.find((f) => f.id === selectedFolder)?.name : 'All notes'
+  // Where a clipped note lands: the folder currently browsed in the sidebar.
+  const selectedFolderName = selectedFolder ? folders.find((f) => f.id === selectedFolder)?.name : undefined
   const headerTitle = search
     ? `Results for "${search}"`
     : activeView
@@ -495,9 +499,14 @@ export function NotesPage() {
               </div>
               {mainTab === 'editor' && !activeView && <ViewToggle value={view} onChange={setView} />}
               {mainTab === 'editor' && (
-                <Button type="button" onClick={handleNewNote} icon={<Plus size={16} />}>
-                  New note
-                </Button>
+                <>
+                  <Button type="button" variant="ghost" onClick={() => setClipOpen(true)} icon={<Link2 size={16} />}>
+                    Clip
+                  </Button>
+                  <Button type="button" onClick={handleNewNote} icon={<Plus size={16} />}>
+                    New note
+                  </Button>
+                </>
               )}
             </div>
           }
@@ -615,6 +624,22 @@ export function NotesPage() {
             if (activeViewId === id) setActiveViewId(null)
           }}
           onClose={() => setEditingView(undefined)}
+        />
+      )}
+
+      {clipOpen && (
+        <ClipUrlModal
+          folderId={selectedFolder ?? null}
+          folderName={selectedFolderName}
+          onClipped={(note) => {
+            setSelectedNoteId(note.id)
+            setClipOpen(false)
+          }}
+          onOpenExisting={(id) => {
+            setSelectedNoteId(id)
+            setClipOpen(false)
+          }}
+          onClose={() => setClipOpen(false)}
         />
       )}
     </div>
