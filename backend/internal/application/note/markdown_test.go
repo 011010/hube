@@ -158,6 +158,74 @@ func TestMarkdownToBlocks(t *testing.T) {
 			)},
 		},
 		{
+			"tab-indented nested list",
+			// Defuddle's listItem rule indents nested lists with a tab.
+			"- parent\n\t- nested item",
+			[]docNode{bulletList(
+				listItem(
+					para(textNode("parent")),
+					bulletList(listItem(para(textNode("nested item")))),
+				),
+			)},
+		},
+		{
+			"two tab levels nest two levels",
+			"- a\n\t- b\n\t\t- c",
+			[]docNode{bulletList(
+				listItem(
+					para(textNode("a")),
+					bulletList(listItem(
+						para(textNode("b")),
+						bulletList(listItem(para(textNode("c")))),
+					)),
+				),
+			)},
+		},
+		{
+			"mixed tabs and spaces accumulate indent steps",
+			// tab = 2, space = 1, so both children sit at indent 3 and
+			// nest as siblings under the parent.
+			"- a\n \t- b\n\t - c",
+			[]docNode{bulletList(
+				listItem(
+					para(textNode("a")),
+					bulletList(
+						listItem(para(textNode("b"))),
+						listItem(para(textNode("c"))),
+					),
+				),
+			)},
+		},
+		{
+			// Current behavior, pinned: a tab-indented continuation without
+			// a list marker does not join the item's paragraph; it becomes
+			// a standalone paragraph between two lists. Defuddle separates
+			// such continuations with blank lines, so real clips do not
+			// lean on this shape.
+			"tab continuation without a marker is a standalone paragraph",
+			"- item one\n\tcontinued text\n- item two",
+			[]docNode{
+				bulletList(listItem(para(textNode("item one")))),
+				para(textNode("continued text")),
+				bulletList(listItem(para(textNode("item two")))),
+			},
+		},
+		{
+			"defuddle golden fixture list nests with a tab",
+			"- Readers never block writers, and writers never block readers.\n" +
+				"\t- Even long-running read transactions keep a consistent snapshot.\n" +
+				"- Checkpointing can run concurrently with ongoing reads.",
+			[]docNode{bulletList(
+				listItem(
+					para(textNode("Readers never block writers, and writers never block readers.")),
+					bulletList(listItem(para(
+						textNode("Even long-running read transactions keep a consistent snapshot."),
+					))),
+				),
+				listItem(para(textNode("Checkpointing can run concurrently with ongoing reads."))),
+			)},
+		},
+		{
 			"ordered list",
 			"1. first\n2. second",
 			[]docNode{orderedList(
@@ -264,6 +332,48 @@ func TestMarkdownToBlocks(t *testing.T) {
 			)},
 		},
 		{
+			"triple asterisks are bold and italic",
+			// Turndown emits ***x*** for <strong><em> in both nesting
+			// orders; the triple must be tested before the double.
+			"***very loud***",
+			[]docNode{para(textNode("very loud", bold, italic))},
+		},
+		{
+			"triple underscores are bold and italic",
+			"___very loud___",
+			[]docNode{para(textNode("very loud", bold, italic))},
+		},
+		{
+			"strong-em and em-strong leave no stray asterisks",
+			// The exact corruption case from the spec review: the old
+			// parser consumed ** as bold, left a stray * that then
+			// italicized the plain text between the spans.
+			"Strong-em nested: ***very loud*** and em-strong: ***loud em***.",
+			[]docNode{para(
+				textNode("Strong-em nested: "),
+				textNode("very loud", bold, italic),
+				textNode(" and em-strong: "),
+				textNode("loud em", bold, italic),
+				textNode("."),
+			)},
+		},
+		{
+			"unmatched double-then-single asterisk keeps existing fallback",
+			// Pre-existing behavior, pinned: the ** fails to close and
+			// leaves one literal asterisk, then x* reads as italic. The
+			// triple-delimiter case must not disturb this path.
+			"**x*",
+			[]docNode{para(textNode("*"), textNode("x", italic))},
+		},
+		{
+			"unmatched triple asterisks keep the existing fallback",
+			// *** fails to close, falls back one character at a time,
+			// and the final *x* reads as italic — the same shape **x*
+			// produces, and what CommonMark renders for ***x*.
+			"***x*",
+			[]docNode{para(textNode("**"), textNode("x", italic))},
+		},
+		{
 			"italic with asterisk",
 			"a *slanted* word",
 			[]docNode{para(
@@ -350,6 +460,40 @@ func TestMarkdownToBlocks(t *testing.T) {
 			"escaped backslash collapses to one",
 			"a\\\\b",
 			[]docNode{para(textNode("a\\b"))},
+		},
+		{
+			"raw latex backslash stays literal",
+			// Defuddle emits raw LaTeX; \p is not punctuation, so both
+			// characters survive.
+			`$e^{i \pi}$`,
+			[]docNode{para(textNode(`$e^{i \pi}$`))},
+		},
+		{
+			"turndown-escaped latex collapses to one backslash",
+			// The same math when Turndown escapes the backslash: \\pi
+			// unescapes and the text node round-trips identically.
+			`$e^{i \\pi}$`,
+			[]docNode{para(textNode(`$e^{i \pi}$`))},
+		},
+		{
+			"windows path backslashes stay literal",
+			`C:\Users\bob`,
+			[]docNode{para(textNode(`C:\Users\bob`))},
+		},
+		{
+			"backslash before a letter keeps both characters",
+			`line \n break`,
+			[]docNode{para(textNode(`line \n break`))},
+		},
+		{
+			"escaped punctuation still unescapes",
+			`\*not\* \_this\_ \.dot\.`,
+			[]docNode{para(textNode(`*not* _this_ .dot.`))},
+		},
+		{
+			"trailing lone backslash stays literal",
+			`end\`,
+			[]docNode{para(textNode(`end\`))},
 		},
 		{
 			"unmatched single asterisk stays literal",

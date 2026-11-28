@@ -149,13 +149,20 @@ func isItemLine(line string) bool {
 }
 
 // parseItemLine recognizes "- text", "* text", and "N. text" with any
-// leading-space indent.
+// leading indent of spaces and tabs: a tab is one step (2) and a space
+// half a step (1), so Defuddle's tab-indented continuations nest the
+// same way a two-space indent would.
 func parseItemLine(line string) (itemLine, bool) {
-	indent := 0
-	for indent < len(line) && line[indent] == ' ' {
-		indent++
+	indent, i := 0, 0
+	for i < len(line) && (line[i] == ' ' || line[i] == '\t') {
+		if line[i] == '\t' {
+			indent += 2
+		} else {
+			indent++
+		}
+		i++
 	}
-	rest := line[indent:]
+	rest := line[i:]
 	if strings.HasPrefix(rest, "- ") || strings.HasPrefix(rest, "* ") {
 		return itemLine{indent: indent, text: strings.TrimSpace(rest[2:])}, true
 	}
@@ -264,17 +271,23 @@ func parseInline(s string, marks []markNode) []docNode {
 		buf.Reset()
 	}
 	i := 0
-	open := func(inner string, end int, m markNode) {
+	open := func(inner string, end int, ms ...markNode) {
 		flush()
-		nodes = append(nodes, parseInline(inner, pushMark(marks, m))...)
+		next := marks
+		for _, m := range ms {
+			next = pushMark(next, m)
+		}
+		nodes = append(nodes, parseInline(inner, next)...)
 		i = end
 	}
 	for i < len(s) {
 		c := s[i]
 		switch {
 		case c == '\\':
-			// Backslash escapes: \x becomes literal x with no extra mark.
-			if i+1 < len(s) {
+			// CommonMark escapes: a backslash escapes only ASCII
+			// punctuation; before anything else it stays literal, so
+			// raw LaTeX ($e^{i \pi}$) and Windows paths round-trip.
+			if i+1 < len(s) && isEscapablePunct(s[i+1]) {
 				buf.WriteByte(s[i+1])
 				i += 2
 			} else {
@@ -307,6 +320,17 @@ func parseInline(s string, marks []markNode) []docNode {
 				buf.WriteByte('[')
 				i++
 			}
+		case c == '*' && i+2 < len(s) && s[i+1] == '*' && s[i+2] == '*':
+			// Defuddle's Turndown renders <strong><em> — either
+			// nesting order — as ***x***. Test the triple before the
+			// double so both marks open instead of leaving a stray
+			// asterisk that italicizes unrelated text.
+			if inner, end, ok := scanSpan(s, i+3, "***"); ok {
+				open(inner, end, markNode{Type: "bold"}, markNode{Type: "italic"})
+			} else {
+				buf.WriteByte('*')
+				i++
+			}
 		case c == '*' && i+1 < len(s) && s[i+1] == '*':
 			if inner, end, ok := scanSpan(s, i+2, "**"); ok {
 				open(inner, end, markNode{Type: "bold"})
@@ -319,6 +343,14 @@ func parseInline(s string, marks []markNode) []docNode {
 				open(inner, end, markNode{Type: "italic"})
 			} else {
 				buf.WriteByte('*')
+				i++
+			}
+		case c == '_' && i+2 < len(s) && s[i+1] == '_' && s[i+2] == '_':
+			// ___x___ mirrors ***x***: bold and italic together.
+			if inner, end, ok := scanSpan(s, i+3, "___"); ok {
+				open(inner, end, markNode{Type: "bold"}, markNode{Type: "italic"})
+			} else {
+				buf.WriteByte('_')
 				i++
 			}
 		case c == '_' && i+1 < len(s) && s[i+1] == '_':
@@ -390,6 +422,13 @@ func scanSpan(s string, from int, delim string) (string, int, bool) {
 		return "", 0, false
 	}
 	return s[from : from+k], from + k + len(delim), true
+}
+
+// isEscapablePunct reports whether c is ASCII punctuation — the only
+// characters a backslash escapes, per CommonMark. Turndown emits these
+// escapes; before any other character the backslash stays literal.
+func isEscapablePunct(c byte) bool {
+	return strings.IndexByte("!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~", c) >= 0
 }
 
 // precededByAlnum reports whether offset i in s follows a letter or digit

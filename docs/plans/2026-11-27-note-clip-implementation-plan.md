@@ -78,7 +78,7 @@ func MarkdownToBlocks(md string) (string, error)
 - `#`–`######` → `{"type":"heading","attrs":{"level":N},"content":[inline]}`.
 - `- ` or `* ` → `bulletList`; `N. ` → `orderedList`; items are
   `{"type":"listItem","content":[{"type":"paragraph","content":[inline]}, <nested list>?]}`.
-  Nesting by leading spaces: indent step 2 (tolerate 4). One or more levels.
+  Nesting by indentation: 2 spaces per step, tolerates 4, and a TAB counts as one step (Defuddle indents continuation lines with tabs). One or more levels.
 - `> ` → `{"type":"blockquote","content":[paragraphs]}` (consecutive lines merge into one quote with paragraphs).
 - `---`/`***` alone → `{"type":"horizontalRule"}`.
 - Fenced code ``` ```lang ```` → `{"type":"codeBlock","attrs":{"language":"lang"}}` with one text child, content verbatim (no inline parsing inside).
@@ -87,11 +87,11 @@ func MarkdownToBlocks(md string) (string, error)
 
 **Inline rules (order matters):**
 
-1. Backslash escapes: `\x` → literal `x` (no mark).
+1. Backslash escapes: backslash escapes only ASCII punctuation (CommonMark); otherwise the backslash stays literal (no mark).
 2. Inline code: `` `code` `` → text node with mark `{"type":"code"}`; no nesting inside.
 3. Images `![alt](src)` → literal text (no image node).
 4. Links `[text](href)` → text node with mark `{"type":"link","attrs":{"href":href}}`; nested marks inside link text are allowed.
-5. Bold `**x**` / `__x__` → mark `{"type":"bold"}`.
+5. Bold `**x**` / `__x__` → mark `{"type":"bold"}`; `***x***` / `___x___` opens bold AND italic (Turndown emits this for `<strong><em>` in both nesting orders; test the triple delimiter before the double).
 6. Italic `*x*` / `_x_` → mark `{"type":"italic"}` (single underscore only when not intra-word).
 7. Strikethrough `~~x~~` → mark `{"type":"strike"}`.
 8. Unmatched markers stay literal.
