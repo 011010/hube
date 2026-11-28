@@ -12,7 +12,10 @@
 // `published` is "YYYY-MM-DD" or null. On any failure it prints
 // {"error":"..."} and exits 1.
 //
-// Usage: node clip.cjs <url> < page.html
+// Usage: node clip.mjs <url> < page.html (source; build.mjs bundles it
+// into dist/clip.cjs, which is what the Go backend execs).
+// Caller must exec under a deadline (e.g. 15s) and cap input size;
+// pathological pages can spin CPU indefinitely.
 
 // stdout carries only the final JSON object. Defuddle and its bundled
 // turndown report conversion failures via console.log; route those to
@@ -72,7 +75,10 @@ function boundedMessage(error) {
 /**
  * Normalize Defuddle's raw published string to "YYYY-MM-DD" or null.
  * Date-only strings are returned verbatim (no timezone round-trip);
- * anything else must parse as a Date and is formatted from local
+ * anything else must parse as a Date and is formatted from calendar
+ * components: strings carrying an explicit offset (Z or +HH:MM) use UTC
+ * components so the date is deterministic regardless of the machine's
+ * timezone, while offset-free strings parse as local time and use local
  * components, matching how humans write dates like "March 11, 2024".
  */
 function normalizePublished(raw) {
@@ -82,21 +88,26 @@ function normalizePublished(raw) {
   if (dateOnly) return dateOnly[1];
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return null;
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  // An explicit trailing offset (Z, +05:30, -0500) pins the string to one
+  // UTC instant whose calendar date shifts with the local timezone, so
+  // those are formatted from UTC components; offset-free strings stay on
+  // the local path.
+  const hasOffset = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(value);
+  const year = hasOffset ? date.getUTCFullYear() : date.getFullYear();
+  const month = hasOffset ? date.getUTCMonth() : date.getMonth();
+  const day = hasOffset ? date.getUTCDate() : date.getDate();
+  return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 }
 
 /**
  * Defuddle falls back to the domain when no real site name exists. The
  * output contract already carries the domain, so treat a site name equal to
- * the URL host as "no site name".
+ * the URL hostname (defuddle's fallback value) as "no site name".
  */
-function normalizeSiteName(site, host) {
+function normalizeSiteName(site, hostname) {
   if (!site) return null;
   const normalize = (value) => value.trim().toLowerCase().replace(/^www\./, '');
-  if (normalize(site) === normalize(host)) return null;
+  if (normalize(site) === normalize(hostname)) return null;
   return site;
 }
 
@@ -120,6 +131,11 @@ async function main() {
     throw new Error('usage: clip.cjs <url> (HTML on stdin)');
   }
   const pageUrl = new URL(url); // throws on invalid URL: error JSON, exit 1
+  // URL userinfo must never reach the note: defuddle resolves relative
+  // links against this URL, so credentials would be baked into every
+  // absolutized link in the markdown. Clear them before any use.
+  pageUrl.username = '';
+  pageUrl.password = '';
 
   const html = await readStdin();
   if (!html.trim()) {
@@ -131,6 +147,15 @@ async function main() {
   const result = new Defuddle(doc, { url: pageUrl.href }).parse();
   const markdown = createMarkdownContent(result.content, pageUrl.href);
 
+  // defuddle 0.19.13 (pinned in package-lock.json) reports a failed
+  // turndown pass by returning a string that starts with this marker
+  // instead of throwing. Reject it: the note would be a raw-HTML dump.
+  // The lockfile pin keeps the prefix stable; if a defuddle bump renames
+  // the marker, the deep-nesting test flips to exit 0 and catches it.
+  if (markdown.startsWith('Partial conversion completed with errors')) {
+    throw new Error('markdown conversion failed: partial conversion output');
+  }
+
   if (!markdown.trim()) {
     throw new Error('no extractable article content');
   }
@@ -141,8 +166,8 @@ async function main() {
       content_markdown: markdown,
       byline: result.author || null,
       published: normalizePublished(result.published),
-      site_name: normalizeSiteName(result.site, pageUrl.host),
-      domain: pageUrl.host,
+      site_name: normalizeSiteName(result.site, pageUrl.hostname),
+      domain: pageUrl.hostname,
       word_count:
         result.wordCount > 0 ? result.wordCount : estimateWordCount(markdown),
     },

@@ -19,7 +19,7 @@ install-cli:
 	cd backend && go install ./cmd/cli
 
 build-clip:
-	cd tools/clip && npm install && node build.mjs
+	cd tools/clip && npm ci && node build.mjs
 
 docker-build:
 	docker compose build
