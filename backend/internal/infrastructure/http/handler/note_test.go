@@ -2,12 +2,18 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
 
+	"github.com/go-chi/chi/v5"
+	appnote "github.com/husari/hube/internal/application/note"
+	"github.com/husari/hube/internal/infrastructure/external"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -551,4 +557,201 @@ func propsByKey(t *testing.T, resp *http.Response) map[string]map[string]any {
 		byKey[key] = p
 	}
 	return byKey
+}
+
+// notePropsByKey extracts a note body's properties array into a map keyed
+// by property key.
+func notePropsByKey(t *testing.T, body map[string]any) map[string]map[string]any {
+	t.Helper()
+	raw, ok := body["properties"].([]any)
+	if !ok {
+		t.Fatalf("expected properties array in note body, got %#v", body["properties"])
+	}
+	byKey := make(map[string]map[string]any, len(raw))
+	for _, p := range raw {
+		if m, ok := p.(map[string]any); ok {
+			key, _ := m["key"].(string)
+			byKey[key] = m
+		}
+	}
+	return byKey
+}
+
+// assertNoNotes asserts that the server holds no notes at all, confirming a
+// failed clip left nothing behind.
+func assertNoNotes(t *testing.T, srv *httptest.Server) {
+	t.Helper()
+	resp := mustGet(t, srv.URL+"/api/v1/notes")
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	var notes []map[string]any
+	mustDecode(t, resp, &notes)
+	assert.Empty(t, notes, "expected no notes after a failed clip")
+}
+
+func TestNote_Clip_CreatesNote(t *testing.T) {
+	srv := newTestServer(t)
+	clipURL := srv.URL + "/api/v1/notes/clip"
+
+	clipFake.page = &appnote.ExtractedPage{
+		Title:           "Go 1.24 released",
+		ContentMarkdown: "The Go team shipped 1.24.",
+		Byline:          "The Go Team",
+		Published:       "2026-02-11",
+		Domain:          "go.dev",
+		WordCount:       42,
+	}
+
+	resp := mustPost(t, clipURL, `{"url":"https://go.dev/blog/go1.24"}`)
+	assert.Equal(t, http.StatusCreated, resp.StatusCode)
+	var created map[string]any
+	mustDecode(t, resp, &created)
+	id, ok := created["id"].(string)
+	assert.True(t, ok, "expected id in clip response, got %#v", created["id"])
+	assert.NotEmpty(t, id)
+	assert.Equal(t, "Go 1.24 released", created["title"])
+
+	// The create response already carries the extracted metadata.
+	props := notePropsByKey(t, created)
+	assert.Equal(t, "https://go.dev/blog/go1.24", props["source"]["value"])
+	assert.Equal(t, "The Go Team", props["author"]["value"])
+	assert.Equal(t, "2026-02-11", props["published"]["value"])
+	assert.Equal(t, "go.dev", props["domain"]["value"])
+
+	// GET it back: the clipping tag and the source property survived storage.
+	got := mustGet(t, resourceURL(srv.URL, "notes", id))
+	assert.Equal(t, http.StatusOK, got.StatusCode)
+	var stored map[string]any
+	mustDecode(t, got, &stored)
+	assert.Contains(t, stored["tags"], "clipping")
+	storedProps := notePropsByKey(t, stored)
+	assert.Equal(t, "https://go.dev/blog/go1.24", storedProps["source"]["value"])
+}
+
+func TestNote_Clip_RequestValidation(t *testing.T) {
+	srv := newTestServer(t)
+	clipURL := srv.URL + "/api/v1/notes/clip"
+
+	tests := []struct {
+		name string
+		body string
+	}{
+		{name: "missing url", body: `{}`},
+		{name: "empty url", body: `{"url":""}`},
+		{name: "malformed json", body: `{"url":`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resp := mustPost(t, clipURL, tt.body)
+			defer resp.Body.Close()
+			assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+		})
+	}
+	assert.Equal(t, 0, clipFake.calls, "bad requests must not reach the extractor")
+}
+
+func TestNote_Clip_InvalidURL(t *testing.T) {
+	srv := newTestServer(t)
+	clipURL := srv.URL + "/api/v1/notes/clip"
+
+	// ftp:// fails the service's URL guard before any extractor work.
+	resp := mustPost(t, clipURL, `{"url":"ftp://x"}`)
+	defer resp.Body.Close()
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+	assert.Equal(t, 0, clipFake.calls, "invalid schemes must not reach the extractor")
+
+	// The real extractor's own URL sentinel, surfacing through the
+	// propagated error chain, classifies as 400 too.
+	clipFake.err = fmt.Errorf("clip: %w", external.ErrClipInvalidURL)
+	resp = mustPost(t, clipURL, `{"url":"https://user:pass@example.com"}`)
+	defer resp.Body.Close()
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+}
+
+func TestNote_Clip_Duplicate(t *testing.T) {
+	srv := newTestServer(t)
+	clipURL := srv.URL + "/api/v1/notes/clip"
+
+	first := mustPost(t, clipURL, `{"url":"https://example.com/article"}`)
+	assert.Equal(t, http.StatusCreated, first.StatusCode)
+	var created map[string]any
+	mustDecode(t, first, &created)
+	id := created["id"].(string)
+
+	second := mustPost(t, clipURL, `{"url":"https://example.com/article"}`)
+	assert.Equal(t, http.StatusConflict, second.StatusCode)
+	var body map[string]any
+	mustDecode(t, second, &body)
+	assert.Equal(t, "already clipped", body["error"])
+	assert.Equal(t, id, body["existing_id"])
+}
+
+func TestNote_Clip_ExtractionFailed(t *testing.T) {
+	srv := newTestServer(t)
+	clipFake.err = fmt.Errorf("clip: %w", external.ErrClipExtraction)
+
+	resp := mustPost(t, srv.URL+"/api/v1/notes/clip", `{"url":"https://example.com/paywalled"}`)
+	assert.Equal(t, http.StatusUnprocessableEntity, resp.StatusCode)
+	var body map[string]any
+	mustDecode(t, resp, &body)
+	assert.Equal(t, "could not extract content", body["error"])
+
+	// Nothing was created.
+	assertNoNotes(t, srv)
+}
+
+func TestNote_Clip_FetchFailed(t *testing.T) {
+	srv := newTestServer(t)
+	clipFake.err = fmt.Errorf("clip: %w", external.ErrClipFetch)
+
+	resp := mustPost(t, srv.URL+"/api/v1/notes/clip", `{"url":"https://down.example.com"}`)
+	assert.Equal(t, http.StatusBadGateway, resp.StatusCode)
+	var body map[string]any
+	mustDecode(t, resp, &body)
+	assert.Equal(t, "fetch failed", body["error"])
+}
+
+func TestNote_Clip_MalformedMetadata(t *testing.T) {
+	srv := newTestServer(t)
+	clipFake.page = &appnote.ExtractedPage{
+		Title:           "Hostile page",
+		ContentMarkdown: "Body.",
+		Published:       "March 11, 2024", // not YYYY-MM-DD
+	}
+
+	resp := mustPost(t, srv.URL+"/api/v1/notes/clip", `{"url":"https://example.com/hostile"}`)
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+
+	// Property validation failed before the create, so nothing persisted.
+	assertNoNotes(t, srv)
+}
+
+func TestNote_Clip_InternalError(t *testing.T) {
+	srv := newTestServer(t)
+	clipFake.err = errors.New("boom")
+
+	resp := mustPost(t, srv.URL+"/api/v1/notes/clip", `{"url":"https://example.com/oops"}`)
+	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+	var body map[string]any
+	mustDecode(t, resp, &body)
+	assert.Equal(t, "internal server error", body["error"])
+}
+
+func TestNote_Clip_NotConfigured(t *testing.T) {
+	// Handler-level, without the test server: the nil clipSvc branch
+	// answers 503 before any service work, so no repo or extractor is
+	// needed. Mounting the routes proves the /clip route exists.
+	h := NewNoteHandler(nil, nil, nil)
+	r := chi.NewRouter()
+	r.Route("/notes", h.Routes())
+
+	req := httptest.NewRequest(http.MethodPost, "/notes/clip", strings.NewReader(`{"url":"https://example.com"}`))
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusServiceUnavailable, rec.Code)
+	var body map[string]any
+	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
+		t.Fatalf("decode body: %v", err)
+	}
+	assert.Equal(t, "clip not configured", body["error"])
 }

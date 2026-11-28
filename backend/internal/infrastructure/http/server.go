@@ -34,6 +34,7 @@ func NewRouter(
 	wishlistSvc *appwishlist.Service,
 	diagramSvc *appdiagram.Service,
 	ragSvc *appnote.RAGService,
+	clipSvc *appnote.ClipService,
 	emailSvc *appemail.Service,
 	moneyMonkey *external.MoneyMonkeyClient,
 	payPinga *external.PayPingaClient,
@@ -68,7 +69,7 @@ func NewRouter(
 		r.Route("/tasks", handler.NewTaskHandler(taskSvc).Routes())
 		r.Route("/events", handler.NewEventHandler(eventSvc).Routes())
 		r.Route("/apps", handler.NewAppHandler(appSvc).Routes())
-		r.Route("/notes", handler.NewNoteHandler(noteSvc, ragSvc).Routes())
+		r.Route("/notes", handler.NewNoteHandler(noteSvc, ragSvc, clipSvc).Routes())
 		r.Route("/folders", handler.NewFolderHandler(folderSvc).Routes())
 		r.Route("/projects", handler.NewProjectHandler(projectSvc).Routes())
 		r.Route("/wishlist", handler.NewWishlistHandler(wishlistSvc).Routes())
